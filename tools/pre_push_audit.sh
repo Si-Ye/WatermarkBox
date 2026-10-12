@@ -74,9 +74,27 @@ scan_content() {
     local desc="$1" pattern="$2" exclude="${3:-}"
     local hits
 
-    # 通用过滤：去掉本脚本自身的命中行
+    # 通用过滤：去掉「本脚本自身」与「规则测试文件」的命中行。
+    #
+    # ## 为什么要排除测试文件
+    #
+    # `tools/test_audit_rules.sh` 的职责就是**故意构造看起来像密码的
+    # 字符串**去验证规则。它必然包含 `storePassword=xxx` 这类片段
+    # ——否则测不出东西。
+    #
+    # 如果不排除，审计脚本会把测试文件本身报成"发现密码"，
+    # 导致每次提交维护者都要手动 --no-verify，钩子形同虚设。
+    #
+    # ## 为什么排除是安全的
+    #
+    # 用**精确路径**而非通配符：只有这一个文件被豁免，
+    # 别人无法通过改名或加后缀绕过。
+    # 该文件本身也受代码审查（改动会出现在 diff 里）。
     strip_self() {
-        grep -vF "$SELF" | grep -vF 'pre_push_audit.sh' || true
+        grep -vF "$SELF" \
+            | grep -vF 'pre_push_audit.sh' \
+            | grep -vF 'tools/test_audit_rules.sh' \
+            || true
     }
 
     if [ "$MODE" = "staged" ]; then
@@ -185,9 +203,62 @@ PLACEHOLDER='\*\*\*\*|your[-_]|<[^>]*>|CHANGE[_-]?ME|xxx+|示例|替换|placehol
 #   要抓：storePassword = "真实密码"      （字面量赋值）
 #   放行：storePassword = props.get(...)  （从配置读取）
 #         storePassword=****             （占位符）
-scan_content "无硬编码密码" \
+scan_content "无硬编码密码（带引号）" \
     '(storePassword|keyPassword|ksPass|keyPass|KS_PASS|KEY_PASS)\s*[:=]\s*["'"'"'][^"'"'"']{4,}["'"'"']' \
     "$PLACEHOLDER"
+
+# 无引号形态也要抓。
+#
+# ## 为什么需要单独一条（踩坑记录）
+#
+# 上面的规则要求值必须带引号，所以 `storePassword=SuperSecret123`
+# 这种**不带引号**的写法会漏过 —— 而 `keystore.properties` 恰恰就是
+# 这种格式（`storePassword=xxx`）。
+#
+# 2026-10 实测：往暂存区放一个 `storePassword=SuperSecret123` 的文件，
+# 上面的规则**没有报错**，说明存在真实盲区。
+#
+# ## 怎么避免误报
+#
+# 放行三类：
+#   - 空值：        storePassword=
+#   - 占位符：      storePassword=**** / CHANGE_ME / your-xxx
+#   - 代码表达式：  storePassword=$FOO / ${FOO} / props.get(...) / System.getenv(...)
+#
+# 其中「代码表达式」用行尾特征排除：含 `$/{}()` 之一即视为非字面量。
+# 用 grep 的管道二次过滤实现（scan_content 不支持这种排除，所以这里手工做）。
+#
+# ⚠️ 踩坑 1：`grep -vFiE` 是**非法组合** —— `-F`（固定串）与 `-E`（扩展正则）
+# 互斥，grep 会报 "conflicting matchers specified" 并**滤掉全部输入**，
+# 导致这条检查永远「通过」（假阴性）。$PLACEHOLDER 是正则，必须用 -E。
+#
+# ⚠️ 踩坑 2：printf 模板会被误报。
+# CI 里写 `printf '...storePassword=%s\n...' "$PASS"` 是**正常且安全**的
+# （%s 是格式占位符，真值在变量里）。所以要把 `%s` / `%1$s` 等
+# printf 占位符一并放行。
+_noquote_pw() {
+    local pat='(storePassword|keyPassword|ksPass|keyPass|KS_PASS|KEY_PASS)\s*[:=]\s*[^"'"'"'\s].[^\s]*'
+    if [ "$MODE" = "staged" ]; then
+        git grep --cached -nIE "$pat" 2>/dev/null
+    else
+        git grep -nIE "$pat" 2>/dev/null
+    fi \
+    | grep -vF 'pre_push_audit.sh' \
+    | grep -vF 'tools/test_audit_rules.sh' \
+    | grep -vE "$PLACEHOLDER" \
+    | grep -vE '[:=][[:space:]]*$' \
+    | grep -vE '[:=][[:space:]]*%[0-9]*[$]?[a-zA-Z]' \
+    | grep -vE '[:=][[:space:]]*[^[:space:]]*[$({][A-Za-z_]?' \
+    | grep -vE '[:=][[:space:]]*[^[:space:]]*[(][)]' \
+    || true
+}
+HITS_NOQUOTE=$(_noquote_pw)
+if [ -n "$HITS_NOQUOTE" ]; then
+    fail "发现无引号的密码赋值："
+    printf '%s\n' "$HITS_NOQUOTE" | sed 's/^/      /'
+else
+    pass "无硬编码密码（无引号）"
+fi
 
 scan_content "无 GitHub 令牌" \
     'github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}' \
