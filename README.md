@@ -1,19 +1,48 @@
 <div align="center">
 
-# 水印盒 · WatermarkBox
+<img src="docs/assets/header.svg" width="100%" alt="水印盒 WatermarkBox">
 
-**一个安静、克制的 Android 图片水印工具。**
+<br>
 
-选图 → 调参数 → 实时预览 → 导出。没有账号、没有广告、不联网。
+<img src="docs/assets/preview-effects.png" width="100%" alt="效果预览：单个水印 / 平铺水印">
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84.svg)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF.svg)](https://kotlinlang.org)
-[![Compose](https://img.shields.io/badge/Jetpack-Compose-4285F4.svg)](https://developer.android.com/jetpack/compose)
+<sub>左边：单个水印（九宫格定位，还能直接在预览图上拖动）　·　右边：平铺水印（防盗用）</sub>
 
-[![Download](https://img.shields.io/github/v/release/Si-Ye/WatermarkBox?label=%E4%B8%8B%E8%BD%BD&color=green)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
+<br>
+<br>
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-1A237E.svg?style=flat-square)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84.svg?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Compose-Material%203-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+
+[![Release](https://img.shields.io/github/v/release/Si-Ye/WatermarkBox?style=flat-square&label=Release&color=FF6F00)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/Si-Ye/WatermarkBox/build.yml?style=flat-square&label=Build&branch=main)](https://github.com/Si-Ye/WatermarkBox/actions/workflows/build.yml)
+[![Tests](https://img.shields.io/badge/Tests-230%20passing-4CAF50.svg?style=flat-square)](https://github.com/Si-Ye/WatermarkBox/actions/workflows/build.yml)
+[![APK](https://img.shields.io/badge/APK-3.6%20MB-607D8B.svg?style=flat-square)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
+
+**[下载最新版](https://github.com/Si-Ye/WatermarkBox/releases/latest)**　·　[查看更新日志](docs/releases)　·　[架构说明](#技术实现)
 
 </div>
+
+---
+
+## 目录
+
+- [这是什么](#这是什么)
+- [效果预览](#效果预览)
+- [功能](#功能)
+  - [单张编辑](#单张编辑)
+  - [批量处理](#批量处理)
+  - [预设](#预设)
+  - [隐藏水印](#隐藏水印)
+  - [反向检测](#反向检测)
+- [技术实现](#技术实现)
+  - [架构](#架构)
+  - [隐藏水印的技术要点](#隐藏水印的技术要点)
+  - [技术栈](#技术栈)
+- [构建](#构建)
+- [开发手记](#开发手记)
 
 ---
 
@@ -29,6 +58,18 @@
 
 ---
 
+## 效果预览
+
+<div align="center">
+
+| 首页 | 编辑页（水印预设） | 设置 | 隐藏水印检测 |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/assets/screen-home.jpg" width="180"> | <img src="docs/assets/screen-presets.jpg" width="180"> | <img src="docs/assets/screen-settings.jpg" width="180"> | <img src="docs/assets/screen-invisible.jpg" width="180"> |
+
+</div>
+
+---
+
 ## 功能
 
 ### 单张编辑
@@ -37,12 +78,13 @@
 - **实时预览** —— 改任何参数，画面立刻响应
 - **文字水印** —— 字号 6~300、字体族、**自定义字体导入**（ttf/otf）、颜色、加粗、斜体、描边、阴影
 - **图片水印** —— 宽度占比、保持比例、透明度
-- **布局** —— 单个（九宫格定位 + 边距）/ 平铺 / 对角线
+- **布局** —— 单个 / 平铺 / 对角线
+- **拖动水印定位** —— 单个模式下**直接在预览图上拖**，不用局限在九宫格；拖完仍可点格子回到规整位置
 - **导出** —— PNG（无损）或 JPEG（质量可调）
 
 ### 批量处理
 
-- 最多 **50 张**一次处理
+- 最多 **100 张** 一次处理
 - **界面与单张完全一致**，同一套参数面板
 - 预览可**左右滑动**切换图片，末尾有「添加更多」入口
 - WorkManager 后台执行，实时进度，可取消
@@ -152,7 +194,7 @@ app/src/main/java/com/watermarkbox/
 ### 命令
 
 ```bash
-# 单元测试（154 个）
+# 单元测试（230 个）
 ./gradlew testDebugUnitTest
 
 # Debug 包
@@ -411,10 +453,25 @@ limitations under the License.
 
 <div align="center">
 
-**水印盒 · WatermarkBox**
+<br>
 
-*v1.4.1*
+<img src="docs/assets/header.svg" width="60%" alt="水印盒 WatermarkBox">
 
-Made with 🐺 by 肆叶
+<br>
+
+**水印盒 · WatermarkBox**　`v1.5.0`
+
+Made with 🐺 by [肆叶](https://github.com/Si-Ye)
+
+<br>
+
+[下载](https://github.com/Si-Ye/WatermarkBox/releases/latest)　·　[更新日志](docs/releases)　·　[问题反馈](https://github.com/Si-Ye/WatermarkBox/issues)
+
+<br>
+
+<sub>Apache-2.0 License · 不收集任何数据 · 不联网</sub>
+
+<br>
+<br>
 
 </div>
