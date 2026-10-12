@@ -148,6 +148,14 @@
     <string name="update_install_confirm_title">安装新版本</string>
     <string name="update_install_confirm_desc">下载已完成。系统将打开安装界面，请按提示完成安装。\n\n安装前系统可能会再次确认权限。</string>
     <string name="update_install_go">立即安装</string>
+    <string name="update_verifying_title">正在校验安装包</string>
+    <string name="update_verifying_desc">正在核对文件完整性与签名，请稍候…</string>
+    <string name="update_verify_failed_title">安装包校验失败</string>
+    <string name="update_verify_failed_corrupt">下载的安装包不完整或已损坏。请重试下载，或前往 GitHub 手动下载。</string>
+    <string name="update_verify_failed_unparseable">下载的文件不是有效的安装包。请重试，或前往 GitHub 手动下载。</string>
+    <string name="update_verify_failed_security">安装包校验未通过，已出于安全考虑删除。请前往 GitHub 官方页面手动下载。</string>
+    <string name="update_verify_failed_retry">重试</string>
+    <string name="update_verify_failed_close">关闭</string>
 
     <!-- ==================== 关于页 ==================== -->
     <string name="about_title">关于</string>

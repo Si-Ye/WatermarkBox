@@ -9,6 +9,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
@@ -164,6 +165,7 @@ object UpdateChecker {
 
         val title = obj["name"]?.jsonPrimitive?.contentOrNullSafe()
         val notes = obj["body"]?.jsonPrimitive?.contentOrNullSafe()
+        val apk = findApkAsset(obj)
 
         return UpdateInfo(
             version = version,
@@ -171,12 +173,22 @@ object UpdateChecker {
             title = title?.takeIf { it.isNotBlank() },
             notes = notes?.takeIf { it.isNotBlank() },
             htmlUrl = htmlUrl,
-            apkUrl = findApkUrl(obj)
+            apkUrl = apk?.url,
+            apkSha256 = apk?.sha256,
+            apkSize = apk?.size ?: 0L
         )
     }
 
+    /** 从附件里挑出的 APK 信息。 */
+    private data class ApkAsset(
+        val url: String,
+        /** 小写十六进制 SHA-256；GitHub 未提供时为 null */
+        val sha256: String?,
+        val size: Long
+    )
+
     /**
-     * 从 assets 数组里找 APK 下载链接。
+     * 从 assets 数组里挑出要下载的 APK（含 SHA-256 与大小）。
      *
      * ## 挑选策略（按优先级）
      *
@@ -193,8 +205,14 @@ object UpdateChecker {
      *
      * 目前 CI 已统一产出 `WatermarkBox-<version>-release.apk`，
      * 这里的多重判断是为了兼容历史上传的旧附件。
+     *
+     * ## digest 字段
+     *
+     * GitHub API 会为上传后的附件计算摘要，格式 `sha256:<hex>`。
+     * 本函数把它剥成纯小写 hex 存进 [ApkAsset.sha256]。
+     * 若该字段缺失（旧附件），返回 null —— 下载后跳过哈希校验。
      */
-    private fun findApkUrl(obj: JsonObject): String? {
+    private fun findApkAsset(obj: JsonObject): ApkAsset? {
         val assets = obj["assets"] as? JsonArray ?: return null
 
         val apks = assets.mapNotNull { element ->
@@ -203,7 +221,8 @@ object UpdateChecker {
             if (!name.endsWith(".apk", ignoreCase = true)) return@mapNotNull null
             val url = asset["browser_download_url"]?.jsonPrimitive?.contentOrNullSafe()
                 ?: return@mapNotNull null
-            name to url
+            val size = asset["size"]?.jsonPrimitive?.longOrNullSafe() ?: 0L
+            name to ApkAsset(url = url, sha256 = parseDigest(asset), size = size)
         }
         if (apks.isEmpty()) return null
 
@@ -214,6 +233,21 @@ object UpdateChecker {
         // 2. 在剩余里优先挑 release
         return (pool.firstOrNull { it.first.contains("release", ignoreCase = true) }
             ?: pool.first()).second
+    }
+
+    /**
+     * 解析附件的 `digest` 字段。
+     *
+     * 格式：`sha256:<64位小写hex>`。返回剥掉前缀的**小写** hex；
+     * 若不是 sha256（例如未来出现 sha512）或字段缺失，返回 null。
+     */
+    private fun parseDigest(asset: JsonObject): String? {
+        val raw = asset["digest"]?.jsonPrimitive?.contentOrNullSafe() ?: return null
+        val prefix = "sha256:"
+        if (!raw.startsWith(prefix, ignoreCase = true)) return null
+        val hex = raw.substring(prefix.length).trim().lowercase()
+        // 与 MessageDigest 输出对齐：64 位十六进制才算有效
+        return hex.takeIf { it.length == 64 && it.all { c -> c in "0123456789abcdef" } }
     }
 
     /**
@@ -270,4 +304,13 @@ object UpdateChecker {
      */
     private fun JsonPrimitive.contentOrNullSafe(): String? =
         if (this is kotlinx.serialization.json.JsonNull) null else content
+
+    /**
+     * 安全读取 JsonPrimitive 的 long 值。
+     *
+     * 非数字内容（字符串、JsonNull、小数）都返回 null，
+     * 由调用方决定默认值（附件 size 缺失时用 0 表示未知）。
+     */
+    private fun JsonPrimitive.longOrNullSafe(): Long? =
+        if (this is kotlinx.serialization.json.JsonNull) null else longOrNull
 }

@@ -73,6 +73,8 @@ import com.watermarkbox.ui.screen.update.UpdatePermissionDialog
 import com.watermarkbox.ui.screen.update.UpdateReadyToInstallDialog
 import com.watermarkbox.ui.screen.update.UpdateUiState
 import com.watermarkbox.ui.screen.update.UpdateUpToDateDialog
+import com.watermarkbox.ui.screen.update.UpdateVerifyingDialog
+import com.watermarkbox.ui.screen.update.UpdateVerifyFailedDialog
 import com.watermarkbox.ui.screen.update.UpdateViewModel
 import com.watermarkbox.ui.theme.Spacing
 import com.watermarkbox.util.AppLanguage
@@ -290,6 +292,19 @@ fun SettingsScreen(
         )
 
         is UpdateUiState.Downloading -> UpdateDownloadingDialog(percent = us.percent)
+
+        // 下载完成 → 校验中（大 APK 算哈希要一两秒，给个反馈）
+        UpdateUiState.Verifying -> UpdateVerifyingDialog()
+
+        // 校验失败：文件已被 ViewModel 删除，这里只负责提示与重试
+        is UpdateUiState.VerifyFailed -> UpdateVerifyFailedDialog(
+            reason = us.reason,
+            detail = us.detail,
+            // 只在 debug 包展示技术细节，release 包不吓普通用户
+            showDetail = BuildConfig.DEBUG,
+            onRetry = { updateViewModel.retryDownload() },
+            onDismiss = { updateViewModel.dismiss() }
+        )
 
         UpdateUiState.ReadyToInstall -> UpdateReadyToInstallDialog(
             onInstall = { updateViewModel.installDownloaded() },

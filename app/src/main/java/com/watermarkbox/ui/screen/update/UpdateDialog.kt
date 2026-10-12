@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.UpdateInfo
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.util.ApkVerifier
 
 /**
  * 「检查更新」的各类对话框。
@@ -201,6 +202,88 @@ fun UpdateDownloadingDialog(percent: Int?) {
             }
         },
         confirmButton = {}
+    )
+}
+
+/**
+ * 下载完成，正在校验 APK（SHA-256 / 包名 / 签名）。
+ *
+ * 用 indeterminate 进度条：校验是「一次哈希计算」，没有细粒度进度，
+ * 显示假的百分比反而不诚实。
+ */
+@Composable
+fun UpdateVerifyingDialog() {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(stringResource(R.string.update_verifying_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.update_verifying_desc))
+                Spacer(Modifier.height(12.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {}
+    )
+}
+
+/**
+ * 校验失败对话框。
+ *
+ * 到这里文件**已经被删除**，用户只能重试或去 GitHub 手动下载。
+ * 文案按 [reason] 分类：普通用户需要知道「是网络问题还是严重问题」。
+ *
+ * @param detail 技术细节（失败原因的内部描述）；debug 包会附在末尾便于排查，
+ *               release 包不展示，避免吓到普通用户。
+ */
+@Composable
+fun UpdateVerifyFailedDialog(
+    reason: ApkVerifier.FailureReason,
+    detail: String?,
+    showDetail: Boolean,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val messageRes = when (reason) {
+        ApkVerifier.FailureReason.EMPTY_FILE,
+        ApkVerifier.FailureReason.SIZE_MISMATCH,
+        ApkVerifier.FailureReason.HASH_MISMATCH ->
+            R.string.update_verify_failed_corrupt
+
+        ApkVerifier.FailureReason.UNPARSEABLE ->
+            R.string.update_verify_failed_unparseable
+
+        ApkVerifier.FailureReason.PACKAGE_MISMATCH,
+        ApkVerifier.FailureReason.SIGNATURE_MISMATCH ->
+            R.string.update_verify_failed_security
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.update_verify_failed_title)) },
+        text = {
+            Column {
+                Text(stringResource(messageRes))
+                if (showDetail && !detail.isNullOrBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onRetry) {
+                Text(stringResource(R.string.update_verify_failed_retry))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.update_verify_failed_close))
+            }
+        }
     )
 }
 

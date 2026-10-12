@@ -143,6 +143,14 @@
     <string name="update_install_confirm_title">Install new version</string>
     <string name="update_install_confirm_desc">The download is complete. The system will open the install screen — follow the prompts to finish.\n\nThe system may ask to confirm the permission again.</string>
     <string name="update_install_go">Install now</string>
+    <string name="update_verifying_title">Verifying package</string>
+    <string name="update_verifying_desc">Checking file integrity and signature, please wait…</string>
+    <string name="update_verify_failed_title">Verification failed</string>
+    <string name="update_verify_failed_corrupt">The downloaded package is incomplete or corrupted. Please retry, or download it manually from GitHub.</string>
+    <string name="update_verify_failed_unparseable">The downloaded file is not a valid package. Please retry, or download it manually from GitHub.</string>
+    <string name="update_verify_failed_security">The package failed verification and was deleted for your safety. Please download it manually from the official GitHub page.</string>
+    <string name="update_verify_failed_retry">Retry</string>
+    <string name="update_verify_failed_close">Close</string>
 
     <!-- ==================== About ==================== -->
     <string name="about_title">About</string>

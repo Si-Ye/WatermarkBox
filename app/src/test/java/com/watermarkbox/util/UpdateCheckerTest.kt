@@ -178,9 +178,76 @@ class UpdateCheckerTest {
     fun `没有 apk 附件时返回空`() {
         assertNull(pickApk(listOf("notes.txt", "source.zip")))
     }
-
-    @Test
+@Test
     fun `只有单个无后缀标识的包时直接选中`() {
         assertEquals("app-unsigned.apk", pickApk(listOf("app-unsigned.apk")))
     }
+
+    // ------------------------------------------------------------------
+    // digest（SHA-256）解析
+    // ------------------------------------------------------------------
+
+    /**
+     * 复刻 UpdateChecker.parseDigest 的解析规则。
+     *
+     * GitHub API 的 digest 形如 `sha256:<64位小写hex>`，
+     * 但字段可能缺失、可能换成别的算法、也可能是 NULL 字面量。
+     * 这里逐种情况验证「要么给出正确 hex，要么返回 null，绝不返回半个值」。
+     */
+    private fun parseDigest(raw: String?): String? {
+        val s = raw ?: return null
+        val prefix = "sha256:"
+        if (!s.startsWith(prefix, ignoreCase = true)) return null
+        val hex = s.substring(prefix.length).trim().lowercase()
+        return hex.takeIf { it.length == 64 && it.all { c -> c in "0123456789abcdef" } }
+    }
+
+    @Test
+    fun `digest 正常格式能解析出小写 hex`() {
+        val hex = "5bac71b42f7933aa0f743ebf2d70ee174b55db042df1298b209de6169070c70d"
+        assertEquals(hex, parseDigest("sha256:$hex"))
+    }
+
+    @Test
+    fun `digest 大写前缀与内容都能归一化`() {
+        val hex = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"
+        assertEquals(hex.lowercase(), parseDigest("SHA256:$hex"))
+    }
+
+    @Test
+    fun `digest 缺失时返回 null`() {
+        assertNull(parseDigest(null))
+    }
+
+    @Test
+    fun `digest 非 sha256 算法时返回 null`() {
+        // 未来若 GitHub 改用 sha512，我们不应把它当成 sha256 误用
+        val hex = "a".repeat(128)
+        assertNull(parseDigest("sha512:$hex"))
+    }
+
+    @Test
+    fun `digest 长度不对时返回 null`() {
+        // 63 位（少一位）与 65 位（多一位）都应拒绝
+        assertNull(parseDigest("sha256:" + "a".repeat(63)))
+        assertNull(parseDigest("sha256:" + "a".repeat(65)))
+    }
+
+    @Test
+    fun `digest 含非十六进制字符时返回 null`() {
+        // 'g' 不是 hex 字符
+        assertNull(parseDigest("sha256:" + "g".repeat(64)))
+    }
+
+    @Test
+    fun `digest 只有前缀时返回 null`() {
+        assertNull(parseDigest("sha256:"))
+    }
+
+    @Test
+    fun `digest 空白格式返回 null`() {
+        assertNull(parseDigest(""))
+        assertNull(parseDigest("   "))
+    }
+
 }

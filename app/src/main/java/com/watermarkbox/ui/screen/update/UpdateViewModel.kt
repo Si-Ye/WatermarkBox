@@ -7,6 +7,7 @@ import com.watermarkbox.BuildConfig
 import com.watermarkbox.data.model.UpdateInfo
 import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.util.ApkInstaller
+import com.watermarkbox.util.ApkVerifier
 import com.watermarkbox.util.UpdateChecker
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,8 +42,27 @@ sealed interface UpdateUiState {
     /** 应用内下载中。 */
     data class Downloading(val percent: Int?) : UpdateUiState
 
-    /** 下载完成，等待确认安装。 */
+    /**
+     * 下载完成，正在做完整性校验（SHA-256 / 包名 / 签名）。
+     *
+     * 单独成一个状态是为了给用户反馈：大 APK 算哈希要一两秒，
+     * 卡在「下载 100%」不动会让人以为死机。
+     */
+    data object Verifying : UpdateUiState
+
+    /** 下载完成，且校验通过，等待确认安装。 */
     data object ReadyToInstall : UpdateUiState
+
+    /**
+     * 校验失败（文件损坏 / 包名不符 / 签名不符）。
+     *
+     * 走到这里说明**文件已被删除**，绝不会安装。
+     * [reason] 用于选文案，[detail] 供排查（一般不展示给用户）。
+     */
+    data class VerifyFailed(
+        val reason: ApkVerifier.FailureReason,
+        val detail: String? = null
+    ) : UpdateUiState
 
     /** 需要授予「安装未知应用」权限。 */
     data object NeedPermission : UpdateUiState
@@ -83,6 +103,15 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
     /** 已下载完成的 APK 文件（等待安装时用）。 */
     private var downloadedApk: File? = null
 
+    /**
+     * 最近一次「发现新版本」的完整信息。
+     *
+     * 用途：校验失败后 [retryDownload] 需要还原到
+     * [UpdateUiState.Available] 才能重新下载，而那个状态需要 info。
+     * 缓存下来避免重试时再请求一次 GitHub API。
+     */
+    private var lastInfo: UpdateInfo? = null
+
     /** 是否已经跑过启动自动检查（避免每次重组都触发）。 */
     private var autoCheckStarted = false
 
@@ -109,7 +138,11 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
             val result = UpdateChecker.check(BuildConfig.VERSION_NAME)
 
             _uiState.value = when (result) {
-                is UpdateChecker.Result.Available -> UpdateUiState.Available(result.info)
+                is UpdateChecker.Result.Available -> {
+                    // 缓存下来：校验失败重试时要靠它还原 Available 状态
+                    lastInfo = result.info
+                    UpdateUiState.Available(result.info)
+                }
 
                 is UpdateChecker.Result.UpToDate ->
                     if (manual) UpdateUiState.UpToDate(BuildConfig.VERSION_NAME)
@@ -170,12 +203,60 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
                 val file = ApkInstaller.download(context, url) { percent ->
                     _uiState.value = UpdateUiState.Downloading(percent)
                 }
-                downloadedApk = file
-                _uiState.value = UpdateUiState.ReadyToInstall
+
+                // ---- 下载完成 → 校验 ----
+                //
+                // 校验期间显示一个「正在校验」的进行中状态：大文件算
+                // SHA-256 需要一两秒，没反馈会让用户以为卡住。
+                _uiState.value = UpdateUiState.Verifying
+
+                when (val verified = ApkVerifier.verify(
+                    context = context,
+                    apk = file,
+                    expectedSha256 = info.apkSha256,
+                    expectedSize = info.apkSize
+                )) {
+                    is ApkVerifier.Result.Ok -> {
+                        downloadedApk = file
+                        _uiState.value = UpdateUiState.ReadyToInstall
+                    }
+
+                    is ApkVerifier.Result.Failed -> {
+                        // 校验失败必须删掉文件，绝不交给系统安装器
+                        runCatching { file.delete() }
+                        _uiState.value = UpdateUiState.VerifyFailed(
+                            reason = verified.reason,
+                            detail = verified.detail
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 _uiState.value = UpdateUiState.Failed(UpdateChecker.ErrorKind.NETWORK)
             }
         }
+    }
+
+    /**
+     * 校验失败后重试下载。
+     *
+     * ## 为什么要先回到「有新版本」状态
+     *
+     * [downloadInApp] 的前置条件是状态必须是 [UpdateUiState.Available]
+     * ——它从这里取 `info`（含下载地址与预期哈希）。
+     * 校验失败时状态是 [UpdateUiState.VerifyFailed]，已不含 info，
+     * 所以必须先补回 Available 再走下载。
+     *
+     * 用保存的 [lastInfo] 还原，避免重新请求一次 GitHub API
+     * （既慢又可能因为限流失败）。
+     */
+    fun retryDownload() {
+        val info = lastInfo ?: run {
+            // 理论上不会走到（有 info 才会进下载流程），兜底回空闲
+            dismiss()
+            return
+        }
+        _uiState.value = UpdateUiState.Available(info)
+        downloadInApp()
     }
 
     /**
