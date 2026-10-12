@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  水印盒 WatermarkBox — 自适应图标「前景层」
+  画布：108 x 108（Android 标准）
+  内容位于中心 66x66 安全区内（108 的约 61%）
+  前景只含图形（盒 + 水滴），不含背景
+-->
+<svg width="108" height="108" viewBox="0 0 108 108"
+     xmlns="http://www.w3.org/2000/svg">
+  <!-- 把 1024 坐标系缩放进 108 画布，并居中 -->
+  <g transform="translate(54,54) scale(0.0586)">
+    <!-- 盒子盖 -->
+    <rect x="-240" y="-216" width="480" height="84" rx="26"
+          fill="#FFFFFF" opacity="0.95"/>
+    <!-- 盒子主体 -->
+    <path d="M -220 -100 L -220 180 Q -220 228 -172 228 L 172 228
+             Q 220 228 220 180 L 220 -100 Z"
+          fill="none" stroke="#FFFFFF" stroke-width="44"
+          stroke-linejoin="round" stroke-linecap="round"/>
+    <!-- 水滴 -->
+    <path d="M 0 -50 C -88 28 -124 70 -124 122 C -124 190 -68 234 0 234
+             C 68 234 124 190 124 122 C 124 70 88 28 0 -50 Z"
+          fill="#FF6F00"/>
+    <!-- 水滴高光 -->
+    <circle cx="-44" cy="126" r="28" fill="#FFFFFF" opacity="0.42"/>
+    <!-- 两侧短横线 -->
+    <rect x="-190" y="14" width="48" height="20" rx="10" fill="#FFFFFF" opacity="0.55"/>
+    <rect x="142" y="14" width="48" height="20" rx="10" fill="#FFFFFF" opacity="0.55"/>
+  </g>
+</svg>

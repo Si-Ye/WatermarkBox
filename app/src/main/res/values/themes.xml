@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      应用主题：使用 Material Light 无 ActionBar 作为宿主，
+      实际的配色/字体由 Compose 的 WatermarkBoxTheme 控制。
+    -->
+    <style name="Theme.WatermarkBox" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <!-- 启动屏主题（Android 12+ 走 SplashScreen API 时用） -->
+    <style name="Theme.WatermarkBox.Splash" parent="Theme.WatermarkBox" />
+
+</resources>

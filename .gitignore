@@ -1,0 +1,53 @@
+# ===== 构建产物 =====
+/build
+/app/build
+/captures
+.gradle/
+.kotlin/
+
+# ===== 签名与密钥（绝对不能提交）=====
+keystore.properties
+keystore/
+*.jks
+*.keystore
+*.p12
+
+# ===== 本地环境配置 =====
+local.properties
+.env
+
+# ===== IDE =====
+*.iml
+.idea/
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.vscode/
+
+# ===== 原生构建 =====
+.externalNativeBuild
+.cxx
+*.so.debug
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+*.log
+
+# ===== 本地工具与平台文件（与项目无关，不应开源）=====
+/tools/aapt2
+/.operit/
+/.backup/
+
+# ===== 安装包（走 GitHub Releases 分发）=====
+*.apk
+*.aab
+*.ap_
+!app/build/outputs/apk/**/output-metadata.json
+
+# ===== 交付产物归档（含密钥备份与 mapping，绝不提交）=====
+# dist/ 全目录排除：内含 APK / 源码包 / 密钥包 / 混淆映射表
+/dist/

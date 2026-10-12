@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  水印盒应用图标（矢量版，供首页展示使用）
+  由 branding/ic_launcher.svg 转换而来，与启动器图标保持一致。
+
+  画布 1024x1024；内容位于中心安全区（约 ±240）。
+  与 SVG 的差异：
+  - SVG 的 <g transform> 已展开为绝对坐标
+  - 圆角矩形 <rect rx> 展开为带弧线的 path
+  - 圆形 <circle> 展开为两段弧线的 path
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1024dp"
+    android:height="1024dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+
+    <!-- 背景：品牌深蓝，铺满 -->
+    <path
+        android:fillColor="#1A237E"
+        android:pathData="M0,0 L1024,0 L1024,1024 L0,1024 Z" />
+
+    <!-- 盒子盖（顶部横条，圆角 26） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.95"
+        android:pathData="M298,296 L726,296 A26,26 0 0 1 752,322 L752,354
+                          A26,26 0 0 1 726,380 L298,380
+                          A26,26 0 0 1 272,354 L272,322
+                          A26,26 0 0 1 298,296 Z" />
+
+    <!-- 盒子主体（白色描边方框，stroke-width 44，四角圆弧半径 48） -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="44"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M292,412 L292,692
+                          A48,48 0 0 0 340,740 L684,740
+                          A48,48 0 0 0 732,692 L732,412" />
+
+    <!-- 水滴（琥珀色） -->
+    <path
+        android:fillColor="#FF6F00"
+        android:pathData="M512,462
+                          C424,540 388,582 388,634
+                          C388,702 444,746 512,746
+                          C580,746 636,702 636,634
+                          C636,582 600,540 512,462 Z" />
+
+    <!-- 水滴高光（白色，半径 28，圆心 (468,638)） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.42"
+        android:pathData="M440,638 A28,28 0 1 1 496,638 A28,28 0 1 1 440,638 Z" />
+
+    <!-- 左侧短横线（圆角 10，半透明） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.55"
+        android:pathData="M332,526 L370,526 A10,10 0 0 1 380,536 L380,536
+                          A10,10 0 0 1 370,546 L332,546
+                          A10,10 0 0 1 322,536 L322,536
+                          A10,10 0 0 1 332,526 Z" />
+
+    <!-- 右侧短横线 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.55"
+        android:pathData="M654,526 L692,526 A10,10 0 0 1 702,536 L702,536
+                          A10,10 0 0 1 692,546 L654,546
+                          A10,10 0 0 1 644,536 L644,536
+                          A10,10 0 0 1 654,526 Z" />
+
+</vector>
