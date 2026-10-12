@@ -349,7 +349,6 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 之后在 Actions 页面等几分钟，Release 就自动生成好了。
-
 > **为什么必须写 `docs/releases/vX.Y.Z.md`**：
 > CI 会把它作为 Release 正文，并自动追加下载表格用的 SHA-256 校验值。
 > 若是漏了，CI 会用一段通用说明兜底并在日志里告警 ——
@@ -357,6 +356,25 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 >
 > 若 CI 跑失败，可用 Actions 页面的 **Run workflow** 手动重试
 > （`release.yml` 支持 `workflow_dispatch`）。
+
+#### 产物存放约定
+
+本项目产生的**非源码**文件（APK、截图、诊断输出、备份……）
+统一放在：
+
+```
+/storage/emulated/0/OperitAI/builds/WatermarkBox/
+```
+
+**不要**再往 `/sdcard/Download/` 里丢 —— 那是公共下载目录，
+混着各种 App 的文件，放进去过几天就找不到了。
+
+详见 [`docs/build-artifacts.md`](build-artifacts.md)。
+
+> ⚠️ 该目录**不在 git 仓库里**：好处是不受 `.gitignore` 约束、
+> 适合放体积大的临时产物；坏处是**不会被备份** ——
+> 重要产物请另存或上传到 Release。
+
 
 ---
 
