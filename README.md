@@ -269,7 +269,7 @@ base64 -w0 keystore/watermarkbox-release.jks > keystore.b64
 | Secret 名称 | 值 |
 |---|---|
 | `ANDROID_KEYSTORE_BASE64` | 上一步生成的整段 base64 |
-| `ANDROID_STORE_PASSWORD` | keystore 的 storePassword |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore 的 storePassword |
 | `ANDROID_KEY_ALIAS` | 密钥别名（`watermarkbox`） |
 | `ANDROID_KEY_PASSWORD` | keystore 的 keyPassword |
 
