@@ -190,9 +190,29 @@ jobs:
           # 它是从 commit 标题拼的（如「ci: 修正 Secret 名称」），
           # 对用户没有意义，反而稀释了正文里真正的更新内容。
           generate_release_notes: false
-          # 正文来自上一步生成的文件。
-          # 用 body_path 而非 body：见「生成 Release 正文」步骤的注释。
+          # 正文初值也用 body_path：见「生成 Release 正文」步骤的注释。
           body_path: release_body.md
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/apk/debug/*.apk
+
+      # 强制把正文写进 Release。
+      #
+      # ## 为什么还要单独来这一步（踩坑记录）
+      #
+      # 上面 action 的 `body_path` 只在**新建** Release 时生效。
+      # 如果 tag 对应的 Release 已经存在（比如重打 tag 复用旧 Release），
+      # action 会更新附件、但**不会覆盖正文** —— 表现是正文一直停留在旧内容，
+      # 而 action 日志里对 body 只字不提，非常难查。
+      #
+      # `gh release edit --notes-file` 是「编辑已存在 Release」的明确命令，
+      # 无论 Release 是新建还是复用，都会用文件内容覆盖正文。
+      # gh CLI 预装在 GitHub Runner 上，GITHUB_TOKEN 也是自动提供的。
+      - name: 更新 Release 正文
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "用 release_body.md 覆盖 ${TAG} 的正文"
+          gh release edit "$TAG" --notes-file release_body.md
+          echo "完成。正文长度：$(wc -c < release_body.md) 字节"
