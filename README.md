@@ -177,7 +177,7 @@ keyPassword=****
 ### 测试
 
 ```bash
-./gradlew testDebugUnitTest           # 154 个单元测试
+./gradlew testDebugUnitTest           # 单元测试（纯 JVM）
 ./gradlew connectedDebugAndroidTest   # 仪器化测试（需连接设备）
 ```
 
@@ -191,7 +191,29 @@ keyPassword=****
 | `BlockSelectionStabilityTest` | 判据在嵌入前后一致、位置序列可复现 |
 | `MidBandSelectionTest` | 只选 JPEG 量化步长小的频点 |
 | `EnginePureSimulationTest` | **纯 JVM 端到端**：嵌入 → 投票 → RS 解码全链路 |
+| `AppLicenseTest` | 许可证常量一致性、仓库地址与展示文本指向同一仓库 |
 | `InvisibleWatermarkInstrumentedTest` | 真机 JPEG 90/80/两轮、PNG 往返、像素改动统计 |
+
+### 推送前自查
+
+仓库内附带一个敏感信息扫描脚本，用于在 `git push` 前拦截误提交：
+
+```bash
+sh tools/pre_push_audit.sh            # 检查工作树 + 待推送的提交
+sh tools/pre_push_audit.sh --staged   # 只查暂存区（提交前快速自查）
+```
+
+覆盖五类问题：
+
+1. **危险文件入库** —— 签名密钥、安装包、产物目录、本机配置
+2. **凭据与密码** —— 硬编码密码、GitHub 令牌、云服务密钥
+3. **本机路径与内网地址** —— 泄露本机目录结构或内网拓扑
+4. **构建配置可移植性** —— 例如 `gradle-wrapper.properties` 指向本地文件
+5. **`.gitignore` 完整性** —— 关键排除规则是否齐全
+
+退出码 `0` 为通过、`1` 为发现问题，可直接用于 CI 拦截。
+
+> 脚本自身含有大量检测用的模式串，会必然自匹配，因此内置了自我排除。
 
 ---
 
