@@ -1,0 +1,115 @@
+name: 问题反馈
+description: 报告一个可以复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量把下面的信息填完整 ——
+        很多问题光靠「打不开」这几个字是没法定位的。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已经搜索过现有的 issue，没有重复
+          required: true
+        - label: 我用的是最新版本（可在应用「设置 → 关于」查看）
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本
+      description: 在应用内「设置 → 关于」可以看到，例如 1.4.1 (6)
+      placeholder: "1.4.1 (6)"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: 设备与系统
+      description: 机型 + Android 版本 + 系统 UI 版本（如果是定制系统请注明）
+      placeholder: "小米 14 / Android 15 / HyperOS 2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及的功能
+      options:
+        - 单张编辑
+        - 批量处理
+        - 预设
+        - 隐藏水印（写入）
+        - 反向检测（读取）
+        - 导出 / 保存
+        - 界面 / 显示
+        - 崩溃 / 闪退
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 一步一步写清楚。越具体越好定位。
+      placeholder: |
+        1. 打开应用，点「单张编辑」
+        2. 选一张 > 4000px 的图
+        3. 把字号调到 200
+        4. 点导出 → 应用闪退
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+      placeholder: 应该正常导出图片
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      placeholder: 应用直接闪退，回到桌面
+    validations:
+      required: true
+
+  - type: input
+    id: image
+    attributes:
+      label: 问题图片（可选）
+      description: |
+        如果问题和特定图片有关，可以提供该图片。
+        注意：**请勿上传涉及隐私的图片**，可以先用别的图试试能否复现。
+      placeholder: "可以先说明图片的尺寸、格式、来源"
+    validations:
+      required: false
+
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志（可选）
+      description: |
+        如果有崩溃日志请贴在这里。获取方式：
+        设置 → 关于 → 连点版本号 7 次（如已开启开发者选项则跳过）
+        或用电脑 `adb logcat` 抓取。
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充说明（可选）
+      placeholder: 任何你觉得可能有帮助的信息
+    validations:
+      required: false

@@ -236,6 +236,72 @@ git remote set-url origin git@github.com:<user>/<repo>.git
 脚本会自动识别 remote 类型 —— 是 `git@` 开头的走 SSH 直推，
 是 `https://` 的则回退到 `GITHUB_TOKEN` 环境变量（用完自动从配置中清除）。
 
+### 自动构建与发布
+
+仓库配有两个 GitHub Actions 工作流：
+
+| 工作流 | 触发条件 | 做什么 |
+|---|---|---|
+| [Build](.github/workflows/build.yml) | push 到 main / 提 PR | 跑测试 + 编译，验证代码可构建 |
+| [Release](.github/workflows/release.yml) | 推送 `v*` 标签 | 签名构建 APK 并创建 Release |
+
+Release 的产物由 **GitHub 的服务器从公开代码编译**，
+任何人都能核对「下载到的 APK」与「仓库里的代码」是否对应 ——
+不必依赖发布者的自觉。
+
+#### 一次性配置
+
+要让 CI 能签出 release 包，需要把签名材料存进仓库 Secret：
+
+**① 生成密钥的 base64 文本**
+
+```bash
+base64 -w0 keystore/watermarkbox-release.jks > keystore.b64
+```
+
+> `-w0` 表示不换行。macOS 上 `base64` 没有该选项，
+> 可用 `base64 -i keystore/watermarkbox-release.jks | tr -d '\n'`。
+
+**② 在 GitHub 添加四个 Secret**
+
+进入 `Settings → Secrets and variables → Actions → New repository secret`：
+
+| Secret 名称 | 值 |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | 上一步生成的整段 base64 |
+| `ANDROID_STORE_PASSWORD` | keystore 的 storePassword |
+| `ANDROID_KEY_ALIAS` | 密钥别名（`watermarkbox`） |
+| `ANDROID_KEY_PASSWORD` | keystore 的 keyPassword |
+
+**③ 验证**
+
+打一个测试标签并推送：
+
+```bash
+git tag v1.4.1-test && git push origin v1.4.1-test
+```
+
+去 Actions 页面能看到流水线跑起来，结束后 Release 页会出现附件。
+
+> ⚠️ Secret 一旦保存**无法再次查看**（只能覆盖）。
+> 如果填错，直接新建同名的覆盖即可。
+
+#### 发版流程
+
+```bash
+# 1. 改版本号（app/build.gradle.kts 的 versionCode / versionName）
+# 2. 提交
+sh tools/push_release.sh "chore: 发布 v1.4.2"
+
+# 3. 打标签推送 —— 这一步会触发 CI 自动构建并发布
+git tag v1.4.2 && git push origin v1.4.2
+```
+
+之后在 Actions 页面等几分钟，Release 就自动生成好了。
+
+> 若 CI 跑失败，可用 Actions 页面的 **Run workflow** 手动重试
+> （`release.yml` 支持 `workflow_dispatch`）。
+
 ---
 
 ## 开发手记

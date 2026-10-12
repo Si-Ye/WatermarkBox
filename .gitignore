@@ -11,6 +11,10 @@ keystore/
 *.jks
 *.keystore
 *.p12
+# 用于上传到 CI Secret 的密钥 base64 副本 —— 同样是密钥，绝不可入库
+keystore.b64
+*.jks.b64
+*.b64
 
 # ===== 本地环境配置 =====
 local.properties
