@@ -165,10 +165,22 @@ class WatermarkRenderer {
         // 基线位置：先到首行顶部，再加 -ascent 得到首行基线
         baseLineY = topY - paint.fontMetrics.ascent
 
-        // 整体旋转（SINGLE 模式也支持旋转）
+        // 整体旋转：**绕水印自身中心**，而不是绕画布中心。
+        //
+        // ## 为什么（踩坑记录）
+        //
+        // 之前写的是 `canvas.rotate(deg, output.width/2, output.height/2)`
+        // ——绕**画布中心**转。水印在画面正中时看着没问题，
+        // 但一旦把位置选到四角（比如右下角），旋转就变成了「绕画布中心公转」，
+        // 水印会被甩到画布外面去。用户看到的现象就是「选外圈位置时旋转不对」。
+        //
+        // 正确做法是绕**水印块自己的中心**旋转，这样无论水印放在哪，
+        // 都是「原地打转」，位置不会被旋转带跑偏。
+        val blockCenterX = baseLineX + blockWidth / 2f
+        val blockCenterY = topY + blockHeight / 2f
         canvas.save()
         if (config.rotationDegrees != 0f) {
-            canvas.rotate(config.rotationDegrees, output.width / 2f, output.height / 2f)
+            canvas.rotate(config.rotationDegrees, blockCenterX, blockCenterY)
         }
         var y = baseLineY
         for (line in lines) {
@@ -211,10 +223,25 @@ class WatermarkRenderer {
         val cols = ceil(output.width / cellWidth).toInt() + 1
         val rows = ceil(output.height / cellHeight).toInt() + 1
 
-        canvas.save()
-        if (config.rotationDegrees != 0f) {
-            canvas.rotate(config.rotationDegrees, output.width / 2f, output.height / 2f)
-        }
+        // ---- 旋转：逐字旋转（与「对角线」的整体旋转相反）----
+        //
+        // ## 两个模式的旋转职责（用户明确要求）
+        //
+        // - **平铺**：网格轴对齐、**每个水印自己按滑块角度倾斜**。
+        //   文字之间互相平行，但排列是水平整齐的网格。
+        // - **对角线**：**整个坐标系转 45°**，水印呈斜向条带铺满。
+        //
+        // 这两个模式的旋转逻辑此前是反的（平铺做整体旋转、对角线做逐字旋转），
+        // 现在对调回来。
+        //
+        // ## 为什么不是「整体 canvas.rotate()」
+        //
+        // 整体旋转会让网格一起转，那样效果就和对角线重了。
+        // 平铺要保持「整齐的方格排列」，所以只让**单个水印**倾斜 ——
+        // 绕它自己的绘制原点做一次 rotate。
+        //
+        // 当角度为 0 时不做任何旋转，避免多余的 save/restore 开销。
+        val rotateEach = config.rotationDegrees
 
         // 嵌套循环：行 → 列，逐个绘制
         for (row in 0..rows) {
@@ -223,10 +250,17 @@ class WatermarkRenderer {
                 val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
                 val x = col * cellWidth + offsetX
                 val y = row * cellHeight + lineHeight
-                drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
+
+                if (rotateEach != 0f) {
+                    canvas.save()
+                    canvas.rotate(rotateEach, x, y)
+                    drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
+                    canvas.restore()
+                } else {
+                    drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
+                }
             }
         }
-        canvas.restore()
 
         return output
     }
@@ -509,9 +543,11 @@ class WatermarkRenderer {
 
         val dst = Rect(left.toInt(), top.toInt(), (left + w).toInt(), (top + h).toInt())
 
+        // 绕 logo 自身中心旋转（不是画布中心）。
+        // 绕画布中心转会把边角的 logo 甩出画面，详见 renderSingle 的踩坑记录。
         canvas.save()
         if (config.rotationDegrees != 0f) {
-            canvas.rotate(config.rotationDegrees, output.width / 2f, output.height / 2f)
+            canvas.rotate(config.rotationDegrees, left + w / 2f, top + h / 2f)
         }
         canvas.drawBitmap(logo, null, dst, paint)
         canvas.restore()
@@ -536,23 +572,33 @@ class WatermarkRenderer {
         val cols = ceil(output.width / cellWidth).toInt() + 1
         val rows = ceil(output.height / cellHeight).toInt() + 1
 
-        canvas.save()
-        if (config.rotationDegrees != 0f) {
-            canvas.rotate(config.rotationDegrees, output.width / 2f, output.height / 2f)
-        }
+        // 旋转：逐格旋转（与「对角线」的整体旋转相反，与文字平铺保持一致）
+        val rotateEach = config.rotationDegrees
+
         for (row in 0..rows) {
             for (col in 0..cols) {
                 val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
                 val x = col * cellWidth + offsetX
                 val y = row * cellHeight
-                canvas.drawBitmap(
-                    logo, null,
-                    Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
-                    paint
-                )
+                if (rotateEach != 0f) {
+                    canvas.save()
+                    // 绕 logo 中心旋转
+                    canvas.rotate(rotateEach, x + w / 2f, y + h / 2f)
+                    canvas.drawBitmap(
+                        logo, null,
+                        Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
+                        paint
+                    )
+                    canvas.restore()
+                } else {
+                    canvas.drawBitmap(
+                        logo, null,
+                        Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
+                        paint
+                    )
+                }
             }
         }
-        canvas.restore()
         return output
     }
 
