@@ -55,13 +55,35 @@ class ReleaseHistoryTest {
         ReleaseHistory.releases.forEach { note ->
             assertTrue("版本号为空", note.version.isNotBlank())
             assertTrue("版本 ${note.version} 的日期为空", note.date.isNotBlank())
-            assertTrue("版本 ${note.version} 的主题为空", note.title.isNotBlank())
+            assertTrue(
+                "版本 ${note.version} 的主题资源 ID 为 0（忘了接上字符串资源）",
+                note.titleRes != 0
+            )
             note.changes.forEach { c ->
                 assertTrue(
-                    "版本 ${note.version} 里有空白描述",
-                    c.text.isNotBlank()
+                    "版本 ${note.version} 里有变更条目的资源 ID 为 0",
+                    c.textRes != 0
                 )
             }
+        }
+    }
+
+    /**
+     * 版本内不应复用同一个字符串资源。
+     *
+     * 复制粘贴新增日志时最容易犯的错：改了下一条的文字，
+     * 忘了把资源名也改掉 —— 结果两条显示同一句话。
+     * 这里按「同一版本内 textRes 不重复」把这类错误挡在编译期之后、发版之前。
+     */
+    @Test
+    fun `同一版本内的变更描述不重复引用同一资源`() {
+        ReleaseHistory.releases.forEach { note ->
+            val ids = note.changes.map { it.textRes }
+            assertEquals(
+                "版本 ${note.version} 里有两条变更引用了同一字符串资源",
+                ids.size,
+                ids.distinct().size
+            )
         }
     }
 

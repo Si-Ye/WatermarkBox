@@ -1,15 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
     <!--
-      应用主题：使用 Material Light 无 ActionBar 作为宿主，
-      实际的配色/字体由 Compose 的 WatermarkBoxTheme 控制。
+      应用主题：使用 AppCompat 作为宿主，实际的配色/字体由 Compose 的
+      WatermarkBoxTheme 控制。
+
+      ## 为什么必须是 Theme.AppCompat 系
+
+      MainActivity 继承 AppCompatActivity（为了应用内语言切换能生效），
+      而 AppCompatActivity 在 onCreate 时会检查主题 —— 若不是
+      Theme.AppCompat 的后代，会直接抛：
+        "You need to use a Theme.AppCompat theme (or descendant) with this activity."
+
+      这里用 Theme.AppCompat.Light.NoActionBar：
+      - Light：与应用原本的 Material Light 观感一致
+      - NoActionBar：不需要系统 ActionBar，顶栏由 Compose 的 TopAppBar 画
+
+      注意：这只是让 Activity 能启动的「宿主主题」，
+      真正的视觉由 Compose 主题决定，所以切换到 AppCompat 不影响外观。
     -->
-    <style name="Theme.WatermarkBox" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.WatermarkBox" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">@android:color/white</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
     </style>
 
     <!-- 启动屏主题（Android 12+ 走 SplashScreen API 时用） -->
     <style name="Theme.WatermarkBox.Splash" parent="Theme.WatermarkBox" />
-
 </resources>

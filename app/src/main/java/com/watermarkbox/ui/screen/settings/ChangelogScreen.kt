@@ -34,9 +34,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.BuildConfig
+import com.watermarkbox.R
 import com.watermarkbox.data.model.ChangeKind
 import com.watermarkbox.data.model.ReleaseHistory
 import com.watermarkbox.data.model.ReleaseNote
@@ -76,12 +78,12 @@ fun ChangelogScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("更新说明", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.changelog_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -131,15 +133,18 @@ private fun SummaryCard() {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "当前版本 ${BuildConfig.VERSION_NAME}",
+                text = stringResource(R.string.changelog_current_version, BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "共 ${ReleaseHistory.releases.size} 个版本 · " +
-                    "${ReleaseHistory.totalChanges} 项改动",
+                text = stringResource(
+                    R.string.changelog_summary,
+                    ReleaseHistory.releases.size,
+                    ReleaseHistory.totalChanges
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             )
@@ -184,7 +189,7 @@ private fun ReleaseCard(note: ReleaseNote, isCurrent: Boolean) {
             // ---- 主题 ----
             Spacer(Modifier.height(6.dp))
             Text(
-                text = note.title,
+                text = stringResource(note.titleRes),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
@@ -232,7 +237,7 @@ private fun ChangeRow(change: ReleaseNote.Change) {
         }
         Spacer(Modifier.width(8.dp))
         Text(
-            text = change.text,
+            text = stringResource(change.textRes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
             modifier = Modifier.weight(1f)
@@ -256,7 +261,7 @@ private fun VersionBadge(type: ReleaseType) {
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
-            text = type.label,
+            text = stringResource(type.labelRes),
             style = MaterialTheme.typography.labelSmall,
             color = fg,
             fontWeight = FontWeight.Medium
@@ -278,7 +283,7 @@ private fun CurrentBadge() {
             .padding(horizontal = 6.dp, vertical = 2.dp)
     ) {
         Text(
-            text = "当前",
+            text = stringResource(R.string.common_current),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.Medium

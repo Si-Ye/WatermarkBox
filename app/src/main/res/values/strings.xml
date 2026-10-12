@@ -1,3 +1,210 @@
 <resources>
+    <!--
+      字符串资源命名约定（保持这个规则，后续扩展才不会乱）：
+
+        screen_<页面>_<用途>      页面内文案
+        component_<组件>_<用途>   可复用组件文案
+        setting_<项>_<用途>       设置项文案
+        about_<用途>              关于页
+        changelog_<用途>          更新说明页
+        credit_<用途>             制作人
+        common_<用途>             通用（按钮、状态等）
+        release_<版本>_<序号>     更新日志条目
+
+      注意：带参数的字符串用 %1$s / %1$d 占位，不要拼接字符串。
+    -->
+
+    <!-- ==================== 应用名 ==================== -->
     <string name="app_name">水印盒</string>
+
+    <!-- ==================== 通用 ==================== -->
+    <string name="common_back">返回</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_confirm">确定</string>
+    <string name="common_clear">清除</string>
+    <string name="common_select">选择</string>
+    <string name="common_open">打开</string>
+    <string name="common_copy">复制</string>
+    <string name="common_current">当前</string>
+    <string name="common_none_set">未设置</string>
+
+    <!-- 无障碍描述 -->
+    <string name="a11y_settings">设置</string>
+    <string name="a11y_presets">水印预设</string>
+    <string name="a11y_app_icon">水印盒</string>
+    <string name="a11y_app_logo">水印盒图标</string>
+    <string name="a11y_avatar">%1$s 的头像</string>
+    <string name="a11y_copied">已复制</string>
+
+    <!-- ==================== 首页 ==================== -->
+    <string name="home_brand_name">水印盒</string>
+    <string name="home_tagline">WatermarkBox · 轻松添加图片水印</string>
+    <string name="home_entry_single_title">选择图片</string>
+    <string name="home_entry_single_subtitle">单张编辑，实时预览效果</string>
+    <string name="home_entry_batch_title">批量处理</string>
+    <string name="home_entry_batch_subtitle">一次最多 %1$d 张，批量导出</string>
+    <string name="home_entry_detect_title">检测隐藏水印</string>
+    <string name="home_entry_detect_subtitle">检查图片是否含本应用写入的隐藏水印</string>
+    <string name="home_footer">支持 PNG / JPEG 导出 · 无损原图渲染</string>
+
+    <!-- ==================== 设置页 ==================== -->
+    <string name="settings_title">设置</string>
+
+    <!-- 顶部分类 -->
+    <string name="settings_category_watermark">水印</string>
+    <string name="settings_category_export">导出</string>
+    <string name="settings_category_other">其他</string>
+
+    <!-- 水印分类 -->
+    <string name="settings_default_text_title">默认水印文字</string>
+    <string name="settings_default_text_desc">选图进入编辑页时，自动填入这个文字</string>
+    <string name="settings_default_image_title">默认水印图</string>
+    <string name="settings_default_image_set">已设置 · 编辑页将自动载入</string>
+    <string name="settings_default_image_unset">未设置（切换到图片水印时需手动选图）</string>
+    <string name="settings_default_opacity_title">默认水印透明度</string>
+    <string name="settings_default_opacity_desc">新图片的初始透明度</string>
+    <string name="settings_invisible_title">隐藏水印</string>
+    <string name="settings_invisible_switch">默认启用 DCT 频域嵌入</string>
+    <string name="settings_invisible_desc">开启后，在编辑页打开「隐藏水印」时会自动勾上 DCT。\nDCT 能抵抗 JPEG 重压缩，但会轻微影响画质 —— \n这只是初始值，编辑页里仍可单独关闭。</string>
+
+    <!-- 导出分类 -->
+    <string name="settings_export_format_title">导出格式</string>
+    <string name="settings_export_png">PNG（无损）</string>
+    <string name="settings_export_jpeg">JPEG</string>
+    <string name="settings_export_jpeg_quality">JPEG 质量</string>
+    <string name="settings_naming_title">文件命名与输出</string>
+    <string name="settings_filename_template">文件名模板</string>
+    <string name="settings_filename_placeholders">占位符：{原文件名} {date} {time} {timestamp} {index}</string>
+    <string name="settings_output_dir">输出目录（留空用默认）</string>
+    <string name="settings_output_dir_default">默认：%1$s</string>
+    <string name="settings_keep_exif">保留原图 EXIF 信息</string>
+
+    <!-- 其他分类 -->
+    <string name="settings_presets_title">水印预设</string>
+    <string name="settings_presets_desc">已保存 %1$d 个预设。\n在首页右上角「书签」图标中管理。</string>
+    <string name="settings_app_info_title">应用信息</string>
+    <string name="settings_language_title">语言</string>
+    <string name="settings_language_desc">选择应用界面语言</string>
+    <string name="settings_language_follow_system">跟随系统</string>
+    <string name="settings_language_dialog_title">应用语言</string>
+    <string name="settings_language_current_zh">中文</string>
+    <string name="settings_language_current_en">English</string>
+    <string name="settings_changelog_title">更新说明</string>
+    <string name="settings_changelog_desc">查看各版本的变更记录</string>
+    <string name="settings_about_title">关于水印盒</string>
+    <string name="settings_about_desc">版本 %1$s · 制作人</string>
+    <string name="settings_pick_image">选择</string>
+    <string name="settings_change_image">更换</string>
+
+    <!-- ==================== 关于页 ==================== -->
+    <string name="about_title">关于</string>
+    <string name="about_section_credits">制作人</string>
+    <string name="about_copy_qq">复制 QQ</string>
+    <string name="about_qq_copied">已复制 QQ：%1$s</string>
+    <string name="about_qq_format">QQ：%1$s</string>
+    <string name="about_license_section">本应用许可</string>
+    <string name="about_license_repo">仓库地址</string>
+    <string name="about_license_repo_action">源码仓库</string>
+    <string name="about_license_repo_open">打开仓库</string>
+    <string name="about_license_url">许可证地址</string>
+    <string name="about_license_url_action">许可证全文</string>
+    <string name="about_license_url_open">打开许可证</string>
+    <string name="about_repo_opened">已打开仓库页面</string>
+    <string name="about_browser_failed">无法打开浏览器，已复制地址</string>
+    <string name="about_third_party">第三方组件</string>
+    <string name="about_third_party_desc">本应用基于以下开源项目构建：</string>
+    <string name="about_copyright_title">版权</string>
+    <string name="about_copyright">© 2026 %1$s 保留所有权利。</string>
+    <string name="about_license_notice">本项目采用 %1$s 许可证开源。</string>
+    <string name="about_app_name">水印盒</string>
+    <string name="about_app_english">WatermarkBox</string>
+    <string name="about_version">版本 %1$s（%2$d）</string>
+    <string name="about_tagline">轻松添加图片水印 · 支持隐藏水印溯源</string>
+    <string name="about_license_summary">本应用为自由软件，你可以在许可证条款下自由使用、修改与分发。</string>
+
+    <!-- ==================== 更新说明页 ==================== -->
+    <string name="changelog_title">更新说明</string>
+    <string name="changelog_current_version">当前版本 %1$s</string>
+    <string name="changelog_summary">共 %1$d 个版本 · %2$d 项改动</string>
+
+    <!-- 变更类型徽章 -->
+    <string name="changelog_kind_added">新增</string>
+    <string name="changelog_kind_fixed">修复</string>
+    <string name="changelog_kind_improved">优化</string>
+    <string name="changelog_kind_changed">调整</string>
+
+    <!-- 版本规模徽章 -->
+    <string name="changelog_type_major">大版本</string>
+    <string name="changelog_type_minor">小版本</string>
+
+    <!-- ==================== 制作人角色 ==================== -->
+    <string name="credit_role_lead">主创</string>
+    <string name="credit_role_assist">开发协助</string>
+
+    <!-- ==================== 更新日志：1.4.1 ==================== -->
+    <string name="release_1_4_1_title">更新说明页</string>
+    <string name="release_1_4_1_c1">设置 → 其他 新增「更新说明」，可查看从 1.0.0 至今的全部变更</string>
+    <string name="release_1_4_1_c2">设置里「更新说明」与「关于」归入同一分组，样式统一</string>
+
+    <!-- ==================== 更新日志：1.4.0 ==================== -->
+    <string name="release_1_4_0_title">预设可独立编辑 · 批量页大改</string>
+    <string name="release_1_4_0_c1">首页右上角新增「水印预设」入口，可集中管理预设</string>
+    <string name="release_1_4_0_c2">新增预设参数编辑页：不选图片也能直接改预设的名称与全部水印参数</string>
+    <string name="release_1_4_0_c3">预设卡片新增编辑图标，重命名并入编辑页（少一个入口，少一次跳转）</string>
+    <string name="release_1_4_0_c4">修复保存同名预设时静默覆盖旧预设的问题（属数据丢失），现在会先询问保留 / 替换 / 取消</string>
+    <string name="release_1_4_0_c5">批量处理页整体重做，界面与单张编辑保持一致：同样的参数面板、可拖拽抽屉、同一套预设与导出设置</string>
+    <string name="release_1_4_0_c6">批量预览支持左右滑动切换图片，末页为「添加更多」，可继续追加图片</string>
+    <string name="release_1_4_0_c7">修复批量预览无法滑动的问题：预览组件的手势会拦截横滑，现已在批量页让出手势</string>
+    <string name="release_1_4_0_c8">隐藏水印新增 DCT 频域开关：可单独控制是否写入频域，并明确标注其对画质的影响，由用户按场景自行取舍</string>
+    <string name="release_1_4_0_c9">设置中新增「开启隐藏水印时默认启用 DCT」选项</string>
+    <string name="release_1_4_0_c10">设置页顶部新增分类菜单：水印 / 导出 / 其他</string>
+    <string name="release_1_4_0_c11">新增「默认水印文字」设置：选图进编辑页时自动填入</string>
+    <string name="release_1_4_0_c12">新增「默认水印图」设置：选图进编辑页时自动载入该 logo</string>
+    <string name="release_1_4_0_c13">新增独立「关于」页：应用图标、版本、制作人（含头像与 QQ）、开源许可</string>
+    <string name="release_1_4_0_c14">新增本次「更新说明」页</string>
+
+    <!-- ==================== 更新日志：1.3.1 ==================== -->
+    <string name="release_1_3_1_title">预设重名保护</string>
+    <string name="release_1_3_1_c1">保存预设遇到重名时，弹出「保留两者 / 替换 / 取消」确认框，替代此前的静默覆盖</string>
+    <string name="release_1_3_1_c2">输入预设名称时实时检测重名并提示，不用点保存才知道</string>
+
+    <!-- ==================== 更新日志：1.3.0 ==================== -->
+    <string name="release_1_3_0_title">隐藏水印溯源 · EXIF 保留</string>
+    <string name="release_1_3_0_c1">新增隐藏水印功能：把溯源信息写入图片，包含 EXIF 元数据与 DCT 频域两条通道</string>
+    <string name="release_1_3_0_c2">新增隐藏水印检测：可判断图片是否含本应用写入的隐藏水印</string>
+    <string name="release_1_3_0_c3">支持自定义隐藏水印内容，或自动使用「设备 ID + 时间戳」</string>
+    <string name="release_1_3_0_c4">导出时可选保留原图 EXIF 信息（拍摄时间、机型、GPS 等 35 项）</string>
+    <string name="release_1_3_0_c5">修复隐藏水印使用中文时检测结果变成 ? 的问题（EXIF UserComment 的字符集编码限制）</string>
+
+    <!-- ==================== 更新日志：1.2.0 ==================== -->
+    <string name="release_1_2_0_title">批量处理 · 自定义字体</string>
+    <string name="release_1_2_0_c1">新增批量处理：一次最多 50 张，后台处理并显示进度</string>
+    <string name="release_1_2_0_c2">支持导入自定义字体（ttf / otf / ttc）用于文字水印</string>
+    <string name="release_1_2_0_c3">新增水印预设：可保存常用配置并快速套用</string>
+    <string name="release_1_2_0_c4">文字水印支持 {filename} 等占位符</string>
+
+    <!-- ==================== 更新日志：1.1.0 ==================== -->
+    <string name="release_1_1_0_title">参数完善 · 导出设置</string>
+    <string name="release_1_1_0_c1">文字水印支持字号、字体、加粗、斜体、描边、阴影、颜色</string>
+    <string name="release_1_1_0_c2">支持单个 / 平铺 / 对角线三种布局，可调旋转与透明度</string>
+    <string name="release_1_1_0_c3">支持九宫格定位与边距调整</string>
+    <string name="release_1_1_0_c4">图片水印：可选择 logo、调整大小与位置</string>
+    <string name="release_1_1_0_c5">新增导出设置：格式（PNG / JPEG）、质量、文件名模板、输出目录</string>
+    <string name="release_1_1_0_c6">参数面板支持上下拖拽调整高度</string>
+
+    <!-- ==================== 更新日志：1.0.0 ==================== -->
+    <string name="release_1_0_0_title">首个版本</string>
+    <string name="release_1_0_0_c1">水印盒诞生：单张图片添加水印，实时预览</string>
+    <string name="release_1_0_0_c2">支持文字水印与图片水印</string>
+    <string name="release_1_0_0_c3">导出到相册</string>
+
+    <!-- ==================== 编辑器 / 导出对话框 ==================== -->
+    <string name="editor_export_title">导出设置</string>
+    <string name="editor_export_format">输出格式</string>
+    <string name="editor_export_naming">文件命名</string>
+    <string name="editor_export_start">开始导出</string>
+    <string name="editor_export_cancel">取消</string>
+    <string name="editor_export_png">PNG</string>
+    <string name="editor_export_jpeg">JPEG</string>
+
 </resources>

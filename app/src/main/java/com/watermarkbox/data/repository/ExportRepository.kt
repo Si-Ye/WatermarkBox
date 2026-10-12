@@ -25,21 +25,33 @@ data class ExportResult(
 )
 
 /**
- * 图片导出仓库：把 Bitmap 写入 MediaStore 的 Pictures/水印盒 目录。
+ * 图片导出仓库：把 Bitmap 写入 MediaStore 的 Pictures/WatermarkBox 目录。
  *
  * 关键点（Android 10+ 分区存储）：
  * - 通过 MediaStore.Images 插入条目，由系统分配 Uri，**无需任何存储权限**
- * - RELATIVE_PATH 指定相册内相对路径（Pictures/水印盒）
+ * - RELATIVE_PATH 指定相册内相对路径（Pictures/WatermarkBox）
  * - IS_PENDING 标记：写入期间对其它 App 不可见，写完置 0 完成发布
  *
  * Android 9 及以下（minSdk 26 覆盖到）需要 WRITE_EXTERNAL_STORAGE，
  * 但本 App 目标设备普遍为 10+，且已在 Manifest 中以 maxSdkVersion 限制申请。
+ *
+ * **目录名的由来**：早期版本用中文名 `Pictures/水印盒`，
+ * 后来统一改为 `Pictures/WatermarkBox`（与包名、仓库名一致）。
+ * 旧目录不会被自动删除，用户可自行处理。
  */
 class ExportRepository(private val context: Context) {
 
     companion object {
         /** 默认输出目录（相册相对路径）。 */
-        const val DEFAULT_ALBUM = "Pictures/水印盒"
+        const val DEFAULT_ALBUM = "Pictures/WatermarkBox"
+
+        /**
+         * 历史版本使用过的目录名。
+         *
+         * 保留此常量仅用于「检测是否存在旧目录」这类提示场景，
+         * 不再向其中写入新文件。
+         */
+        const val LEGACY_ALBUM = "Pictures/水印盒"
     }
 
     /**

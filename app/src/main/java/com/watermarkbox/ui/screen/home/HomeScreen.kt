@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -76,14 +77,14 @@ fun HomeScreen(
                 IconButton(onClick = onOpenPresets) {
                     Icon(
                         imageVector = Icons.Filled.Bookmarks,
-                        contentDescription = "水印预设",
+                        contentDescription = stringResource(R.string.a11y_presets),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 IconButton(onClick = onOpenSettings) {
                     Icon(
                         imageVector = Icons.Filled.Settings,
-                        contentDescription = "设置",
+                        contentDescription = stringResource(R.string.a11y_settings),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -105,14 +106,14 @@ fun HomeScreen(
             Spacer(Modifier.height(20.dp))
 
             Text(
-                text = "水印盒",
+                text = stringResource(R.string.home_brand_name),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "WatermarkBox · 轻松添加图片水印",
+                text = stringResource(R.string.home_tagline),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -122,24 +123,27 @@ fun HomeScreen(
 
             // ---- 两个主入口 ----
             EntryCard(
-                title = "选择图片",
-                subtitle = "单张编辑，实时预览效果",
+                title = stringResource(R.string.home_entry_single_title),
+                subtitle = stringResource(R.string.home_entry_single_subtitle),
                 icon = Icons.Filled.Image,
                 accent = BrandNavy,
                 onClick = onPickSingleImage
             )
             Spacer(Modifier.height(Spacing.Item))
             EntryCard(
-                title = "批量处理",
-                subtitle = "一次最多 ${BatchLimits.MAX_BATCH_SIZE} 张，批量导出",
+                title = stringResource(R.string.home_entry_batch_title),
+                subtitle = stringResource(
+                    R.string.home_entry_batch_subtitle,
+                    BatchLimits.MAX_BATCH_SIZE
+                ),
                 icon = Icons.Filled.Collections,
                 accent = BrandAmber,
                 onClick = onPickBatchImages
             )
             Spacer(Modifier.height(Spacing.Item))
             EntryCard(
-                title = "检测隐藏水印",
-                subtitle = "检查图片是否含本应用写入的隐藏水印",
+                title = stringResource(R.string.home_entry_detect_title),
+                subtitle = stringResource(R.string.home_entry_detect_subtitle),
                 icon = Icons.Filled.VerifiedUser,
                 accent = BrandNavy,
                 onClick = onOpenDetect
@@ -148,7 +152,7 @@ fun HomeScreen(
             Spacer(Modifier.weight(0.8f))
 
             Text(
-                text = "支持 PNG / JPEG 导出 · 无损原图渲染",
+                text = stringResource(R.string.home_footer),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -177,7 +181,7 @@ private fun AppLogo() {
     ) {
         Image(
             painter = painterResource(R.drawable.ic_app_logo),
-            contentDescription = "水印盒",
+            contentDescription = stringResource(R.string.a11y_app_icon),
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )

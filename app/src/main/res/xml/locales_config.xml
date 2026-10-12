@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  应用支持的语言清单。
+
+  用途有两个：
+  1. 供系统「设置 → 应用 → 本应用 → 语言」列出可选语言（Android 13+）
+  2. 让 AppCompatDelegate.setApplicationLocales() 知道哪些 locale 是有效的
+
+  注意：这里列出的语言**必须**在 res/values-<lang>/ 下有对应资源，
+  否则切过去会全量回退到默认语言（表现为「切了没反应」）。
+
+  新增语言时，这里和 values-xx/strings.xml 要一起加。
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 默认语言：中文（values/ 目录）-->
+    <locale android:name="zh-CN" />
+    <!-- 英文（values-en/ 目录）-->
+    <locale android:name="en" />
+</locale-config>

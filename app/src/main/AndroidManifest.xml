@@ -12,11 +12,13 @@
         android:maxSdkVersion="28" />
 
     <application
+        android:name=".WatermarkBoxApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.WatermarkBox"
@@ -32,6 +34,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          应用内语言切换（AppCompat per-app language）。
+
+          Android 13+ 由系统直接处理；Android 12 及以下靠这个 Service 让
+          AppCompatDelegate.setApplicationLocales() 生效，
+          并在系统「应用语言」设置里列出本应用支持的语言。
+          locales_config.xml 则声明了支持哪些语言（供系统设置页读取）。
+        -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
     </application>
 
 </manifest>

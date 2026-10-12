@@ -2,11 +2,11 @@ package com.watermarkbox
 
 import android.net.Uri
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
@@ -32,8 +32,20 @@ import kotlinx.coroutines.launch
  *
  * 因此所有 launcher 都声明为**字段**（在构造期注册），
  * 且批量上限用一个**编译期常量**传入 —— 不能在 onCreate 里动态算。
+ *
+ * ## 为什么继承 AppCompatActivity 而不是 ComponentActivity（重要）
+ *
+ * 纯粹为了**应用内语言切换**能生效。
+ *
+ * `AppCompatDelegate.setApplicationLocales()` 需要一个「活跃的 delegate」
+ * 来接收语言变化并触发 Activity 重建。而这个 delegate 只在
+ * **AppCompatActivity** 构造时才会被注册 —— 用 ComponentActivity 时，
+ * 调用了也不会报错，只是**静默无效**（设置在静态变量里，无人消费，
+ * 界面纹丝不动）。这是最容易踩的坑，且没有任何日志提示。
+ *
+ * Compose 本身与 Activity 类型无关，继承 AppCompatActivity 不影响任何 UI 行为。
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     /** 挂起的单张选择回调。 */
     private var pendingSinglePick: ((Uri) -> Unit)? = null

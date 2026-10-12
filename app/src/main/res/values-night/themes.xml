@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.WatermarkBox" parent="android:Theme.Material.NoActionBar">
+    <!--
+      深色模式下的宿主主题。
+
+      与 values/themes.xml 同理，必须是 Theme.AppCompat 的后代
+      （MainActivity 是 AppCompatActivity）。
+      用 .DayNight 变体让 AppCompat 自动跟随系统深浅色，
+      不必再手写两套。
+    -->
+    <style name="Theme.WatermarkBox" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@android:color/background_dark</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
     </style>
 </resources>

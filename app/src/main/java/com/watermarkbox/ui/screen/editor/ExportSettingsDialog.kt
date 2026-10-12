@@ -19,9 +19,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.watermarkbox.R
 import com.watermarkbox.data.model.ExportFormat
+import com.watermarkbox.data.repository.ExportRepository
 import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
@@ -51,7 +54,7 @@ fun ExportSettingsDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("导出设置", fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.editor_export_title), fontWeight = FontWeight.SemiBold)
         },
         text = {
             Column(
@@ -60,11 +63,11 @@ fun ExportSettingsDialog(
                     .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                SectionLabel("输出格式")
+                SectionLabel(stringResource(R.string.editor_export_format))
                 SegmentedControl(
                     options = listOf(
-                        ExportFormat.PNG to "PNG",
-                        ExportFormat.JPEG to "JPEG"
+                        ExportFormat.PNG to stringResource(R.string.editor_export_png),
+                        ExportFormat.JPEG to stringResource(R.string.editor_export_jpeg)
                     ),
                     selected = settings.format,
                     onSelect = { onSettingsChange(settings.copy(format = it)) }
@@ -73,7 +76,7 @@ fun ExportSettingsDialog(
                 if (settings.format == ExportFormat.JPEG) {
                     Spacer(Modifier.height(Spacing.Item))
                     LabeledSlider(
-                        label = "JPEG 质量",
+                        label = stringResource(R.string.settings_export_jpeg_quality),
                         value = settings.jpegQuality.toFloat(),
                         onValueChange = {
                             onSettingsChange(settings.copy(jpegQuality = it.roundToInt()))
@@ -87,7 +90,7 @@ fun ExportSettingsDialog(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 Spacer(Modifier.height(Spacing.Item))
 
-                SectionLabel("文件命名")
+                SectionLabel(stringResource(R.string.editor_export_naming))
                 OutlinedTextField(
                     value = fileName,
                     onValueChange = {
@@ -96,10 +99,10 @@ fun ExportSettingsDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("文件名模板") },
+                    label = { Text(stringResource(R.string.settings_filename_template)) },
                     supportingText = {
                         Text(
-                            "占位符：{原文件名} {date} {time} {timestamp} {index}",
+                            text = stringResource(R.string.settings_filename_placeholders),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -116,10 +119,14 @@ fun ExportSettingsDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("输出目录（留空用默认）") },
+                    label = { Text(stringResource(R.string.settings_output_dir)) },
                     supportingText = {
+                        // 目录名取自仓库常量，避免文案与实际路径脱节
                         Text(
-                            "默认：Pictures/水印盒",
+                            text = stringResource(
+                                R.string.settings_output_dir_default,
+                                ExportRepository.DEFAULT_ALBUM
+                            ),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
@@ -127,7 +134,7 @@ fun ExportSettingsDialog(
 
                 Spacer(Modifier.height(Spacing.Item))
                 ToggleRow(
-                    label = "保留原图 EXIF 信息",
+                    label = stringResource(R.string.settings_keep_exif),
                     checked = settings.preserveExif,
                     onCheckedChange = {
                         onSettingsChange(settings.copy(preserveExif = it))
@@ -136,10 +143,14 @@ fun ExportSettingsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("开始导出") }
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.editor_export_start))
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.editor_export_cancel))
+            }
         }
     )
 }

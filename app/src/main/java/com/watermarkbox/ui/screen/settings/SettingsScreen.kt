@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.screen.settings
 
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,21 +41,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.BuildConfig
+import com.watermarkbox.R
 import com.watermarkbox.data.model.ExportFormat
 import com.watermarkbox.data.model.ExportSettings
+import com.watermarkbox.data.repository.ExportRepository
 import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.util.AppLanguage
 import kotlin.math.roundToInt
 
 /**
@@ -65,11 +73,14 @@ import kotlin.math.roundToInt
  * - [MISC]：预设统计与关于入口
  *
  * 顺序即 Tab 顺序，默认停在第一项。
+ *
+ * 注意：label 存的是**资源 ID** 而非字符串 ——
+ * enum 构造器在编译期执行，拿不到 Context，无法直接取本地化文案。
  */
-private enum class SettingsCategory(val label: String) {
-    WATERMARK("水印"),
-    EXPORT("导出"),
-    MISC("其他")
+private enum class SettingsCategory(@param:StringRes val labelRes: Int) {
+    WATERMARK(R.string.settings_category_watermark),
+    EXPORT(R.string.settings_category_export),
+    MISC(R.string.settings_category_other)
 }
 
 /**
@@ -91,18 +102,22 @@ fun SettingsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val settings = state.exportSettings
 
-    var category by remember { mutableStateOf(SettingsCategory.WATERMARK) }
+    // 用 rememberSaveable 而非 remember：
+    // 切换应用语言会重建 Activity，若用 remember，
+    // 用户会被弹回「水印」分类 —— 而他明明是在「其他」里点的语言切换。
+    // rememberSaveable 能跨配置变更保留选中项。
+    var category by rememberSaveable { mutableStateOf(SettingsCategory.WATERMARK) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("设置", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -185,7 +200,7 @@ private fun SettingsCategoryTabs(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = item.label,
+                    text = stringResource(item.labelRes),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (isSelected) {
@@ -206,7 +221,7 @@ private fun WatermarkCategory(
     viewModel: SettingsViewModel,
     onPickLogo: (onResult: (Uri) -> Unit) -> Unit
 ) {
-    SectionLabel("默认水印文字")
+    SectionLabel(stringResource(R.string.settings_default_text_title))
     var defaultText by remember(settings.defaultWatermarkText) {
         mutableStateOf(settings.defaultWatermarkText)
     }
@@ -218,10 +233,10 @@ private fun WatermarkCategory(
         },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("默认水印文字") },
+        label = { Text(stringResource(R.string.settings_default_text_title)) },
         supportingText = {
             Text(
-                "选图进入编辑页时，自动填入这个文字",
+                text = stringResource(R.string.settings_default_text_desc),
                 style = MaterialTheme.typography.labelSmall
             )
         }
@@ -229,7 +244,7 @@ private fun WatermarkCategory(
 
     Spacer(Modifier.height(Spacing.Item))
 
-    SectionLabel("默认水印图")
+    SectionLabel(stringResource(R.string.settings_default_image_title))
     DefaultLogoPicker(
         logoUri = settings.defaultLogoUri,
         onPick = { onPickLogo { uri -> viewModel.updateDefaultLogoUri(uri.toString()) } },
@@ -240,9 +255,9 @@ private fun WatermarkCategory(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
     Spacer(Modifier.height(Spacing.Item))
 
-    SectionLabel("默认水印透明度")
+    SectionLabel(stringResource(R.string.settings_default_opacity_title))
     LabeledSlider(
-        label = "新图片的初始透明度",
+        label = stringResource(R.string.settings_default_opacity_desc),
         value = settings.defaultAlpha,
         onValueChange = viewModel::updateDefaultAlpha,
         valueRange = 0.01f..1f,
@@ -254,17 +269,15 @@ private fun WatermarkCategory(
     Spacer(Modifier.height(Spacing.Item))
 
     // ---- 隐藏水印默认值 ----
-    SectionLabel("隐藏水印")
+    SectionLabel(stringResource(R.string.settings_invisible_title))
     ToggleRow(
-        label = "默认启用 DCT 频域嵌入",
+        label = stringResource(R.string.settings_invisible_switch),
         checked = settings.invisibleDctByDefault,
         onCheckedChange = { viewModel.toggleInvisibleDctByDefault() }
     )
     Spacer(Modifier.height(6.dp))
     Text(
-        text = "开启后，在编辑页打开「隐藏水印」时会自动勾上 DCT。\n" +
-            "DCT 能抵抗 JPEG 重压缩，但会轻微影响画质 —— " +
-            "这只是初始值，编辑页里仍可单独关闭。",
+        text = stringResource(R.string.settings_invisible_desc),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -276,11 +289,11 @@ private fun ExportCategory(
     settings: ExportSettings,
     viewModel: SettingsViewModel
 ) {
-    SectionLabel("导出格式")
+    SectionLabel(stringResource(R.string.settings_export_format_title))
     SegmentedControl(
         options = listOf(
-            ExportFormat.PNG to "PNG（无损）",
-            ExportFormat.JPEG to "JPEG"
+            ExportFormat.PNG to stringResource(R.string.settings_export_png),
+            ExportFormat.JPEG to stringResource(R.string.settings_export_jpeg)
         ),
         selected = settings.format,
         onSelect = viewModel::updateFormat
@@ -289,7 +302,7 @@ private fun ExportCategory(
     if (settings.format == ExportFormat.JPEG) {
         Spacer(Modifier.height(Spacing.Item))
         LabeledSlider(
-            label = "JPEG 质量",
+            label = stringResource(R.string.settings_export_jpeg_quality),
             value = settings.jpegQuality.toFloat(),
             onValueChange = { viewModel.updateJpegQuality(it.roundToInt()) },
             valueRange = 60f..100f,
@@ -301,7 +314,7 @@ private fun ExportCategory(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
     Spacer(Modifier.height(Spacing.Item))
 
-    SectionLabel("文件命名与输出")
+    SectionLabel(stringResource(R.string.settings_naming_title))
     var fileName by remember(settings.fileNameTemplate) {
         mutableStateOf(settings.fileNameTemplate)
     }
@@ -313,10 +326,10 @@ private fun ExportCategory(
         },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("文件名模板") },
+        label = { Text(stringResource(R.string.settings_filename_template)) },
         supportingText = {
             Text(
-                "占位符：{原文件名} {date} {time} {timestamp} {index}",
+                text = stringResource(R.string.settings_filename_placeholders),
                 style = MaterialTheme.typography.labelSmall
             )
         }
@@ -334,10 +347,14 @@ private fun ExportCategory(
         },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("输出目录（留空用默认）") },
+        label = { Text(stringResource(R.string.settings_output_dir)) },
         supportingText = {
+            // 目录名直接取自仓库常量，避免「改动一处、文案忘了同步」的脱节
             Text(
-                "默认：Pictures/水印盒",
+                text = stringResource(
+                    R.string.settings_output_dir_default,
+                    ExportRepository.DEFAULT_ALBUM
+                ),
                 style = MaterialTheme.typography.labelSmall
             )
         }
@@ -345,7 +362,7 @@ private fun ExportCategory(
 
     Spacer(Modifier.height(Spacing.Item))
     ToggleRow(
-        label = "保留原图 EXIF 信息",
+        label = stringResource(R.string.settings_keep_exif),
         checked = settings.preserveExif,
         onCheckedChange = { viewModel.togglePreserveExif() }
     )
@@ -358,10 +375,9 @@ private fun MiscCategory(
     onOpenAbout: () -> Unit,
     onOpenChangelog: () -> Unit
 ) {
-    SectionLabel("水印预设")
+    SectionLabel(stringResource(R.string.settings_presets_title))
     Text(
-        text = "已保存 $presetCount 个预设。\n" +
-            "在首页右上角「书签」图标中管理。",
+        text = stringResource(R.string.settings_presets_desc, presetCount),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -370,12 +386,67 @@ private fun MiscCategory(
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
     Spacer(Modifier.height(Spacing.Item))
 
-    SectionLabel("应用信息")
+    SectionLabel(stringResource(R.string.settings_app_info_title))
+
+    // 语言入口：放在最前，因为它是「应用级偏好」里最常改的一项
+    var showLanguageDialog by remember { mutableStateOf(false) }
+
+    /**
+     * 当前语言。
+     *
+     * ## 为什么用 mutableStateOf + 手动更新，而不是直接读
+     *
+     * 有个反直觉的场景：**从「中文」切到「跟随系统」，而系统语言恰好也是中文** ——
+     * 此时 `setApplicationLocales` 发现「生效语言没变」，**不会重建 Activity**，
+     * 于是本页不会重组，界面上的语言项就一直显示旧值「中文」，
+     * 用户会以为没切成功。
+     *
+     * 所以这里把它做成可变状态，在用户做出选择后**立即同步一次**，
+     * 不依赖 Activity 重建来刷新。
+     */
+    var currentLanguage by remember { mutableStateOf(AppLanguage.current()) }
+
+    if (showLanguageDialog) {
+        LanguagePickerDialog(
+            current = currentLanguage,
+            onDismiss = { showLanguageDialog = false },
+            onSelect = { option ->
+                showLanguageDialog = false
+                // 先落状态再切语言：
+                // 若切换触发了 Activity 重建，状态会在重建后的新组合里重新初始化；
+                // 若没触发（生效语言未变），这行保证界面立刻反映用户的选择。
+                currentLanguage = option
+                AppLanguage.apply(option)
+            }
+        )
+    }
+
+    NavRow(
+        title = stringResource(R.string.settings_language_title),
+        subtitle = stringResource(R.string.settings_language_desc),
+        trailing = {
+            Text(
+                text = when (currentLanguage) {
+                    AppLanguage.Option.SYSTEM ->
+                        stringResource(R.string.settings_language_follow_system)
+                    AppLanguage.Option.CHINESE ->
+                        stringResource(R.string.settings_language_current_zh)
+                    AppLanguage.Option.ENGLISH ->
+                        stringResource(R.string.settings_language_current_en)
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
+        onClick = { showLanguageDialog = true }
+    )
+
+    Spacer(Modifier.height(8.dp))
 
     // 更新说明入口
     NavRow(
-        title = "更新说明",
-        subtitle = "查看各版本的变更记录",
+        title = stringResource(R.string.settings_changelog_title),
+        subtitle = stringResource(R.string.settings_changelog_desc),
         trailing = {
             Text(
                 text = BuildConfig.VERSION_NAME,
@@ -390,8 +461,11 @@ private fun MiscCategory(
 
     // 关于入口
     NavRow(
-        title = "关于水印盒",
-        subtitle = "版本 ${BuildConfig.VERSION_NAME} · 制作人",
+        title = stringResource(R.string.settings_about_title),
+        subtitle = stringResource(
+            R.string.settings_about_desc,
+            BuildConfig.VERSION_NAME
+        ),
         onClick = onOpenAbout
     )
 }
@@ -473,17 +547,13 @@ private fun DefaultLogoPicker(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "默认水印图",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(Modifier.height(2.dp))
+                // 标题不在此处重复：外层的 SectionLabel 已经显示了
+                // 「默认水印图」，这里只放状态说明。
                 Text(
                     text = if (logoUri == null) {
-                        "未设置（切换到图片水印时需手动选图）"
+                        stringResource(R.string.settings_default_image_unset)
                     } else {
-                        "已设置 · 编辑页将自动载入"
+                        stringResource(R.string.settings_default_image_set)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = if (logoUri == null) {
@@ -495,7 +565,10 @@ private fun DefaultLogoPicker(
             }
             if (logoUri != null) {
                 TextButton(onClick = onClear) {
-                    Text("清除", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = stringResource(R.string.common_clear),
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
                 Spacer(Modifier.width(4.dp))
             }
@@ -503,8 +576,77 @@ private fun DefaultLogoPicker(
                 onClick = onPick,
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
             ) {
-                Text(if (logoUri == null) "选择" else "更换")
+                Text(
+                    text = stringResource(
+                        if (logoUri == null) R.string.settings_pick_image
+                        else R.string.settings_change_image
+                    )
+                )
             }
         }
     }
+}
+/**
+ * 应用语言选择对话框。
+ *
+ * ## 为什么语言名不用 stringResource
+ *
+ * 每项显示的是[语言自称]（中文 / English），**不随界面语言翻译**。
+ * 若跟随界面翻译，中文界面显示「中文 / 英语」、英文界面显示「Chinese / English」，
+ * 对只懂一种语言的用户反而更难找到自己那一项。
+ *
+ * ## 为什么用 RadioButton 而非列表点击
+ *
+ * 这是「多选一且需明确当前值」的场景，单选圆点是系统里最无歧义的表达；
+ * 用普通列表行会让用户不确定「到底选中了没」。
+ */
+@Composable
+private fun LanguagePickerDialog(
+    current: AppLanguage.Option,
+    onDismiss: () -> Unit,
+    onSelect: (AppLanguage.Option) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.settings_language_dialog_title),
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column {
+                AppLanguage.Option.entries.forEach { option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onSelect(option) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = option == current,
+                            onClick = { onSelect(option) }
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = when (option) {
+                                AppLanguage.Option.SYSTEM ->
+                                    stringResource(R.string.settings_language_follow_system)
+                                else -> option.displayName
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        }
+    )
 }

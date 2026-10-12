@@ -1,45 +1,64 @@
 package com.watermarkbox.data.model
 
+import androidx.annotation.StringRes
+
+import com.watermarkbox.R
+
 /**
  * 一条更新记录。
  *
  * @param version 版本号（与 `BuildConfig.VERSION_NAME` 对应）
  * @param date    发布日期（`yyyy-MM-dd`）
- * @param title   这一版的**主题**（一句话概括）
+ * @param titleRes 这一版的**主题**资源 ID（一句话概括）
  * @param changes 具体变更条目
  * @param type    变更规模，决定列表里徽章的颜色
+ *
+ * ## 为什么标题/描述存资源 ID 而不是字符串
+ *
+ * 本应用支持中英双语。若这里存中文原文，英文界面就会显示中文日志。
+ * 存资源 ID 后，界面层用 `stringResource(titleRes)` 取当前语言文案。
+ *
+ * 代价是数据层多一个 `androidx.annotation` 依赖（**仅注解**，
+ * 编译期擦除，不影响单元测试运行）；测试改为校验资源 ID 是否有效。
  */
 data class ReleaseNote(
     val version: String,
     val date: String,
-    val title: String,
+    @param:StringRes val titleRes: Int,
     val changes: List<Change>,
     val type: ReleaseType
 ) {
     /**
      * 单条变更。
      *
-     * @param text 描述
+     * @param textRes 描述的资源 ID
      * @param kind 这条属于「新增 / 修复 / 优化 / 变更」
      */
-    data class Change(val text: String, val kind: ChangeKind)
+    data class Change(@param:StringRes val textRes: Int, val kind: ChangeKind)
 }
 
-/** 变更规模。 */
-enum class ReleaseType(val label: String) {
+/**
+ * 变更规模。
+ *
+ * labelRes 存资源 ID 而非字符串：英文界面需显示 "Major" / "Minor"。
+ */
+enum class ReleaseType(@param:StringRes val labelRes: Int) {
     /** 大版本：新功能 / 重构 */
-    MAJOR("大版本"),
+    MAJOR(R.string.changelog_type_major),
 
     /** 小版本：修 bug / 微调 */
-    MINOR("小版本")
+    MINOR(R.string.changelog_type_minor)
 }
 
-/** 单条变更的性质。 */
-enum class ChangeKind(val label: String, val symbol: String) {
-    ADDED("新增", "＋"),
-    FIXED("修复", "✓"),
-    IMPROVED("优化", "↑"),
-    CHANGED("调整", "~")
+/** 单条变更的性质。symbol 是纯符号（＋ ✓ ↑ ~），各语言通用，无需本地化。 */
+enum class ChangeKind(
+    @param:StringRes val labelRes: Int,
+    val symbol: String
+) {
+    ADDED(R.string.changelog_kind_added, "＋"),
+    FIXED(R.string.changelog_kind_fixed, "✓"),
+    IMPROVED(R.string.changelog_kind_improved, "↑"),
+    CHANGED(R.string.changelog_kind_changed, "~")
 }
 
 /**
@@ -63,222 +82,108 @@ object ReleaseHistory {
         ReleaseNote(
             version = "1.4.1",
             date = "2026-10-12",
-            title = "更新说明页",
+            titleRes = R.string.release_1_4_1_title,
             type = ReleaseType.MINOR,
             changes = listOf(
-                ReleaseNote.Change(
-                    "设置 → 其他 新增「更新说明」，可查看从 1.0.0 至今的全部变更",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "设置里「更新说明」与「关于」归入同一分组，样式统一",
-                    ChangeKind.IMPROVED
-                )
+                ReleaseNote.Change(R.string.release_1_4_1_c1, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_4_1_c2, ChangeKind.IMPROVED)
             )
         ),
 
         ReleaseNote(
             version = "1.4.0",
             date = "2026-10-12",
-            title = "预设可独立编辑 · 批量页大改",
+            titleRes = R.string.release_1_4_0_title,
             type = ReleaseType.MAJOR,
             changes = listOf(
                 // ---- 预设体系 ----
-                ReleaseNote.Change(
-                    "首页右上角新增「水印预设」入口，可集中管理预设",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "新增预设参数编辑页：不选图片也能直接改预设的名称与全部水印参数",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "预设卡片新增编辑图标，重命名并入编辑页（少一个入口，少一次跳转）",
-                    ChangeKind.IMPROVED
-                ),
-                ReleaseNote.Change(
-                    "修复保存同名预设时静默覆盖旧预设的问题（属数据丢失），" +
-                        "现在会先询问保留 / 替换 / 取消",
-                    ChangeKind.FIXED
-                ),
+                ReleaseNote.Change(R.string.release_1_4_0_c1, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_4_0_c2, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_4_0_c3, ChangeKind.IMPROVED),
+                ReleaseNote.Change(R.string.release_1_4_0_c4, ChangeKind.FIXED),
 
                 // ---- 批量处理 ----
-                ReleaseNote.Change(
-                    "批量处理页整体重做，界面与单张编辑保持一致：" +
-                        "同样的参数面板、可拖拽抽屉、同一套预设与导出设置",
-                    ChangeKind.CHANGED
-                ),
-                ReleaseNote.Change(
-                    "批量预览支持左右滑动切换图片，末页为「添加更多」，可继续追加图片",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "修复批量预览无法滑动的问题：预览组件的手势会拦截横滑，现已在批量页让出手势",
-                    ChangeKind.FIXED
-                ),
+                ReleaseNote.Change(R.string.release_1_4_0_c5, ChangeKind.CHANGED),
+                ReleaseNote.Change(R.string.release_1_4_0_c6, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_4_0_c7, ChangeKind.FIXED),
 
                 // ---- 隐藏水印 ----
-                ReleaseNote.Change(
-                    "隐藏水印新增 DCT 频域开关：可单独控制是否写入频域，" +
-                        "并明确标注其对画质的影响，由用户按场景自行取舍",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "设置中新增「开启隐藏水印时默认启用 DCT」选项",
-                    ChangeKind.ADDED
-                ),
+                ReleaseNote.Change(R.string.release_1_4_0_c8, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_4_0_c9, ChangeKind.ADDED),
 
                 // ---- 设置 ----
-                ReleaseNote.Change(
-                    "设置页顶部新增分类菜单：水印 / 导出 / 其他",
-                    ChangeKind.IMPROVED
-                ),
-                ReleaseNote.Change(
-                    "新增「默认水印文字」设置：选图进编辑页时自动填入",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "新增「默认水印图」设置：选图进编辑页时自动载入该 logo",
-                    ChangeKind.ADDED
-                ),
+                ReleaseNote.Change(R.string.release_1_4_0_c10, ChangeKind.IMPROVED),
+                ReleaseNote.Change(R.string.release_1_4_0_c11, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_4_0_c12, ChangeKind.ADDED),
 
                 // ---- 关于 ----
-                ReleaseNote.Change(
-                    "新增独立「关于」页：应用图标、版本、制作人（含头像与 QQ）、开源许可",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "新增本次「更新说明」页",
-                    ChangeKind.ADDED
-                )
+                ReleaseNote.Change(R.string.release_1_4_0_c13, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_4_0_c14, ChangeKind.ADDED)
             )
         ),
 
         ReleaseNote(
             version = "1.3.1",
             date = "2026-10-12",
-            title = "预设重名保护",
+            titleRes = R.string.release_1_3_1_title,
             type = ReleaseType.MINOR,
             changes = listOf(
-                ReleaseNote.Change(
-                    "保存预设遇到重名时，弹出「保留两者 / 替换 / 取消」确认框，" +
-                        "替代此前的静默覆盖",
-                    ChangeKind.FIXED
-                ),
-                ReleaseNote.Change(
-                    "输入预设名称时实时检测重名并提示，不用点保存才知道",
-                    ChangeKind.IMPROVED
-                )
+                ReleaseNote.Change(R.string.release_1_3_1_c1, ChangeKind.FIXED),
+                ReleaseNote.Change(R.string.release_1_3_1_c2, ChangeKind.IMPROVED)
             )
         ),
 
         ReleaseNote(
             version = "1.3.0",
             date = "2026-10-11",
-            title = "隐藏水印溯源 · EXIF 保留",
+            titleRes = R.string.release_1_3_0_title,
             type = ReleaseType.MAJOR,
             changes = listOf(
-                ReleaseNote.Change(
-                    "新增隐藏水印功能：把溯源信息写入图片，" +
-                        "包含 EXIF 元数据与 DCT 频域两条通道",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "新增隐藏水印检测：可判断图片是否含本应用写入的隐藏水印",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "支持自定义隐藏水印内容，或自动使用「设备 ID + 时间戳」",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "导出时可选保留原图 EXIF 信息（拍摄时间、机型、GPS 等 35 项）",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "修复隐藏水印使用中文时检测结果变成 `?` 的问题" +
-                        "（EXIF UserComment 的字符集编码限制）",
-                    ChangeKind.FIXED
-                )
+                ReleaseNote.Change(R.string.release_1_3_0_c1, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_3_0_c2, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_3_0_c3, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_3_0_c4, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_3_0_c5, ChangeKind.FIXED)
             )
         ),
 
         ReleaseNote(
             version = "1.2.0",
             date = "2026-10-11",
-            title = "批量处理 · 自定义字体",
+            titleRes = R.string.release_1_2_0_title,
             type = ReleaseType.MAJOR,
             changes = listOf(
-                ReleaseNote.Change(
-                    "新增批量处理：一次最多 50 张，后台处理并显示进度",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "支持导入自定义字体（ttf / otf / ttc）用于文字水印",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "新增水印预设：可保存常用配置并快速套用",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "文字水印支持 {filename} 等占位符",
-                    ChangeKind.ADDED
-                )
+                ReleaseNote.Change(R.string.release_1_2_0_c1, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_2_0_c2, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_2_0_c3, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_2_0_c4, ChangeKind.ADDED)
             )
         ),
 
         ReleaseNote(
             version = "1.1.0",
             date = "2026-10-11",
-            title = "参数完善 · 导出设置",
+            titleRes = R.string.release_1_1_0_title,
             type = ReleaseType.MAJOR,
             changes = listOf(
-                ReleaseNote.Change(
-                    "文字水印支持字号、字体、加粗、斜体、描边、阴影、颜色",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "支持单个 / 平铺 / 对角线三种布局，可调旋转与透明度",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "支持九宫格定位与边距调整",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "图片水印：可选择 logo、调整大小与位置",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "新增导出设置：格式（PNG / JPEG）、质量、文件名模板、输出目录",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "参数面板支持上下拖拽调整高度",
-                    ChangeKind.ADDED
-                )
+                ReleaseNote.Change(R.string.release_1_1_0_c1, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_1_0_c2, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_1_0_c3, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_1_0_c4, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_1_0_c5, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_1_0_c6, ChangeKind.ADDED)
             )
         ),
 
         ReleaseNote(
             version = "1.0.0",
             date = "2026-10-11",
-            title = "首个版本",
+            titleRes = R.string.release_1_0_0_title,
             type = ReleaseType.MAJOR,
             changes = listOf(
-                ReleaseNote.Change(
-                    "水印盒诞生：单张图片添加水印，实时预览",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "支持文字水印与图片水印",
-                    ChangeKind.ADDED
-                ),
-                ReleaseNote.Change(
-                    "导出到相册",
-                    ChangeKind.ADDED
-                )
+                ReleaseNote.Change(R.string.release_1_0_0_c1, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_0_0_c2, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_0_0_c3, ChangeKind.ADDED)
             )
         )
     )

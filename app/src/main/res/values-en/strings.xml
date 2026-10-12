@@ -1,0 +1,204 @@
+<resources>
+    <!--
+      English translations.
+      Keep keys identical to values/strings.xml.
+
+      Style notes:
+      - Concise, sentence case for labels, title case avoided.
+      - No trailing periods on short labels.
+      - Params use %1$s / %1$d to match the source strings.
+    -->
+
+    <!-- ==================== App name ==================== -->
+    <string name="app_name">WatermarkBox</string>
+
+    <!-- ==================== Common ==================== -->
+    <string name="common_back">Back</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_confirm">OK</string>
+    <string name="common_clear">Clear</string>
+    <string name="common_select">Select</string>
+    <string name="common_open">Open</string>
+    <string name="common_copy">Copy</string>
+    <string name="common_current">Current</string>
+    <string name="common_none_set">Not set</string>
+
+    <!-- Accessibility -->
+    <string name="a11y_settings">Settings</string>
+    <string name="a11y_presets">Watermark presets</string>
+    <string name="a11y_app_icon">WatermarkBox</string>
+    <string name="a11y_app_logo">WatermarkBox icon</string>
+    <string name="a11y_avatar">Avatar of %1$s</string>
+    <string name="a11y_copied">Copied</string>
+
+    <!-- ==================== Home ==================== -->
+    <string name="home_brand_name">WatermarkBox</string>
+    <string name="home_tagline">Add watermarks the easy way</string>
+    <string name="home_entry_single_title">Choose a photo</string>
+    <string name="home_entry_single_subtitle">Edit one image with live preview</string>
+    <string name="home_entry_batch_title">Batch processing</string>
+    <string name="home_entry_batch_subtitle">Up to %1$d images at a time</string>
+    <string name="home_entry_detect_title">Detect hidden watermark</string>
+    <string name="home_entry_detect_subtitle">Check whether an image carries a watermark written by this app</string>
+    <string name="home_footer">Exports PNG / JPEG · Renders from the original, losslessly</string>
+
+    <!-- ==================== Settings ==================== -->
+    <string name="settings_title">Settings</string>
+
+    <!-- Categories -->
+    <string name="settings_category_watermark">Watermark</string>
+    <string name="settings_category_export">Export</string>
+    <string name="settings_category_other">Other</string>
+
+    <!-- Watermark -->
+    <string name="settings_default_text_title">Default watermark text</string>
+    <string name="settings_default_text_desc">Prefilled when you open the editor with a new image</string>
+    <string name="settings_default_image_title">Default watermark image</string>
+    <string name="settings_default_image_set">Set · Loaded automatically in the editor</string>
+    <string name="settings_default_image_unset">Not set (pick one manually when switching to an image watermark)</string>
+    <string name="settings_default_opacity_title">Default watermark opacity</string>
+    <string name="settings_default_opacity_desc">Starting opacity for new images</string>
+    <string name="settings_invisible_title">Hidden watermark</string>
+    <string name="settings_invisible_switch">Enable DCT embedding by default</string>
+    <string name="settings_invisible_desc">When on, the DCT option is pre-checked if you enable a hidden watermark in the editor.\nDCT survives JPEG re-compression but slightly affects image quality.\nThis only sets the initial value — you can still turn it off per image.</string>
+
+    <!-- Export -->
+    <string name="settings_export_format_title">Export format</string>
+    <string name="settings_export_png">PNG (lossless)</string>
+    <string name="settings_export_jpeg">JPEG</string>
+    <string name="settings_export_jpeg_quality">JPEG quality</string>
+    <string name="settings_naming_title">File naming and output</string>
+    <string name="settings_filename_template">Filename template</string>
+    <string name="settings_filename_placeholders">Placeholders: {original} {date} {time} {timestamp} {index}</string>
+    <string name="settings_output_dir">Output folder (leave empty for default)</string>
+    <string name="settings_output_dir_default">Default: %1$s</string>
+    <string name="settings_keep_exif">Keep original EXIF data</string>
+
+    <!-- Other -->
+    <string name="settings_presets_title">Watermark presets</string>
+    <string name="settings_presets_desc">%1$d preset(s) saved.\nManage them from the bookmark icon on the home screen.</string>
+    <string name="settings_app_info_title">App info</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_desc">Choose the app interface language</string>
+    <string name="settings_language_follow_system">Follow system</string>
+    <string name="settings_language_dialog_title">App language</string>
+    <string name="settings_language_current_zh">中文</string>
+    <string name="settings_language_current_en">English</string>
+    <string name="settings_changelog_title">Changelog</string>
+    <string name="settings_changelog_desc">See what changed in each release</string>
+    <string name="settings_about_title">About WatermarkBox</string>
+    <string name="settings_about_desc">Version %1$s · Credits</string>
+    <string name="settings_pick_image">Choose</string>
+    <string name="settings_change_image">Change</string>
+
+    <!-- ==================== About ==================== -->
+    <string name="about_title">About</string>
+    <string name="about_section_credits">Credits</string>
+    <string name="about_copy_qq">Copy QQ</string>
+    <string name="about_qq_copied">QQ copied: %1$s</string>
+    <string name="about_qq_format">QQ: %1$s</string>
+    <string name="about_license_section">License</string>
+    <string name="about_license_repo">Repository</string>
+    <string name="about_license_repo_action">Source code</string>
+    <string name="about_license_repo_open">Open repository</string>
+    <string name="about_license_url">License</string>
+    <string name="about_license_url_action">Full text</string>
+    <string name="about_license_url_open">Open license</string>
+    <string name="about_repo_opened">Repository page opened</string>
+    <string name="about_browser_failed">Could not open a browser — address copied instead</string>
+    <string name="about_third_party">Third-party components</string>
+    <string name="about_third_party_desc">This app is built on the following open-source projects:</string>
+    <string name="about_copyright_title">Copyright</string>
+    <string name="about_copyright">© 2026 %1$s. All rights reserved.</string>
+    <string name="about_license_notice">Released under the %1$s license.</string>
+    <string name="about_app_name">WatermarkBox</string>
+    <string name="about_app_english">WatermarkBox</string>
+    <string name="about_version">Version %1$s (%2$d)</string>
+    <string name="about_tagline">Add watermarks easily · with hidden watermark tracing</string>
+    <string name="about_license_summary">This app is free software — you may use, modify and redistribute it under the terms of the license.</string>
+
+    <!-- ==================== Changelog ==================== -->
+    <string name="changelog_title">Changelog</string>
+    <string name="changelog_current_version">Current version %1$s</string>
+    <string name="changelog_summary">%1$d releases · %2$d changes</string>
+
+    <!-- Change kind badges -->
+    <string name="changelog_kind_added">Added</string>
+    <string name="changelog_kind_fixed">Fixed</string>
+    <string name="changelog_kind_improved">Improved</string>
+    <string name="changelog_kind_changed">Changed</string>
+
+    <!-- Release type badges -->
+    <string name="changelog_type_major">Major</string>
+    <string name="changelog_type_minor">Minor</string>
+
+    <!-- ==================== Credit roles ==================== -->
+    <string name="credit_role_lead">Lead developer</string>
+    <string name="credit_role_assist">Development assistance</string>
+
+    <!-- ==================== Release notes: 1.4.1 ==================== -->
+    <string name="release_1_4_1_title">Changelog screen</string>
+    <string name="release_1_4_1_c1">Added a changelog under Settings → Other, listing every change since 1.0.0</string>
+    <string name="release_1_4_1_c2">Grouped Changelog and About together in Settings for a consistent look</string>
+
+    <!-- ==================== Release notes: 1.4.0 ==================== -->
+    <string name="release_1_4_0_title">Editable presets · Batch screen rework</string>
+    <string name="release_1_4_0_c1">Added a presets entry in the top-right of the home screen for centralised management</string>
+    <string name="release_1_4_0_c2">Added a preset editor: rename a preset and tweak every watermark parameter without picking an image first</string>
+    <string name="release_1_4_0_c3">Added an edit icon on preset cards; renaming now lives in the editor (one less entry point and one less tap)</string>
+    <string name="release_1_4_0_c4">Fixed presets being silently overwritten when saving under an existing name — a data-loss bug. You are now asked whether to keep both, replace, or cancel</string>
+    <string name="release_1_4_0_c5">Reworked the batch screen so it matches single-image editing: same parameter panel, draggable sheet, presets and export settings</string>
+    <string name="release_1_4_0_c6">Batch preview now supports swiping between images, with an "add more" page at the end</string>
+    <string name="release_1_4_0_c7">Fixed batch preview not swiping at all — the preview component was swallowing horizontal gestures; it now yields them on the batch screen</string>
+    <string name="release_1_4_0_c8">Added a DCT toggle for hidden watermarks, so frequency-domain embedding can be controlled separately; the effect on image quality is stated explicitly and left to your judgement</string>
+    <string name="release_1_4_0_c9">Added a setting to enable DCT by default when turning on a hidden watermark</string>
+    <string name="release_1_4_0_c10">Added category tabs at the top of Settings: Watermark / Export / Other</string>
+    <string name="release_1_4_0_c11">Added a default watermark text setting, prefilled when you open the editor</string>
+    <string name="release_1_4_0_c12">Added a default watermark image setting, loaded automatically when you open the editor</string>
+    <string name="release_1_4_0_c13">Added a standalone About screen: app icon, version, credits (avatar and QQ), and open-source license</string>
+    <string name="release_1_4_0_c14">Added this changelog screen</string>
+
+    <!-- ==================== Release notes: 1.3.1 ==================== -->
+    <string name="release_1_3_1_title">Duplicate-name protection for presets</string>
+    <string name="release_1_3_1_c1">Saving a preset under an existing name now asks whether to keep both, replace, or cancel, instead of overwriting silently</string>
+    <string name="release_1_3_1_c2">Duplicate names are detected as you type, rather than only when you press save</string>
+
+    <!-- ==================== Release notes: 1.3.0 ==================== -->
+    <string name="release_1_3_0_title">Hidden watermark tracing · EXIF preserved</string>
+    <string name="release_1_3_0_c1">Added hidden watermarks: tracing data is written into the image through two channels — EXIF metadata and DCT frequency domain</string>
+    <string name="release_1_3_0_c2">Added hidden watermark detection to check whether an image carries one written by this app</string>
+    <string name="release_1_3_0_c3">The hidden watermark content can be customised, or generated automatically from a device ID and timestamp</string>
+    <string name="release_1_3_0_c4">Export can now preserve the original EXIF data (35 fields including capture time, camera model and GPS)</string>
+    <string name="release_1_3_0_c5">Fixed hidden watermarks containing Chinese characters being detected as "?" (a character-encoding limitation in the EXIF UserComment field)</string>
+
+    <!-- ==================== Release notes: 1.2.0 ==================== -->
+    <string name="release_1_2_0_title">Batch processing · Custom fonts</string>
+    <string name="release_1_2_0_c1">Added batch processing: up to 50 images at once, running in the background with a progress indicator</string>
+    <string name="release_1_2_0_c2">Added support for importing custom fonts (ttf / otf / ttc) for text watermarks</string>
+    <string name="release_1_2_0_c3">Added watermark presets for saving and reapplying common configurations</string>
+    <string name="release_1_2_0_c4">Text watermarks now support placeholders such as {filename}</string>
+
+    <!-- ==================== Release notes: 1.1.0 ==================== -->
+    <string name="release_1_1_0_title">More parameters · Export settings</string>
+    <string name="release_1_1_0_c1">Text watermarks gained size, font, bold, italic, stroke, shadow and colour</string>
+    <string name="release_1_1_0_c2">Added single, tiled and diagonal layouts with adjustable rotation and opacity</string>
+    <string name="release_1_1_0_c3">Added 3×3 grid positioning with adjustable margins</string>
+    <string name="release_1_1_0_c4">Image watermarks: pick a logo and adjust its size and position</string>
+    <string name="release_1_1_0_c5">Added export settings: format (PNG / JPEG), quality, filename template and output folder</string>
+    <string name="release_1_1_0_c6">The parameter panel can be dragged up and down to resize</string>
+
+    <!-- ==================== Release notes: 1.0.0 ==================== -->
+    <string name="release_1_0_0_title">First release</string>
+    <string name="release_1_0_0_c1">WatermarkBox is born: add a watermark to a single image with live preview</string>
+    <string name="release_1_0_0_c2">Supports text and image watermarks</string>
+    <string name="release_1_0_0_c3">Exports to the gallery</string>
+
+    <!-- ==================== Editor / Export dialog ==================== -->
+    <string name="editor_export_title">Export settings</string>
+    <string name="editor_export_format">Output format</string>
+    <string name="editor_export_naming">File naming</string>
+    <string name="editor_export_start">Export</string>
+    <string name="editor_export_cancel">Cancel</string>
+    <string name="editor_export_png">PNG</string>
+    <string name="editor_export_jpeg">JPEG</string>
+</resources>

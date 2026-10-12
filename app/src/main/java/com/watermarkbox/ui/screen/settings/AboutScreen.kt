@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -90,10 +91,13 @@ fun AboutScreen(
     var copiedQq by remember { mutableStateOf<String?>(null) }
     var copiedLabel by remember { mutableStateOf<String?>(null) }
 
+    // 预先取好文案：LaunchedEffect 的挂起块里不能调用 @Composable 函数
+    val qqCopiedMessage = stringResource(R.string.about_qq_copied, copiedQq.orEmpty())
+
     // 复制 QQ 后给个反馈
     LaunchedEffect(copiedQq) {
         val qq = copiedQq ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar("已复制 QQ：$qq")
+        snackbarHostState.showSnackbar(qqCopiedMessage)
         copiedQq = null
     }
 
@@ -108,12 +112,12 @@ fun AboutScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("关于", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.about_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -140,8 +144,14 @@ fun AboutScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
             Spacer(Modifier.height(Spacing.Item))
 
+            // 预先取好许可相关的文案：点击回调里不是 @Composable 上下文
+            val repoOpenedMsg = stringResource(R.string.about_repo_opened)
+            val browserFailedMsg = stringResource(R.string.about_browser_failed)
+            val repoLabel = stringResource(R.string.about_license_repo)
+            val licenseLabel = stringResource(R.string.about_license_url)
+
             // ---- 制作人 ----
-            SectionLabel("制作人")
+            SectionLabel(stringResource(R.string.about_section_credits))
             AppCredits.entries.forEach { credit ->
                 CreditCard(
                     credit = credit,
@@ -158,20 +168,20 @@ fun AboutScreen(
             Spacer(Modifier.height(Spacing.Item))
 
             // ---- 本应用许可 ----
-            SectionLabel("本应用许可")
+            SectionLabel(stringResource(R.string.about_license_section))
             LicenseBanner(
                 onOpenRepo = {
                     if (openUrl(context, AppLicense.REPOSITORY_URL)) {
-                        copiedLabel = "已打开仓库页面"
+                        copiedLabel = repoOpenedMsg
                     } else {
-                        copyToClipboard(context, label = "仓库地址", text = AppLicense.REPOSITORY_URL)
-                        copiedLabel = "无法打开浏览器，已复制地址"
+                        copyToClipboard(context, label = repoLabel, text = AppLicense.REPOSITORY_URL)
+                        copiedLabel = browserFailedMsg
                     }
                 },
                 onOpenLicense = {
                     if (!openUrl(context, AppLicense.LICENSE_URL)) {
-                        copyToClipboard(context, label = "许可证地址", text = AppLicense.LICENSE_URL)
-                        copiedLabel = "无法打开浏览器，已复制地址"
+                        copyToClipboard(context, label = licenseLabel, text = AppLicense.LICENSE_URL)
+                        copiedLabel = browserFailedMsg
                     }
                 }
             )
@@ -181,9 +191,9 @@ fun AboutScreen(
             Spacer(Modifier.height(Spacing.Item))
 
             // ---- 第三方开源组件 ----
-            SectionLabel("第三方组件")
+            SectionLabel(stringResource(R.string.about_third_party))
             Text(
-                text = "本应用基于以下开源项目构建：",
+                text = stringResource(R.string.about_third_party_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -203,15 +213,18 @@ fun AboutScreen(
             Spacer(Modifier.height(Spacing.Item))
 
             // ---- 版权 ----
-            SectionLabel("版权")
+            SectionLabel(stringResource(R.string.about_copyright_title))
             Text(
-                text = "© 2026 ${AppCredits.lead.name} 保留所有权利。",
+                text = stringResource(R.string.about_copyright, AppCredits.lead.name),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "本项目采用 ${AppLicense.LICENSE_SPDX} 许可证开源。",
+                text = stringResource(
+                    R.string.about_license_notice,
+                    AppLicense.LICENSE_SPDX
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -240,22 +253,26 @@ private fun AppIdentityHeader() {
         ) {
             androidx.compose.foundation.Image(
                 painter = painterResource(id = R.drawable.ic_app_logo),
-                contentDescription = "水印盒图标",
+                contentDescription = stringResource(R.string.a11y_app_logo),
                 modifier = Modifier.size(72.dp)
             )
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            text = "水印盒",
+            text = stringResource(R.string.about_app_name),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(2.dp))
-        Text(
-            text = "WatermarkBox",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // 第二行固定显示英文名：中文界面下它是「英文副标题」，
+        // 英文界面下与主标题相同，去掉会造成布局高度跳动。
+        if (stringResource(R.string.about_app_name) != stringResource(R.string.about_app_english)) {
+            Text(
+                text = stringResource(R.string.about_app_english),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Spacer(Modifier.height(10.dp))
         Box(
             modifier = Modifier
@@ -264,14 +281,18 @@ private fun AppIdentityHeader() {
                 .padding(horizontal = 12.dp, vertical = 5.dp)
         ) {
             Text(
-                text = "版本 ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                text = stringResource(
+                    R.string.about_version,
+                    BuildConfig.VERSION_NAME,
+                    BuildConfig.VERSION_CODE
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary
             )
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "轻松添加图片水印 · 支持隐藏水印溯源",
+            text = stringResource(R.string.about_tagline),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -334,7 +355,7 @@ private fun CreditCard(
                 if (credit.role.isNotBlank()) {
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = credit.role,
+                        text = localizedCreditRole(credit.role),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -342,7 +363,7 @@ private fun CreditCard(
                 credit.qq?.let { qq ->
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "QQ：$qq",
+                        text = stringResource(R.string.about_qq_format, qq),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -354,13 +375,31 @@ private fun CreditCard(
                 IconButton(onClick = { onCopyQq(qq) }) {
                     Icon(
                         imageVector = Icons.Filled.ContentCopy,
-                        contentDescription = "复制 QQ",
+                        contentDescription = stringResource(R.string.about_copy_qq),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * 把 [Credit.role] 里的中文角色名映射到本地化文案。
+ *
+ * `AppCredits` 是纯数据层（可单测），它的 role 是**中文原文**。
+ * 这里做一次映射，而不是让数据层依赖 Android 资源 ——
+ * 保持数据层与平台无关，是当初把它拆出来的初衷。
+ *
+ * 认不出的角色原样返回：将来新增角色时，界面不会空白。
+ */
+@Composable
+private fun localizedCreditRole(role: String): String {
+    return when (role) {
+        "主创" -> stringResource(R.string.credit_role_lead)
+        "开发协助" -> stringResource(R.string.credit_role_assist)
+        else -> role
     }
 }
 
@@ -398,7 +437,7 @@ private fun Avatar(credit: Credit) {
         if (resId != null) {
             androidx.compose.foundation.Image(
                 painter = painterResource(id = resId),
-                contentDescription = "${credit.name} 的头像",
+                contentDescription = stringResource(R.string.a11y_avatar, credit.name),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(56.dp)
@@ -452,7 +491,7 @@ private fun LicenseBanner(
 
             Spacer(Modifier.height(6.dp))
             Text(
-                text = AppLicense.LICENSE_SUMMARY,
+                text = stringResource(R.string.about_license_summary),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -477,7 +516,7 @@ private fun LicenseBanner(
                 Spacer(Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "源码仓库",
+                        text = stringResource(R.string.about_license_repo_action),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -489,7 +528,7 @@ private fun LicenseBanner(
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                    contentDescription = "打开仓库",
+                    contentDescription = stringResource(R.string.about_license_repo_open),
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -513,7 +552,7 @@ private fun LicenseBanner(
                 Spacer(Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "许可证全文",
+                        text = stringResource(R.string.about_license_url_action),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -525,7 +564,7 @@ private fun LicenseBanner(
                 }
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                    contentDescription = "打开许可证",
+                    contentDescription = stringResource(R.string.about_license_url_open),
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )

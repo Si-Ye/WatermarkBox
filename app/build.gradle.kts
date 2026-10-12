@@ -28,10 +28,22 @@ android {
         targetSdk = 35         // Android 15
         versionCode = 6
         versionName = "1.4.1"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    // ---- 并行安装测试（仅用于本机验证，不影响正式构建）----
+    //
+    // 传 `-PparallelSuffix=.test` 时，applicationId 变为 com.watermarkbox.test，
+    // 可与正式版共存安装，用于「切语言看效果」这类验证而不丢用户数据。
+    //
+    // 不传该参数时行为**完全不变** —— 默认值就是空串。
+    if (project.hasProperty("parallelSuffix")) {
+        val suffix = project.property("parallelSuffix") as String
+        defaultConfig {
+            applicationIdSuffix = suffix
         }
     }
 
@@ -90,6 +102,11 @@ dependencies {
     // ---- AndroidX 基础 ----
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    // ---- 应用内语言切换 ----
+    // AppCompatDelegate.setApplicationLocales() 是官方 per-app language API，
+    // 在 Android 13+ 直接走系统能力，低版本由 AppCompat 自己接管。
+    // 项目本身是纯 Compose，引入 AppCompat 只为这一个能力。
+    implementation(libs.androidx.appcompat)
 
     // ---- Compose UI ----
     implementation(libs.androidx.activity.compose)
