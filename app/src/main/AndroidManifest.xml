@@ -10,6 +10,22 @@
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!--
+      检查更新：需要访问 GitHub Releases API。
+      仅用于「检查更新」功能，无任何其它网络行为。
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      应用内下载安装新版本（实验性功能，默认关闭）。
+
+      注意：这是「特殊权限」，不是运行时权限 —— 无法用 requestPermissions
+      申请，必须引导用户到系统设置里手动开启。
+      且只有在用户主动打开「应用内下载更新」开关后，应用才会：
+        1. 跳转授权页
+        2. 用 FileProvider 唤起系统安装器
+      默认关闭时，应用完全不触碰此权限，行为与无此权限一致。
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".WatermarkBoxApp"
@@ -51,6 +67,20 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
+
+        <!--
+          应用内安装更新包时，把私有目录的 APK 以 Content URI 形式
+          安全地交给系统安装器（Android 7.0+ 禁止直接传 file://）。
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

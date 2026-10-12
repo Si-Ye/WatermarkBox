@@ -2,7 +2,9 @@ package com.watermarkbox.data.repository
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.watermarkbox.data.model.ExportSettings
@@ -211,8 +213,68 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    // ------------------------------------------------------------------
+    // 检查更新
+    // ------------------------------------------------------------------
+
+    /**
+     * 是否自动检查更新（默认开启）。
+     *
+     * 存成简单的 Boolean Preferences 而非塞进 ExportSettings ——
+     * 后者是「导出相关」的语义，把更新开关混进去会让模型职责不清。
+     */
+    val autoCheckUpdate: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_AUTO_CHECK_UPDATE] ?: true
+    }
+
+    suspend fun getAutoCheckUpdate(): Boolean = autoCheckUpdate.first()
+
+    suspend fun setAutoCheckUpdate(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_AUTO_CHECK_UPDATE] = enabled
+        }
+    }
+
+    /**
+     * 是否启用应用内下载更新（默认关闭，实验性）。
+     *
+     * 默认关闭意味着：不申请安装权限、不下载、只跳浏览器。
+     */
+    val inAppDownload: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_INAPP_DOWNLOAD] ?: false
+    }
+
+    suspend fun getInAppDownload(): Boolean = inAppDownload.first()
+
+    suspend fun setInAppDownload(enabled: Boolean) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_INAPP_DOWNLOAD] = enabled
+        }
+    }
+
+    /**
+     * 上次自动检查更新的时间戳（毫秒）。0 表示从未检查过。
+     *
+     * 用于「每天最多检查一次」的节流：启动时若距上次 < 24h 且是自动检查，就跳过。
+     * 手动检查不受此限制。
+     */
+    val lastCheckTime: Flow<Long> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_LAST_CHECK_TIME] ?: 0L
+    }
+
+    suspend fun getLastCheckTime(): Long = lastCheckTime.first()
+
+    suspend fun setLastCheckTime(timestamp: Long) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_LAST_CHECK_TIME] = timestamp
+        }
+    }
+
     private companion object {
         val KEY_PRESETS = stringPreferencesKey("watermark_presets")
         val KEY_EXPORT_SETTINGS = stringPreferencesKey("export_settings")
+        val KEY_AUTO_CHECK_UPDATE = booleanPreferencesKey("auto_check_update")
+        val KEY_INAPP_DOWNLOAD = booleanPreferencesKey("in_app_download")
+        val KEY_LAST_CHECK_TIME = longPreferencesKey("last_check_time")
     }
 }

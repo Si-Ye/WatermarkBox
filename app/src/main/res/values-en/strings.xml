@@ -91,6 +91,59 @@
     <string name="settings_pick_image">Choose</string>
     <string name="settings_change_image">Change</string>
 
+    <!-- ==================== Update check ==================== -->
+    <string name="update_section_title">Updates</string>
+
+    <!-- Setting: auto check -->
+    <string name="update_auto_check_title">Check for updates automatically</string>
+    <string name="update_auto_check_desc">Check for a new version at launch (at most once a day)</string>
+
+    <!-- Setting: in-app download (experimental) -->
+    <string name="update_inapp_title">Download updates in-app</string>
+    <string name="update_inapp_desc">Experimental: download and install new versions inside the app, without opening a browser</string>
+    <string name="update_inapp_permission_title">Allow app installation</string>
+    <string name="update_inapp_permission_desc">Installing a new version in-app requires the &quot;Install unknown apps&quot; permission.\n\nSystem settings will open — find &quot;WatermarkBox&quot;, enable the switch, then return to this app.</string>
+    <string name="update_inapp_permission_go">Grant permission</string>
+
+    <!-- Setting: manual check -->
+    <string name="update_check_title">Check for updates</string>
+    <string name="update_check_desc">Fetch the latest release info from GitHub</string>
+    <string name="update_check_action">Check</string>
+
+    <!-- Progress and results -->
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">You\'re up to date</string>
+    <string name="update_up_to_date_desc">Version %1$s is the latest</string>
+    <string name="update_available_title">New version %1$s available</string>
+    <string name="update_available_current">Current version: %1$s</string>
+    <string name="update_available_new">Latest version: %1$s</string>
+    <string name="update_no_notes">No release notes for this version.</string>
+
+    <!-- Dialog buttons -->
+    <string name="update_btn_download_browser">Download in browser</string>
+    <string name="update_btn_download_inapp">Download in-app</string>
+    <string name="update_btn_later">Later</string>
+    <string name="update_btn_cancel">Cancel</string>
+    <string name="update_btn_open_settings">Open settings</string>
+
+    <!-- Errors and fallbacks -->
+    <string name="update_error_network">Network connection failed — check your connection and try again</string>
+    <string name="update_error_timeout">Connection timed out — GitHub may be unreachable, try opening it in a browser</string>
+    <string name="update_error_not_found">No published release found</string>
+    <string name="update_error_parse">Failed to parse version info</string>
+    <string name="update_error_unknown">Update check failed (%1$s)</string>
+    <string name="update_error_open_browser">Could not open a browser</string>
+    <string name="update_error_install_blocked">System blocked app installation — grant the permission first</string>
+
+    <!-- In-app download -->
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_downloading_unknown">Downloading…</string>
+    <string name="update_download_done">Download complete — opening the installer…</string>
+    <string name="update_download_failed">Download failed: %1$s</string>
+    <string name="update_install_confirm_title">Install new version</string>
+    <string name="update_install_confirm_desc">The download is complete. The system will open the install screen — follow the prompts to finish.\n\nThe system may ask to confirm the permission again.</string>
+    <string name="update_install_go">Install now</string>
+
     <!-- ==================== About ==================== -->
     <string name="about_title">About</string>
     <string name="about_section_credits">Credits</string>

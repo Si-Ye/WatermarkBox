@@ -18,7 +18,9 @@ import kotlinx.coroutines.launch
  */
 data class SettingsUiState(
     val exportSettings: ExportSettings = ExportSettings(),
-    val presetCount: Int = 0
+    val presetCount: Int = 0,
+    val autoCheckUpdate: Boolean = true,
+    val inAppDownload: Boolean = false
 )
 
 /**
@@ -26,11 +28,11 @@ data class SettingsUiState(
  *
  * 管理：默认导出格式、默认透明度、文件名模板、输出目录。
  * 全部持久化在 DataStore，与编辑页/批量页共享同一份配置。
+ *
+ * 注：更新流程不在这里，见 [com.watermarkbox.ui.screen.update.UpdateViewModel]
  */
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-
     private val settingsRepository = SettingsRepository(application)
-
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -45,6 +47,33 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 _uiState.update { it.copy(presetCount = list.size) }
             }
         }
+        viewModelScope.launch {
+            settingsRepository.autoCheckUpdate.collect { enabled ->
+                _uiState.update { it.copy(autoCheckUpdate = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.inAppDownload.collect { enabled ->
+                _uiState.update { it.copy(inAppDownload = enabled) }
+            }
+        }
+    }
+
+    /** 切换「自动检查更新」。 */
+    fun setAutoCheckUpdate(enabled: Boolean) {
+        _uiState.update { it.copy(autoCheckUpdate = enabled) }
+        viewModelScope.launch { settingsRepository.setAutoCheckUpdate(enabled) }
+    }
+
+    /**
+     * 切换「应用内下载」开关。
+     *
+     * 只负责落库；是否需要先申请「安装未知应用」权限由 UI 层判断
+     * （见 SettingsScreen 里的 showInAppPermissionDialog 处理）。
+     */
+    fun setInAppDownload(enabled: Boolean) {
+        _uiState.update { it.copy(inAppDownload = enabled) }
+        viewModelScope.launch { settingsRepository.setInAppDownload(enabled) }
     }
 
     fun updateExportSettings(settings: ExportSettings) {

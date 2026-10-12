@@ -1,5 +1,7 @@
 package com.watermarkbox.ui.screen.settings
 
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -38,6 +40,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,8 +65,19 @@ import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ToggleRow
+import com.watermarkbox.ui.screen.update.UpdateAvailableDialog
+import com.watermarkbox.ui.screen.update.UpdateCheckingDialog
+import com.watermarkbox.ui.screen.update.UpdateDownloadingDialog
+import com.watermarkbox.ui.screen.update.UpdateFailedDialog
+import com.watermarkbox.ui.screen.update.UpdatePermissionDialog
+import com.watermarkbox.ui.screen.update.UpdateReadyToInstallDialog
+import com.watermarkbox.ui.screen.update.UpdateUiState
+import com.watermarkbox.ui.screen.update.UpdateUpToDateDialog
+import com.watermarkbox.ui.screen.update.UpdateViewModel
 import com.watermarkbox.ui.theme.Spacing
 import com.watermarkbox.util.AppLanguage
+import com.watermarkbox.util.ApkInstaller
+import com.watermarkbox.util.UpdateChecker
 import kotlin.math.roundToInt
 
 /**
@@ -93,6 +110,7 @@ private enum class SettingsCategory(@param:StringRes val labelRes: Int) {
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    updateViewModel: UpdateViewModel,
     onBack: () -> Unit,
     onOpenAbout: () -> Unit = {},
     onOpenChangelog: () -> Unit = {},
@@ -100,7 +118,68 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val updateState by updateViewModel.uiState.collectAsStateWithLifecycle()
+    val inAppEnabled by updateViewModel.inAppEnabled.collectAsStateWithLifecycle()
     val settings = state.exportSettings
+    val context = LocalContext.current
+
+    /** 是否显示「应用内下载需要授权」的说明对话框。 */
+    var showInAppPermissionDialog by remember { mutableStateOf(false) }
+
+    /**
+     * 是否正在「等待用户从系统授权页返回」。
+     *
+     * ## 为什么需要这个状态
+     *
+     * 授权是**异步的「去-回」往返**：应用跳出去 → 用户在系统设置里操作
+     * → 应用回到前台。跳转的那一刻**无法知道**用户最终是否授权。
+     *
+     * 所以不能在跳转前就把开关置为「开」—— 否则用户点了「去授权」
+     * 但没真的打开开关就返回，界面会显示「开」，与实际权限不符。
+     *
+     * 正确做法：记住「我们正等一个授权结果」，等应用回到前台时
+     * 复查一次权限，用**真实结果**决定开关状态。
+     */
+    var awaitingPermission by remember { mutableStateOf(false) }
+
+    // 从系统授权页返回时复查权限。
+    //
+    // 用 ON_RESUME 而不是 ON_START：授权页覆盖在本应用之上时，
+    // 本 Activity 只是 STOPPED；用户返回时先 START 再 RESUME，
+    // 在 RESUME 复查可保证读取到最新的权限状态。
+    //
+    // ## 为什么每次 RESUME 都要查，而不只在「等待授权」时查
+    //
+    // 还有一条对称的路径：用户此前已授权（开关为开），之后跑到
+    // 系统设置里**撤销**了权限。此时回到应用，开关若仍显示「开」
+    // 就与实际不符 —— 点下载会在唤起安装器时失败。
+    //
+    // 所以只要「开关当前是开的」或「正在等待授权结果」，
+    // 每次回到前台都校正一次，让它始终等于真实权限。
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val needPermissionAudit = awaitingPermission || state.inAppDownload
+    DisposableEffect(lifecycleOwner, needPermissionAudit) {
+        if (!needPermissionAudit) {
+            onDispose {}
+        } else {
+            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                    val granted = ApkInstaller.canInstall(context)
+                    // 只在真实状态与界面状态不一致时写入，避免无谓的 DataStore 写入
+                    if (granted != state.inAppDownload) {
+                        viewModel.setInAppDownload(granted)
+                    }
+                    if (awaitingPermission) awaitingPermission = false
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+    }
+
+    // 进入设置页时若距上次检查已过一天，顺带查一次（静默）。
+    // 这里也调一次是因为用户可能长时间不重启应用，只切页面。
+    LaunchedEffect(Unit) { updateViewModel.autoCheckIfDue() }
 
     // 用 rememberSaveable 而非 remember：
     // 切换应用语言会重建 Activity，若用 remember，
@@ -157,6 +236,18 @@ fun SettingsScreen(
                     )
                     SettingsCategory.MISC -> MiscCategory(
                         presetCount = state.presetCount,
+                        autoCheckUpdate = state.autoCheckUpdate,
+                        inAppDownload = state.inAppDownload,
+                        onToggleAutoCheck = { viewModel.setAutoCheckUpdate(it) },
+                        onToggleInApp = { enabled ->
+                            // 开启时才需要授权：先弹说明，用户同意后再跳系统设置
+                            if (enabled && !ApkInstaller.canInstall(context)) {
+                                showInAppPermissionDialog = true
+                            } else {
+                                viewModel.setInAppDownload(enabled)
+                            }
+                        },
+                        onCheckUpdate = { updateViewModel.check(manual = true) },
                         onOpenAbout = onOpenAbout,
                         onOpenChangelog = onOpenChangelog
                     )
@@ -165,6 +256,96 @@ fun SettingsScreen(
                 Spacer(Modifier.height(32.dp))
             }
         }
+    }
+
+    // ---- 更新流程对话框 ----
+    // 挂在 Scaffold 之后、函数闭合前：它们是「覆盖层」，
+    // 不应参与 Scaffold 的内容布局。
+    when (val us = updateState) {
+        UpdateUiState.Idle -> Unit
+
+        UpdateUiState.Checking -> UpdateCheckingDialog()
+
+        is UpdateUiState.UpToDate -> UpdateUpToDateDialog(
+            currentVersion = us.currentVersion,
+            onDismiss = { updateViewModel.dismiss() }
+        )
+
+        is UpdateUiState.Available -> UpdateAvailableDialog(
+            currentVersion = BuildConfig.VERSION_NAME,
+            info = us.info,
+            // 只有「开关打开」且「真有 APK 附件」才给应用内下载选项
+            inAppAvailable = inAppEnabled && us.info.apkUrl != null,
+            onDismiss = { updateViewModel.dismiss() },
+            onDownloadInApp = { updateViewModel.downloadInApp() },
+            onOpenBrowser = {
+                openUrl(context, us.info.htmlUrl)
+                updateViewModel.dismiss()
+            }
+        )
+
+        is UpdateUiState.Failed -> UpdateFailedDialog(
+            message = stringResource(us.kind.messageRes()),
+            onDismiss = { updateViewModel.dismiss() }
+        )
+
+        is UpdateUiState.Downloading -> UpdateDownloadingDialog(percent = us.percent)
+
+        UpdateUiState.ReadyToInstall -> UpdateReadyToInstallDialog(
+            onInstall = { updateViewModel.installDownloaded() },
+            onCancel = { updateViewModel.dismiss() }
+        )
+
+        UpdateUiState.NeedPermission -> UpdatePermissionDialog(
+            onGoSettings = { updateViewModel.openInstallPermissionSettings() },
+            onCancel = { updateViewModel.dismiss() }
+        )
+    }
+
+    // 「开启应用内下载」时的授权说明。
+    // 用户确认后才真正跳系统设置 —— 避免莫名其妙被弹出应用。
+    if (showInAppPermissionDialog) {
+        UpdatePermissionDialog(
+            onGoSettings = {
+                showInAppPermissionDialog = false
+                // 关键：**不在此处**把开关置为「开」。
+                //
+                // 跳转只是「请求授权」，用户完全可能到设置页后直接返回、
+                // 并未真正打开开关。此时若先置 true，界面就会与真实权限不符。
+                //
+                // 改为标记「正在等待授权结果」，待应用回到前台时
+                // 由上面的 ON_RESUME 复查用真实权限决定开关。
+                awaitingPermission = true
+                updateViewModel.openInstallPermissionSettings()
+            },
+            onCancel = { showInAppPermissionDialog = false }
+        )
+    }
+}
+
+/**
+ * 把 [UpdateChecker.ErrorKind] 映射到本地化文案。
+ *
+ * 为什么映射放在 UI 层而非 ViewModel：ViewModel 不该持有资源 ID
+ * （它是平台无关的），错误分类由它给出、文案由界面决定，
+ * 这与项目里 [UiMessage] 的设计思路一致。
+ */
+@StringRes
+private fun UpdateChecker.ErrorKind.messageRes(): Int = when (this) {
+    UpdateChecker.ErrorKind.NETWORK -> R.string.update_error_network
+    UpdateChecker.ErrorKind.TIMEOUT -> R.string.update_error_timeout
+    UpdateChecker.ErrorKind.HTTP -> R.string.update_error_not_found
+    UpdateChecker.ErrorKind.PARSE -> R.string.update_error_parse
+    UpdateChecker.ErrorKind.UNKNOWN -> R.string.update_error_unknown
+}
+
+/** 用系统浏览器打开 URL；无浏览器时静默忽略。 */
+private fun openUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 
@@ -368,10 +549,15 @@ private fun ExportCategory(
     )
 }
 
-/** 「其他」分类：预设统计 + 更新说明 + 关于入口。 */
+/** 「其他」分类：预设统计 + 更新 + 更新说明 + 关于入口。 */
 @Composable
 private fun MiscCategory(
     presetCount: Int,
+    autoCheckUpdate: Boolean,
+    inAppDownload: Boolean,
+    onToggleAutoCheck: (Boolean) -> Unit,
+    onToggleInApp: (Boolean) -> Unit,
+    onCheckUpdate: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenChangelog: () -> Unit
 ) {
@@ -387,6 +573,52 @@ private fun MiscCategory(
     Spacer(Modifier.height(Spacing.Item))
 
     SectionLabel(stringResource(R.string.settings_app_info_title))
+
+    // ---- 更新分组 ----
+    // 放在「应用信息」标题下、语言之前：更新也是应用级偏好，且用户找它通常直奔设置页底部
+    ToggleRow(
+        label = stringResource(R.string.update_auto_check_title),
+        checked = autoCheckUpdate,
+        onCheckedChange = onToggleAutoCheck
+    )
+    Text(
+        text = stringResource(R.string.update_auto_check_desc),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    ToggleRow(
+        label = stringResource(R.string.update_inapp_title),
+        checked = inAppDownload,
+        onCheckedChange = onToggleInApp
+    )
+    Text(
+        text = stringResource(R.string.update_inapp_desc),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    // 手动检查更新入口
+    NavRow(
+        title = stringResource(R.string.update_check_title),
+        subtitle = stringResource(R.string.update_check_desc),
+        trailing = {
+            Text(
+                text = stringResource(R.string.update_check_action),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        },
+        onClick = onCheckUpdate
+    )
+
+    Spacer(Modifier.height(Spacing.Item))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+    Spacer(Modifier.height(Spacing.Item))
 
     // 语言入口：放在最前，因为它是「应用级偏好」里最常改的一项
     var showLanguageDialog by remember { mutableStateOf(false) }

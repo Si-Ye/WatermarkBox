@@ -84,6 +84,7 @@ import com.watermarkbox.ui.theme.Spacing
 @Composable
 fun AboutScreen(
     onBack: () -> Unit,
+    onCheckUpdate: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -138,7 +139,7 @@ fun AboutScreen(
             Spacer(Modifier.height(Spacing.Item))
 
             // ---- 应用标识 ----
-            AppIdentityHeader()
+            AppIdentityHeader(onCheckUpdate = onCheckUpdate)
 
             Spacer(Modifier.height(Spacing.Item))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
@@ -238,7 +239,7 @@ fun AboutScreen(
  * 顶部应用标识：名称 + 版本 + 一句话简介。
  */
 @Composable
-private fun AppIdentityHeader() {
+private fun AppIdentityHeader(onCheckUpdate: () -> Unit = {}) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -274,10 +275,14 @@ private fun AppIdentityHeader() {
             )
         }
         Spacer(Modifier.height(10.dp))
+        // 版本徽章即「检查更新」入口：点它直接查新版本。
+        // 关于页是用户查看版本号的地方，顺手能查更新最符合直觉
+        // （与设置页的「检查更新」构成双入口）。
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+                .clickable(onClick = onCheckUpdate)
                 .padding(horizontal = 12.dp, vertical = 5.dp)
         ) {
             Text(

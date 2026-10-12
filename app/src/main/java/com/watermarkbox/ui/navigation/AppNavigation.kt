@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.navigation
 
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -9,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,6 +32,7 @@ import com.watermarkbox.ui.screen.settings.AboutScreen
 import com.watermarkbox.ui.screen.settings.ChangelogScreen
 import com.watermarkbox.ui.screen.settings.SettingsScreen
 import com.watermarkbox.ui.screen.settings.SettingsViewModel
+import com.watermarkbox.ui.screen.update.UpdateViewModel
 
 /**
  * 导航目的地定义。
@@ -92,6 +95,18 @@ fun WatermarkBoxNavHost(
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
+
+    // 「检查更新」的全应用共享状态。
+    //
+    // 关键：作用域必须是 Activity（而非默认的 NavBackStackEntry），
+    // 这样设置页与关于页拿到的是**同一个** ViewModel 实例 ——
+    // 在设置页触发的检查，切到关于页时状态仍一致。
+    // 同时它比 NavHost 活得更久，启动自动检查在首页也能跑。
+    val activity = LocalContext.current as ComponentActivity
+    val updateViewModel: UpdateViewModel = viewModel(viewModelStoreOwner = activity)
+
+    // 应用启动即尝试自动检查（内部有「每天一次」节流，幂等）
+    LaunchedEffect(Unit) { updateViewModel.autoCheckIfDue() }
 
     // 当前编辑页 ViewModel（供 logo picker 回调）
     val activeEditorViewModel = remember { mutableStateOf<EditorViewModel?>(null) }
@@ -176,6 +191,7 @@ fun WatermarkBoxNavHost(
                 val settingsViewModel: SettingsViewModel = viewModel()
                 SettingsScreen(
                     viewModel = settingsViewModel,
+                    updateViewModel = updateViewModel,
                     onBack = { navController.popBackStack() },
                     onOpenAbout = { navController.navigate(Routes.ABOUT) },
                     onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
@@ -185,7 +201,11 @@ fun WatermarkBoxNavHost(
 
             // ---------------- 关于 ----------------
             composable(Routes.ABOUT) {
-                AboutScreen(onBack = { navController.popBackStack() })
+                AboutScreen(
+                    onBack = { navController.popBackStack() },
+                    // 版本徽章点击 → 发起手动检查（对话框统一在 NavHost 外层渲染）
+                    onCheckUpdate = { updateViewModel.check(manual = true) }
+                )
             }
 
             // ---------------- 更新说明 ----------------

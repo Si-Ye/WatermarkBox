@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 可暴露的路径白名单。
+
+  只暴露应用私有 files 目录下的 updates/ 子目录 —— 下载更新包的位置。
+
+  ## 为什么用 files-path 而不是 cache-path（踩坑记录）
+
+  最初用 <cache-path>，实测部分设备上系统安装器（独立进程）
+  打开 URI 时报 ENOENT：cacheDir 权限位特殊，且系统可主动清理。
+  改用 files-path 后正常。
+
+  路径必须与 ApkInstaller.updateDir() 保持一致：filesDir/updates
+-->
+<paths>
+    <files-path
+        name="updates"
+        path="updates/" />
+</paths>
