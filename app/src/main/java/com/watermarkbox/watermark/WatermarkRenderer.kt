@@ -251,17 +251,31 @@ class WatermarkRenderer {
         val lineHeight = paint.fontMetrics.let { it.descent - it.ascent }
 
         val count = config.tileCount.coerceIn(1, 20)
-        val cellWidth = output.width.toFloat() / count
-        val cellHeight = max(cellWidth / 1.6f, lineHeight * 1.4f)
 
-        // 对角线铺满需要的额外范围：以对角线长度为准，保证旋转后不断档
+        // ---- 网格尺寸 ----
+        //
+        // 用**对角线方向上的等分**来定网格，而不是只看宽度。
+        // 若只按宽度分（旧写法 cellWidth = width/count），宽图时格子会非常宽，
+        // 高度只有一点点，旋转后竖直方向覆盖不足 —— 这是「长方形图片
+        // 对角水印覆盖不全」的另一个成因。
+        //
+        // 现在的做法：
+        //   1. 先算图片对角线长度 diagonal；
+        //   2. 对角方向等分 diagonal / count 得到基础格子边长；
+        //   3. 再用它推出网格的列数与行数。
+        // 这样无论横图竖图，旋转 45° 后的铺开密度都一致。
         val diagonal = kotlin.math.sqrt(
             (output.width * output.width + output.height * output.height).toDouble()
         ).toFloat()
+        val base = diagonal / count
+        val cellWidth = base
+        val cellHeight = max(base / 1.6f, lineHeight * 1.4f)
+
+        // 需要覆盖的范围：对角线长度 + 一格余量，保证旋转后四角不断档
         val extended = diagonal + max(cellWidth, cellHeight)
 
-        val cols = ceil(extended / cellWidth).toInt()
-        val rows = ceil(extended / cellHeight).toInt()
+        val cols = ceil(extended / cellWidth).toInt() + 1
+        val rows = ceil(extended / cellHeight).toInt() + 1
 
         // 画布中心旋转：对角线默认 45°，再叠加用户自定义角度
         val angle = -45f + config.rotationDegrees
@@ -277,7 +291,13 @@ class WatermarkRenderer {
                 val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
                 val x = startX + col * cellWidth + offsetX
                 val y = startY + row * cellHeight
-                if (isInsideRotatedArea(x, y, output.width, output.height, angle)) {
+                // 判定用「整个格子与图片是否相交」，文字按自身宽度参与，
+                // 避免边缘格子因左上角出界而被整格跳过。
+                if (isInsideRotatedArea(
+                        x - textWidth / 2f, y - lineHeight, textWidth, lineHeight * 2f,
+                        output.width, output.height, angle
+                    )
+                ) {
                     drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
                 }
             }
@@ -287,20 +307,62 @@ class WatermarkRenderer {
         return output
     }
 
-    /** 粗略判断某点旋转后是否仍落在图片范围内，跳过完全出界的格子以省性能。 */
+    /**
+     * 判断「旋转坐标系下的一个格子矩形」是否与图片区域相交。
+     *
+     * ## 为什么不是判断单个点（踩坑记录）
+     *
+     * 起初这里只判断格子**左上角**是否落在图片内，结果对角水印在
+     * 长方形图片上会出现**边缘覆盖不全**：格子有宽高（文字宽度 / logo 尺寸），
+     * 左上角稍一出界，整格就被跳过 —— 可它的右半 / 下半明明还盖在图上。
+     * 宽图（如 3000×1000）尤其明显，因为横向格子很宽，出界比例更高。
+     *
+     * 现在改为取**格子四角 + 中心**共 5 个点，任一落在（略微外扩的）图片内
+     * 就认为该格子与图片相交、需要绘制。
+     *
+     * @param x       格子左上角 x（旋转后的坐标系）
+     * @param y       格子左上角 y（旋转后的坐标系）
+     * @param cellW   格子宽
+     * @param cellH   格子高
+     * @param w       图片宽
+     * @param h       图片高
+     * @param angleDeg 画布旋转角度（度）
+     */
     private fun isInsideRotatedArea(
-        x: Float, y: Float, w: Int, h: Int, angleDeg: Float
+        x: Float,
+        y: Float,
+        cellW: Float,
+        cellH: Float,
+        w: Int,
+        h: Int,
+        angleDeg: Float
     ): Boolean {
         val cx = w / 2f
         val cy = h / 2f
+        // 反向旋转，把「旋转坐标系里的点」映射回「原图坐标系」
         val rad = Math.toRadians(-angleDeg.toDouble())
-        val dx = x - cx
-        val dy = y - cy
-        val rx = cx + (dx * cos(rad) - dy * sin(rad)).toFloat()
-        val ry = cy + (dx * sin(rad) + dy * cos(rad)).toFloat()
-        val tolerance = 0.2f
-        return rx >= -w * tolerance && rx <= w * (1 + tolerance) &&
-            ry >= -h * tolerance && ry <= h * (1 + tolerance)
+        val cosA = cos(rad).toFloat()
+        val sinA = sin(rad).toFloat()
+
+        // 图片范围外扩半个格子的容差：
+        // 只要格子有任何一部分盖在图上就画，宁可多画一格也不要断档。
+        val padX = cellW / 2f
+        val padY = cellH / 2f
+
+        // 格子四角 + 中心
+        val px = floatArrayOf(x, x + cellW, x, x + cellW, x + cellW / 2f)
+        val py = floatArrayOf(y, y, y + cellH, y + cellH, y + cellH / 2f)
+
+        for (i in px.indices) {
+            val dx = px[i] - cx
+            val dy = py[i] - cy
+            val rx = cx + (dx * cosA - dy * sinA)
+            val ry = cy + (dx * sinA + dy * cosA)
+            if (rx >= -padX && rx <= w + padX && ry >= -padY && ry <= h + padY) {
+                return true
+            }
+        }
+        return false
     }
 
     // ---------------------------------------------------------------------
@@ -455,15 +517,19 @@ class WatermarkRenderer {
 
         val (w, h) = computeLogoSize(logo, config, ctx)
         val count = config.tileCount.coerceIn(1, 20)
-        val cellWidth = output.width.toFloat() / count
-        val cellHeight = max(cellWidth / 1.6f, h * 1.4f)
 
+        // 网格尺寸：与文字对角线同样的思路 —— 以**对角线等分**定网格，
+        // 而不是只看宽度，否则宽图会在竖直方向覆盖不足（见 renderDiagonal 注释）。
         val diagonal = kotlin.math.sqrt(
             (output.width * output.width + output.height * output.height).toDouble()
         ).toFloat()
+        val base = diagonal / count
+        val cellWidth = base
+        val cellHeight = max(base / 1.6f, h * 1.4f)
+
         val extended = diagonal + max(cellWidth, cellHeight)
-        val cols = ceil(extended / cellWidth).toInt()
-        val rows = ceil(extended / cellHeight).toInt()
+        val cols = ceil(extended / cellWidth).toInt() + 1
+        val rows = ceil(extended / cellHeight).toInt() + 1
 
         val angle = -45f + config.rotationDegrees
         canvas.save()
@@ -477,7 +543,12 @@ class WatermarkRenderer {
                 val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
                 val x = startX + col * cellWidth + offsetX
                 val y = startY + row * cellHeight
-                if (isInsideRotatedArea(x, y, output.width, output.height, angle)) {
+                // 按 logo 实际尺寸判定相交，避免边缘格子被整格跳过
+                if (isInsideRotatedArea(
+                        x, y, w, h,
+                        output.width, output.height, angle
+                    )
+                ) {
                     canvas.drawBitmap(
                         logo, null,
                         Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
