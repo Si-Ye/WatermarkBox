@@ -2,37 +2,41 @@
 <!--
   水印盒 WatermarkBox — README 头部横幅
   ────────────────────────────────────────────────────────────
-  尺寸：1200 × 300（GitHub README 常见比例，宽高比 4:1）
+  尺寸：1200 × 300
+
+  ## 布局约束（改文案前请先量宽度）
+
+  各元素的横向占用（x = 起点，w = 实测宽度）：
+
+    图标      x= 56 .. 188     132px 见方
+    主标题    x=216 .. 402     「水印盒」62px → 宽 186
+    英文名    x=414 .. 676     「WatermarkBox」38px → 宽 262
+    定位语    x=218 .. 641     「一个安静、克制的…」21px → 宽 423
+    标签组    x=218 .. 638     三个胶囊，每个 132 + 12 间距
+
+  ⚠️ 中文全角字符宽度 ≈ 字号（1:1），拉丁字母约 0.55 倍。
+  「水印盒」3 字 @62px ≈ 186px 宽 —— 不是 140px。
+  改文案后必须重新量一遍，否则就会重叠（曾因此重叠 46px）。
 
   设计说明：
-  - 背景：品牌深蓝 #1A237E → #283593 的斜向渐变，右侧叠一圈
-    琥珀色光晕，呼应应用图标里「水滴」的辅助色。
-  - 左侧：复刻应用图标里的「盒子 + 水滴」图形（等比缩放到 132px）。
-  - 右侧：产品名 + 一句话定位，全部用 <text> 输出，
-    不依赖外部字体（走系统默认无衬线体）。
-  - 右下角：一排细小的斜向斜纹，暗示「平铺水印」这一核心功能。
-
-  ⚠️ 关于中文字体：
-  GitHub 渲染 SVG 时会用**容器内的字体**，中文可能与本地有差异。
-  因此把「中文主标题」控制在少量字符，即使字体替换也不影响布局。
+  - 背景：品牌深蓝 #1A237E → #283593 斜向渐变，右侧叠琥珀色光晕
+  - 图标：复刻 branding/ic_launcher.svg 的「盒子 + 水滴」
+  - 斜纹：45° 细线，暗示「平铺水印」这个核心能力
 -->
 <svg width="1200" height="300" viewBox="0 0 1200 300"
      xmlns="http://www.w3.org/2000/svg">
 
   <defs>
-    <!-- 主背景渐变：品牌深蓝的两个明度 -->
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%"   stop-color="#1A237E"/>
       <stop offset="100%" stop-color="#283593"/>
     </linearGradient>
 
-    <!-- 右侧琥珀光晕：径向渐变，中心亮、边缘透明 -->
     <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
       <stop offset="0%"   stop-color="#FF6F00" stop-opacity="0.34"/>
       <stop offset="100%" stop-color="#FF6F00" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- 斜纹图案：斜向细线，用作右下角的「平铺水印」暗示 -->
     <pattern id="stripe" width="18" height="18"
              patternUnits="userSpaceOnUse"
              patternTransform="rotate(-45)">
@@ -47,29 +51,22 @@
   <circle cx="1080" cy="40" r="260" fill="url(#glow)"/>
   <circle cx="1010" cy="250" r="180" fill="url(#glow)"/>
 
-  <!-- ============ 左侧：图标（缩放 132/1024 ≈ 0.129）============ -->
+  <!-- ============ 左侧图标（56..188）============ -->
   <g transform="translate(56, 84) scale(0.129)">
-    <!-- 图标底板 -->
     <rect x="-512" y="-512" width="1024" height="1024" rx="200" fill="#0D1454"/>
-
     <g transform="translate(512, 512)">
-      <!-- 盒子盖 -->
       <rect x="-240" y="-216" width="480" height="84" rx="26"
             fill="#FFFFFF" opacity="0.95"/>
-      <!-- 盒子主体 -->
       <path d="M -220 -100 L -220 180 Q -220 228 -172 228
                L 172 228 Q 220 228 220 180 L 220 -100 Z"
             fill="none" stroke="#FFFFFF" stroke-width="44"
             stroke-linejoin="round" stroke-linecap="round"/>
-      <!-- 水滴 -->
       <path d="M 0 -50 C -88 28 -124 70 -124 122
                C -124 190 -68 234 0 234
                C 68 234 124 190 124 122
                C 124 70 88 28 0 -50 Z"
             fill="#FF6F00"/>
-      <!-- 高光 -->
       <circle cx="-44" cy="126" r="28" fill="#FFFFFF" opacity="0.42"/>
-      <!-- 印痕 -->
       <rect x="-190" y="14" width="48" height="20" rx="10"
             fill="#FFFFFF" opacity="0.55"/>
       <rect x="142" y="14" width="48" height="20" rx="10"
@@ -77,54 +74,40 @@
     </g>
   </g>
 
-  <!-- ============ 右侧：文字 ============ -->
-  <!-- 主标题 -->
-  <text x="216" y="140"
-        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI',
-                     'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
-                     'Microsoft YaHei', 'Hiragino Sans GB',
-                     'Helvetica Neue', Arial, sans-serif"
-        font-size="62" font-weight="700" fill="#FFFFFF"
-        letter-spacing="1">水印盒</text>
+  <!-- ============ 文字区 ============ -->
+  <g font-family="'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
+                  'Microsoft YaHei', 'Hiragino Sans GB',
+                  'Helvetica Neue', Arial, sans-serif">
 
-  <!-- 英文名（与中文同排，弱化处理） -->
-  <text x="356" y="140"
-        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI',
-                     'Noto Sans CJK SC', 'Helvetica Neue', Arial, sans-serif"
-        font-size="38" font-weight="300" fill="#9FA8DA"
-        letter-spacing="2">WatermarkBox</text>
+    <!-- 主标题「水印盒」：216..402（62px，宽 186）-->
+    <text x="216" y="140" font-size="62" font-weight="700"
+          fill="#FFFFFF" letter-spacing="1">水印盒</text>
 
-  <!-- 一句话定位 -->
-  <text x="218" y="192"
-        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI',
-                     'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
-                     'Microsoft YaHei', 'Hiragino Sans GB',
-                     'Helvetica Neue', Arial, sans-serif"
-        font-size="21" fill="#C5CAE9" letter-spacing="0.5">一个安静、克制的 Android 图片水印工具</text>
+    <!-- 英文名：414..676（38px，宽 262），与主标题留 12px 间隙 -->
+    <text x="414" y="140" font-size="38" font-weight="300"
+          fill="#9FA8DA" letter-spacing="2">WatermarkBox</text>
 
-  <!-- 特性标签：三个胶囊 -->
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI',
-                  'Noto Sans CJK SC', 'Source Han Sans SC', 'PingFang SC',
-                  'Microsoft YaHei', Arial, sans-serif"
-     font-size="17">
+    <!-- 一句话定位：218..641（21px，宽 423）-->
+    <text x="218" y="192" font-size="21" fill="#C5CAE9"
+          letter-spacing="0.5">一个安静、克制的 Android 图片水印工具</text>
 
-    <!-- 标签 1 -->
-    <rect x="218" y="216" width="132" height="38" rx="19"
-          fill="#FFFFFF" fill-opacity="0.12"
-          stroke="#FFFFFF" stroke-opacity="0.24"/>
-    <text x="284" y="241" fill="#E8EAF6" text-anchor="middle">实时预览</text>
+    <!-- 特性标签：218..350 / 362..494 / 506..638 -->
+    <g font-size="17">
+      <rect x="218" y="216" width="132" height="38" rx="19"
+            fill="#FFFFFF" fill-opacity="0.12"
+            stroke="#FFFFFF" stroke-opacity="0.24"/>
+      <text x="284" y="241" fill="#E8EAF6" text-anchor="middle">实时预览</text>
 
-    <!-- 标签 2 -->
-    <rect x="362" y="216" width="132" height="38" rx="19"
-          fill="#FF6F00" fill-opacity="0.18"
-          stroke="#FF6F00" stroke-opacity="0.55"/>
-    <text x="428" y="241" fill="#FFCC80" text-anchor="middle">隐藏水印</text>
+      <rect x="362" y="216" width="132" height="38" rx="19"
+            fill="#FF6F00" fill-opacity="0.18"
+            stroke="#FF6F00" stroke-opacity="0.55"/>
+      <text x="428" y="241" fill="#FFCC80" text-anchor="middle">隐藏水印</text>
 
-    <!-- 标签 3 -->
-    <rect x="506" y="216" width="132" height="38" rx="19"
-          fill="#FFFFFF" fill-opacity="0.12"
-          stroke="#FFFFFF" stroke-opacity="0.24"/>
-    <text x="572" y="241" fill="#E8EAF6" text-anchor="middle">不联网</text>
+      <rect x="506" y="216" width="132" height="38" rx="19"
+            fill="#FFFFFF" fill-opacity="0.12"
+            stroke="#FFFFFF" stroke-opacity="0.24"/>
+      <text x="572" y="241" fill="#E8EAF6" text-anchor="middle">不联网</text>
+    </g>
 
   </g>
 </svg>
