@@ -11,6 +11,8 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF.svg)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack-Compose-4285F4.svg)](https://developer.android.com/jetpack/compose)
 
+[![Download](https://img.shields.io/github/v/release/Si-Ye/WatermarkBox?label=%E4%B8%8B%E8%BD%BD&color=green)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
+
 </div>
 
 ---

@@ -12,7 +12,11 @@
 # 环境变量：
 #   GITHUB_TOKEN    必填（推送时）。建议用完立刻在 GitHub 设置里删除该令牌。
 #   SRC_DIR         源码工作区，默认自动探测
-#   GIT_DIR         git 仓库目录，默认自动探测（优先当前目录）
+#   WMB_GIT_DIR     git 仓库目录，默认自动探测（优先当前目录）
+#
+# 注意：本脚本刻意**不使用** GIT_DIR 环境变量名，因为它会全局改变 git 的
+#       行为（让 git 在任意目录都去找那个仓库），从而污染当前 shell，
+#       后续在该 shell 里执行 git 命令会莫名失败。
 #
 # 退出码：
 #   0 = 成功    1 = 自查未通过或出错
@@ -29,21 +33,33 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --tag) TAG="$2"; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
+        --file) MESSAGE_FILE="$2"; shift 2 ;;
         -h|--help)
-            sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
             exit 0 ;;
         *) MESSAGE="$1"; shift ;;
     esac
 done
 
+# 支持两种提交信息写法：
+#   1) 命令行直接给（适合单行）：sh push_release.sh "fix: 修复某问题"
+#   2) 从文件读（适合多行）：     sh push_release.sh --file msg.txt
+# 注意：命令行里的 \n 不会被自动展开（那是 shell 的行为，不是脚本的），
+#       要写多行正文请用 --file。
+if [ -n "${MESSAGE_FILE:-}" ]; then
+    [ -f "$MESSAGE_FILE" ] || { echo "找不到提交信息文件：$MESSAGE_FILE" >&2; exit 1; }
+    MESSAGE="$(cat "$MESSAGE_FILE")"
+fi
+
 # ---------- 路径探测 ----------
 # git 仓库：优先环境变量，其次当前目录（若已是仓库），最后常见位置。
-if [ -z "${GIT_DIR:-}" ]; then
-    if git rev-parse --git-dir >/dev/null 2>&1; then
-        GIT_DIR="$(git rev-parse --show-toplevel)"
+GIT_DIR_PATH="${WMB_GIT_DIR:-}"
+if [ -z "$GIT_DIR_PATH" ]; then
+    if git rev-parse --show-toplevel >/dev/null 2>&1; then
+        GIT_DIR_PATH="$(git rev-parse --show-toplevel)"
     else
         for candidate in "$HOME/wmb-git" "${TMPDIR:-/tmp}/wmb-git" /tmp/wmb-git ; do
-            [ -d "$candidate/.git" ] && GIT_DIR="$candidate" && break
+            [ -d "$candidate/.git" ] && GIT_DIR_PATH="$candidate" && break
         done
     fi
 fi
@@ -56,7 +72,7 @@ if [ -z "${SRC_DIR:-}" ]; then
 fi
 
 [ -d "$SRC_DIR" ] || { echo "找不到源码工作区（可用 SRC_DIR 指定）" >&2; exit 1; }
-[ -d "$GIT_DIR/.git" ] || { echo "找不到 git 仓库：$GIT_DIR" >&2; exit 1; }
+[ -d "$GIT_DIR_PATH/.git" ] || { echo "找不到 git 仓库：$GIT_DIR_PATH" >&2; exit 1; }
 
 # ---------- 输出辅助 ----------
 if [ -t 1 ]; then
@@ -72,7 +88,7 @@ die()  { printf "${R}  ✗ %s${N}\n" "$1"; exit 1; }
 printf "${B}══════════════════════════════════════════${N}\n"
 printf "${B}  发布流程${N}\n"
 printf "  源码: %s\n" "$SRC_DIR"
-printf "  仓库: %s\n" "$GIT_DIR"
+printf "  仓库: %s\n" "$GIT_DIR_PATH"
 [ -n "$TAG" ] && printf "  标签: %s\n" "$TAG"
 [ "$DRY_RUN" = "1" ] && printf "  模式: ${Y}试运行${N}\n"
 printf "${B}══════════════════════════════════════════${N}\n"
@@ -94,14 +110,14 @@ tar cf - \
     --exclude='./keystore.properties' \
     --exclude='./local.properties' \
     --exclude='./.git' \
-    . 2>/dev/null | (cd "$GIT_DIR" && tar xf - 2>/dev/null)
+    . 2>/dev/null | (cd "$GIT_DIR_PATH" && tar xf - 2>/dev/null)
 
 ok "同步完成"
 
 # ===========================================================================
 step "2/6 暂存变更"
 # ===========================================================================
-cd "$GIT_DIR" || die "无法进入仓库目录"
+cd "$GIT_DIR_PATH" || die "无法进入仓库目录"
 git add -A
 
 CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
