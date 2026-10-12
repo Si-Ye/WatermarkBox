@@ -80,6 +80,24 @@ object ReleaseHistory {
     val releases: List<ReleaseNote> = listOf(
 
         ReleaseNote(
+            version = "1.5.0",
+            date = "2026-10-12",
+            titleRes = R.string.release_1_5_0_title,
+            type = ReleaseType.MAJOR,
+            changes = listOf(
+                // ---- 国际化 ----
+                ReleaseNote.Change(R.string.release_1_5_0_c1, ChangeKind.ADDED),
+                // ---- 检查更新 ----
+                ReleaseNote.Change(R.string.release_1_5_0_c2, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_1_5_0_c3, ChangeKind.ADDED),
+                // ---- Markdown 渲染 ----
+                ReleaseNote.Change(R.string.release_1_5_0_c4, ChangeKind.IMPROVED),
+                // ---- 目录统一 ----
+                ReleaseNote.Change(R.string.release_1_5_0_c5, ChangeKind.CHANGED)
+            )
+        ),
+
+        ReleaseNote(
             version = "1.4.1",
             date = "2026-10-12",
             titleRes = R.string.release_1_4_1_title,
