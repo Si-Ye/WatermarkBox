@@ -5,12 +5,18 @@
 #
 # ## 为什么需要这个脚本
 #
-# 本项目有两处目录需要 .nomedia 保护，其中 `builds/` 那份容易丢：
+# 本项目相关目录有两处需要 .nomedia 保护，其中 `builds/` 那份容易丢：
 #
 #   1. `builds/WatermarkBox/` 在 git 仓库外 —— 不会随 clone 自动获得
 #   2. 它可能被整体删除重建（比如你清理产物）
 #
 # 一旦丢失，几十张截图/诊断图就会重新出现在相册里。这脚本用来兜底。
+#
+# 另外还管一个**跟本项目无关**的目录：
+#
+#   3. `Download/skill_downloads/` —— Operit 的 skill 缓存。
+#      它的内容由 Operit 应用自己读写，可能被应用清理时连带删掉。
+#      放在这里只是「顺手一起维护」，不代表它属于本项目。
 #
 # ## 用法
 #
@@ -35,8 +41,10 @@
 #       也不用 set -u（$1 未定义时会报错；这里用 for 遍历，本就不需要）
 
 # ---- 配置：需要保护的目标目录 ----
+# 前两个属于水印盒项目；第三个是本机环境（Operit 的 skill 缓存）。
 TARGET_1="/storage/emulated/0/OperitAI/WatermarkBox"
 TARGET_2="/storage/emulated/0/OperitAI/builds/WatermarkBox"
+TARGET_3="/storage/emulated/0/Download/skill_downloads"
 
 DO_FIX=0
 DO_RESCAN=0
@@ -113,6 +121,7 @@ FIXED=0
 
 check_one "$TARGET_1" "源码工作区（这份在 git 里，clone 自带）"
 check_one "$TARGET_2" "构建产物与临时文件"
+check_one "$TARGET_3" "Operit 的 skill 缓存（不属于本项目，由 Operit 应用读写）"
 
 echo ""
 if [ "$MISSING" = "0" ]; then
@@ -143,13 +152,21 @@ if [ "$DO_RESCAN" = "1" ]; then
     echo ""
     echo "── 验证结果 ──"
     if command -v content >/dev/null 2>&1; then
+        # OperitAI/（项目相关两处）
         for t in images audio video; do
             n=$(content query --uri content://media/external/$t/media \
                     --projection _data 2>/dev/null \
                   | grep -c 'OperitAI/' 2>/dev/null || true)
             echo "  $t 中 OperitAI/ 的记录: $n"
         done
-        echo "  （三个都应为 0）"
+        # skill_downloads/（同属自检范围）
+        for t in images audio video; do
+            n=$(content query --uri content://media/external/$t/media \
+                    --projection _data 2>/dev/null \
+                  | grep -c 'Download/skill_downloads/' 2>/dev/null || true)
+            echo "  $t 中 skill_downloads/ 的记录: $n"
+        done
+        echo "  （全都应为 0）"
     else
         echo "  跳过（需要 content 命令）"
     fi
