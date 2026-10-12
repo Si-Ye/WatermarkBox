@@ -18,10 +18,15 @@
 
 [![Release](https://img.shields.io/github/v/release/Si-Ye/WatermarkBox?style=flat-square&label=Release&color=FF6F00)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/Si-Ye/WatermarkBox/build.yml?style=flat-square&label=Build&branch=main)](https://github.com/Si-Ye/WatermarkBox/actions/workflows/build.yml)
-[![Tests](https://img.shields.io/badge/Tests-230%20passing-4CAF50.svg?style=flat-square)](https://github.com/Si-Ye/WatermarkBox/actions/workflows/build.yml)
 [![APK](https://img.shields.io/badge/APK-3.6%20MB-607D8B.svg?style=flat-square)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
 
-**[下载最新版](https://github.com/Si-Ye/WatermarkBox/releases/latest)**　·　[查看更新日志](docs/releases)　·　[架构说明](#技术实现)
+**[中文文档](README.md)**　·　[**English**](README.en.md)
+
+<br>
+
+<a href="https://github.com/Si-Ye/WatermarkBox/releases/latest"><b>⬇ 下载最新版</b></a>　|　
+<a href="docs/releases">更新日志</a>　|　
+<a href="#技术实现">架构说明</a>
 
 </div>
 
@@ -32,15 +37,7 @@
 - [这是什么](#这是什么)
 - [效果预览](#效果预览)
 - [功能](#功能)
-  - [单张编辑](#单张编辑)
-  - [批量处理](#批量处理)
-  - [预设](#预设)
-  - [隐藏水印](#隐藏水印)
-  - [反向检测](#反向检测)
 - [技术实现](#技术实现)
-  - [架构](#架构)
-  - [隐藏水印的技术要点](#隐藏水印的技术要点)
-  - [技术栈](#技术栈)
 - [构建](#构建)
 - [开发手记](#开发手记)
 
@@ -62,9 +59,15 @@
 
 <div align="center">
 
-| 首页 | 编辑页（水印预设） | 设置 | 隐藏水印检测 |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/assets/screen-home.jpg" width="180"> | <img src="docs/assets/screen-presets.jpg" width="180"> | <img src="docs/assets/screen-settings.jpg" width="180"> | <img src="docs/assets/screen-invisible.jpg" width="180"> |
+| 首页 | 编辑 · 文字水印 | 编辑 · 隐藏水印 |
+|:---:|:---:|:---:|
+| <img src="docs/assets/screen-home.jpg" width="220" alt="首页"> | <img src="docs/assets/screen-editor-text.jpg" width="220" alt="编辑页"> | <img src="docs/assets/screen-editor-invisible.jpg" width="220" alt="隐藏水印设置"> |
+
+| 检测隐藏水印 | 设置 |
+|:---:|:---:|
+| <img src="docs/assets/screen-detect.jpg" width="220" alt="检测结果"> | <img src="docs/assets/screen-settings.jpg" width="220" alt="设置页"> |
+
+<sub>检测页展示的是真实结果：从一张图片里读出了写入的隐藏水印，置信度 100%</sub>
 
 </div>
 
@@ -465,7 +468,7 @@ Made with 🐺 by [肆叶](https://github.com/Si-Ye)
 
 <br>
 
-[下载](https://github.com/Si-Ye/WatermarkBox/releases/latest)　·　[更新日志](docs/releases)　·　[问题反馈](https://github.com/Si-Ye/WatermarkBox/issues)
+[中文文档](README.md)　·　[English](README.en.md)　·　[下载](https://github.com/Si-Ye/WatermarkBox/releases/latest)　·　[更新日志](docs/releases)　·　[问题反馈](https://github.com/Si-Ye/WatermarkBox/issues)
 
 <br>
 
