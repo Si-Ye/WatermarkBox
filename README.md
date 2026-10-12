@@ -217,6 +217,25 @@ sh tools/pre_push_audit.sh --staged   # 只查暂存区（提交前快速自查�
 
 > 脚本自身含有大量检测用的模式串，会必然自匹配，因此内置了自我排除。
 
+### 发布
+
+日常提交与推送可以走一键脚本：
+
+```bash
+sh tools/push_release.sh "提交说明"          # 同步 → 自查 → 提交 → 推送
+sh tools/push_release.sh --file msg.txt      # 提交说明从文件读（多行）
+sh tools/push_release.sh "说明" --dry-run    # 只自查，不推送
+```
+
+推送到 GitHub 推荐用 **SSH**：凭据保存在本机 `~/.ssh/`，无需在命令或环境变量里传递令牌。
+
+```bash
+git remote set-url origin git@github.com:<user>/<repo>.git
+```
+
+脚本会自动识别 remote 类型 —— 是 `git@` 开头的走 SSH 直推，
+是 `https://` 的则回退到 `GITHUB_TOKEN` 环境变量（用完自动从配置中清除）。
+
 ---
 
 ## 开发手记
