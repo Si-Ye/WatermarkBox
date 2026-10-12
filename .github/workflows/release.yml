@@ -90,6 +90,24 @@ jobs:
           ls -lh app/build/outputs/apk/release/
           ls -lh app/build/outputs/apk/debug/
 
+      # 把 Gradle 的默认产物名（app-release.apk / app-debug.apk）
+      # 改成带项目名与版本号的名字。
+      #
+      # 为什么必须在 CI 里改名：
+      # - 用户下载后文件名形如 `app-release.apk`，无法辨认版本，
+      #   多次下载会互相覆盖，也难以确认自己装的是哪一版。
+      # - 应用内「检查更新」在挑选下载附件时，会优先匹配文件名带
+      #   `release` 的那个；名字里含版本号让这一判断更可靠。
+      - name: 重命名产物
+        id: rename
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd app/build/outputs/apk
+          mv release/app-release.apk "release/WatermarkBox-${VERSION}-release.apk"
+          mv debug/app-debug.apk "debug/WatermarkBox-${VERSION}-debug.apk"
+          ls -lh release/ debug/
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: 生成校验值
         id: checksums
         run: |
@@ -119,8 +137,8 @@ jobs:
 
             | 文件 | 说明 |
             |---|---|
-            | `app-release.apk` | **推荐**，正式包 |
-            | `app-debug.apk` | 调试用，含额外日志，体积大 |
+            | `WatermarkBox-${{ steps.rename.outputs.version }}-release.apk` | **推荐**，正式包 |
+            | `WatermarkBox-${{ steps.rename.outputs.version }}-debug.apk` | 调试用，含额外日志，体积大 |
 
             > **注意**：两个包签名不同。装过其中一个后换装另一个，需先卸载（应用数据会丢失）。
 
