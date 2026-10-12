@@ -28,13 +28,29 @@ enum class WatermarkType { TEXT, IMAGE }
 enum class LayoutMode { SINGLE, TILED, DIAGONAL }
 
 /**
- * 九宫格位置（仅 SINGLE 模式生效）。
+ * 水印位置。
+ *
+ * - 九宫格九个方位：按边距放置（**仅单个模式**生效）
+ * - [CUSTOM]：使用 [TextWatermarkStyle.customX] / [customY] 指定的**归一化坐标**
+ *   （0~1，相对图片宽高），由「在预览图上拖动水印」产生。
+ *
+ * ## 为什么用「归一化坐标」而不是像素
+ *
+ * 预览是按缩略图尺寸渲染的、导出是按原图尺寸渲染的，两者尺寸差几十倍。
+ * 若存像素，拖动后在导出时会跑到画面外。存 0~1 的比例，
+ * 两种尺寸下都能还原到相同相对位置。
  */
 @Serializable
 enum class GravityPosition {
     TOP_LEFT, TOP_CENTER, TOP_RIGHT,
     CENTER_LEFT, CENTER, CENTER_RIGHT,
-    BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT
+    BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT,
+
+    /** 自定义位置（拖动产生），坐标见 customX / customY。 */
+    CUSTOM;
+
+    /** 是否为九宫格方位（非 CUSTOM）。 */
+    val isGrid: Boolean get() = this != CUSTOM
 }
 
 /**
@@ -99,10 +115,18 @@ data class TextWatermarkStyle(
     val rotationDegrees: Float = 0f,
     /** 不透明度（0.1 ~ 1.0） */
     val alpha: Float = 0.7f,
-    /** 九宫格位置（仅 SINGLE 生效） */
+    /** 位置（九宫格方位，或 [GravityPosition.CUSTOM] 自定义） */
     val gravity: GravityPosition = GravityPosition.BOTTOM_RIGHT,
-    /** 边距（px，仅 SINGLE 生效） */
-    val margin: Float = 48f
+    /** 边距（px，仅九宫格位置生效） */
+    val margin: Float = 48f,
+
+    /**
+     * 自定义位置：水印中心的归一化 X（0~1，相对图片宽度）。
+     * 仅当 [gravity] == [GravityPosition.CUSTOM] 时生效。
+     */
+    val customX: Float = 0.5f,
+    /** 自定义位置：水印中心的归一化 Y（0~1，相对图片高度）。 */
+    val customY: Float = 0.5f
 ) {
     companion object {
         /** 默认配置，供编辑页初始化使用 */
@@ -119,8 +143,10 @@ data class TextWatermarkStyle(
  * @param tileCount      平铺密度
  * @param rotationDegrees 旋转角度
  * @param alpha          不透明度
- * @param gravity        九宫格位置（仅单个模式）
- * @param margin         边距（px，仅单个模式）
+ * @param gravity        位置（九宫格方位或 CUSTOM 自定义）
+ * @param margin         边距（px，仅九宫格位置生效）
+ * @param customX        自定义位置：logo 中心的归一化 X（0~1）
+ * @param customY        自定义位置：logo 中心的归一化 Y（0~1）
  * @param preserveAspectRatio 是否保持 logo 原始宽高比
  */
 @Serializable
@@ -133,6 +159,10 @@ data class ImageWatermarkStyle(
     val alpha: Float = 0.7f,
     val gravity: GravityPosition = GravityPosition.BOTTOM_RIGHT,
     val margin: Float = 48f,
+    /** 自定义位置：logo 中心的归一化 X（0~1），仅 [GravityPosition.CUSTOM] 生效 */
+    val customX: Float = 0.5f,
+    /** 自定义位置：logo 中心的归一化 Y（0~1），仅 [GravityPosition.CUSTOM] 生效 */
+    val customY: Float = 0.5f,
     val preserveAspectRatio: Boolean = true
 ) {
     companion object {

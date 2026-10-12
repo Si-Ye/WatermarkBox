@@ -378,6 +378,13 @@ private fun TextPreview(config: com.watermarkbox.data.model.TextWatermarkStyle) 
                 com.watermarkbox.data.model.GravityPosition.BOTTOM_LEFT -> { x = marginPx; y = size.height - marginPx - fm.descent }
                 com.watermarkbox.data.model.GravityPosition.BOTTOM_CENTER -> { x = (size.width - tw) / 2f; y = size.height - marginPx - fm.descent }
                 com.watermarkbox.data.model.GravityPosition.BOTTOM_RIGHT -> { x = size.width - tw - marginPx; y = size.height - marginPx - fm.descent }
+                com.watermarkbox.data.model.GravityPosition.CUSTOM -> {
+                    // 自定义位置：用归一化坐标算水印块中心，再推导基线起点
+                    val cx = config.customX.coerceIn(0f, 1f) * size.width
+                    val cy = config.customY.coerceIn(0f, 1f) * size.height
+                    x = cx - tw / 2f
+                    y = cy - th / 2f - fm.ascent
+                }
             }
             native.drawText(text, x, y, drawPaint)
         }

@@ -528,6 +528,17 @@ private fun TextWatermarkPanelContent(
             selectedIndex = config.gravity.toIndex(),
             onSelect = { viewModel.updateGravity(gravityFromIndex(it)) }
         )
+        Spacer(Modifier.height(6.dp))
+        // 拖动提示：CUSTOM 时改成「当前位置由拖动决定」，让用户知道九宫格没选中是正常的
+        Text(
+            text = if (config.gravity == GravityPosition.CUSTOM) {
+                stringResource(R.string.editor_position_custom)
+            } else {
+                stringResource(R.string.editor_drag_hint)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(Spacing.Item))
         LabeledSlider(
             label = stringResource(R.string.editor_margin),
@@ -714,6 +725,16 @@ private fun ImageWatermarkPanelContent(
             selectedIndex = config.gravity.toIndex(),
             onSelect = { viewModel.updateImageGravity(gravityFromIndex(it)) }
         )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = if (config.gravity == GravityPosition.CUSTOM) {
+                stringResource(R.string.editor_position_custom)
+            } else {
+                stringResource(R.string.editor_drag_hint)
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(Spacing.Item))
         LabeledSlider(
             label = stringResource(R.string.editor_margin),
@@ -776,6 +797,12 @@ private fun PanelDivider() {
 // GravityPosition ↔ 九宫格 index 映射（0..8，行优先）
 // ---------------------------------------------------------------------
 
+/**
+ * 映射到九宫格按钮的索引。
+ *
+ * [GravityPosition.CUSTOM] 不属于九宫格，返回 -1
+ * —— 界面据此判断「当前没有选中任何格子」。
+ */
 internal fun GravityPosition.toIndex(): Int = when (this) {
     GravityPosition.TOP_LEFT -> 0
     GravityPosition.TOP_CENTER -> 1
@@ -786,6 +813,7 @@ internal fun GravityPosition.toIndex(): Int = when (this) {
     GravityPosition.BOTTOM_LEFT -> 6
     GravityPosition.BOTTOM_CENTER -> 7
     GravityPosition.BOTTOM_RIGHT -> 8
+    GravityPosition.CUSTOM -> -1
 }
 
 internal fun gravityFromIndex(index: Int): GravityPosition = when (index) {

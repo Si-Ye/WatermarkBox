@@ -206,6 +206,32 @@ class EditorViewModel(application: Application) :
     override fun updateGravity(gravity: GravityPosition) = updateConfig { copy(gravity = gravity) }
     override fun updateMargin(margin: Float) = updateConfig { copy(margin = margin) }
 
+    /**
+     * 拖动水印：把位置设为自定义坐标。
+     *
+     * 会自动把 [gravity] 切到 [GravityPosition.CUSTOM] —— 用户一拖就进入自定义模式，
+     * 不需要先手动切换。之后若再点九宫格按钮，[updateGravity] 会把位置拉回九宫格。
+     *
+     * 坐标是**归一化**的（0~1，相对图片宽高），并夹在 [0.05, 0.95] 之间
+     * ——留一点边距，避免水印被完全拖出画面。
+     */
+    fun updateCustomPosition(x: Float, y: Float) = updateConfig {
+        copy(
+            gravity = GravityPosition.CUSTOM,
+            customX = x.coerceIn(0.05f, 0.95f),
+            customY = y.coerceIn(0.05f, 0.95f)
+        )
+    }
+
+    /** 图片水印版：拖动 logo 改位置。 */
+    fun updateImageCustomPosition(x: Float, y: Float) = updateImageConfig {
+        copy(
+            gravity = GravityPosition.CUSTOM,
+            customX = x.coerceIn(0.05f, 0.95f),
+            customY = y.coerceIn(0.05f, 0.95f)
+        )
+    }
+
     // ------------------------------------------------------------------
     // 自定义字体（阶段四）
     // ------------------------------------------------------------------

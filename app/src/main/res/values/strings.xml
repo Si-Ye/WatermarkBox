@@ -320,6 +320,8 @@
     <string name="editor_layout_alpha">透明度</string>
     <string name="editor_gravity_section">位置与边距</string>
     <string name="editor_margin">边距</string>
+    <string name="editor_drag_hint">提示：也可以直接在预览图上拖动水印来定位</string>
+    <string name="editor_position_custom">位置：自定义（在预览图上拖动可调整）</string>
     <string name="editor_count_value">%1$d 个</string>
     <string name="editor_enhance_section">水印增强</string>
     <string name="editor_stroke">描边</string>

@@ -3,6 +3,7 @@ package com.watermarkbox.ui.component
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -29,9 +31,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
+import com.watermarkbox.data.model.GravityPosition
 import com.watermarkbox.data.model.ImageWatermarkStyle
+import com.watermarkbox.data.model.LayoutMode
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.watermark.PreviewRenderer
@@ -133,7 +139,26 @@ fun WatermarkPreview(
      *
      * 编辑页保持默认 `true`（没有 pager，拖动平移是必要能力）。
      */
-    panEnabled: Boolean = true
+    panEnabled: Boolean = true,
+
+    /**
+     * 拖动水印位置的回调（仅**单个模式**且本参数非 null 时生效）。
+     *
+     * 接收的参数是水印中心的**归一化坐标**（0~1，相对图片宽高）。
+     * 页面负责把坐标写回配置（并把 gravity 切到 [GravityPosition.CUSTOM]）。
+     *
+     * ## 为什么用归一化坐标
+     *
+     * 预览是按缩略图尺寸渲染的、导出是按原图渲染的，两者差几十倍。
+     * 传像素的话导出时水印会跑到画面外。传 0~1 的比例，
+     * 两种尺寸下都能还原到相同的相对位置。
+     *
+     * ## 与图片缩放/平移手势的关系
+     *
+     * 拖动水印只在「单指 + 未缩放」时生效，此时会抢在图片平移之前消费手势；
+     * 双指缩放 / 缩放后的平移仍交给图片。
+     */
+    onWatermarkDrag: ((x: Float, y: Float) -> Unit)? = null
 ) {
     // ---- 缩放/平移状态 ----
     var scale by remember { mutableFloatStateOf(1f) }
@@ -150,10 +175,32 @@ fun WatermarkPreview(
         sourceFileName = sourceFileName
     )
 
+    // ---- 拖动水印：只在「单个模式」且提供回调时启用 ----
+    //
+    // ## 坐标系换算
+    //
+    // 图片用 ContentScale.Fit 绘制，实际显示区域**小于**容器（有留白）。
+    // 要把手指位置换算成「相对图片的 0~1 坐标」，必须知道图片实际画在哪：
+    //
+    //   1. 用 IntSize 记录容器尺寸、IntSize 记录位图尺寸
+    //   2. 按 Fit 规则算出实际绘制矩形（居中）
+    //   3. (触摸点 - 绘制矩形左上角) / 绘制矩形尺寸 = 归一化坐标
+    //
+    // 同时注意 graphicsLayer 的 scale/offset：单指拖动场景下 scale=1、
+    // offset=0（缩放过才会平移），所以这里不参与换算 —— 也正因如此，
+    // 拖动水印只在 scale≈1 时启用。
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    val isSingleMode = when (watermarkType) {
+        WatermarkType.TEXT -> textConfig.layoutMode == LayoutMode.SINGLE
+        WatermarkType.IMAGE -> imageConfig.layoutMode == LayoutMode.SINGLE
+    }
+    val dragEnabled = onWatermarkDrag != null && isSingleMode && scale <= 1.01f
+
     Box(
         modifier = modifier
             .background(Color(0xFF1A1A1A))
-            .clipToBounds(),
+            .clipToBounds()
+            .onSizeChanged { containerSize = it },
         contentAlignment = Alignment.Center
     ) {
         when {
@@ -198,20 +245,26 @@ fun WatermarkPreview(
                         // 必须从根上不注册。
                         .then(
                             if (panEnabled) {
-                                Modifier.pointerInput(Unit) {
-                                    detectTransformGestures { _, pan, zoom, _ ->
-                                        scale = (scale * zoom).coerceIn(1f, 8f)
-                                        if (scale <= 1.01f) {
-                                            offsetX = 0f
-                                            offsetY = 0f
-                                        } else {
-                                            offsetX += pan.x
-                                            offsetY += pan.y
+                                Modifier
+                                    .pointerInput(Unit) {
+                                        detectTransformGestures { _, pan, zoom, _ ->
+                                            scale = (scale * zoom).coerceIn(1f, 8f)
+                                            if (scale <= 1.01f) {
+                                                offsetX = 0f
+                                                offsetY = 0f
+                                            } else {
+                                                offsetX += pan.x
+                                                offsetY += pan.y
+                                            }
                                         }
                                     }
-                                }
+                                    // 拖动水印：**放在图片平移之后**，
+                                    // 这样只有在 scale≈1（没有平移缩放）时才会真正响应
+                                    // —— 那时用户显然是在拖水印，不是在拖图片。
+                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, onWatermarkDrag))
                             } else {
                                 Modifier
+                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, onWatermarkDrag))
                             }
                         )
                 )
@@ -234,6 +287,62 @@ fun WatermarkPreview(
                     Spacer(Modifier.height(2.dp))
                 }
             }
+        }
+    }
+}
+
+/**
+ * 构造「拖动水印改位置」的手势 Modifier。
+ *
+ * ## 坐标换算
+ *
+ * 图片是按 `ContentScale.Fit` 绘制的：等比缩放到**刚好放进**容器，
+ * 水平或垂直方向会留下空白。要得到「相对图片的 0~1 坐标」必须还原这一步：
+ *
+ * ```
+ * scale = min(容器宽/位图宽, 容器高/位图高)
+ * 绘制宽 = 位图宽 * scale，绘制高 = 位图高 * scale
+ * 绘制左上角 = ((容器宽-绘制宽)/2, (容器高-绘制高)/2)
+ * 归一化 x = (触摸x - 绘制左上x) / 绘制宽
+ * ```
+ *
+ * padding(8.dp) 也参与其中，但它对 x/y 的偏移是等量的，
+ * 而本函数拿到的 `containerSize` 是**内层 Box** 的尺寸（已去掉 padding 影响前的原尺寸），
+ * 因此这里按「以容器中心为基准」做换算，误差在可接受范围内
+ * （拖动本身是粗粒度操作，不需要像素级精确）。
+ *
+ * ## 何时返回空 Modifier
+ *
+ * [enabled] 为 false 时返回 `Modifier`，完全不注册手势处理器
+ * —— 理由同上面 `detectTransformGestures` 的注释：
+ * 挂上就会消费触摸序列，必须从根上不注册。
+ */
+private fun watermarkDragModifier(
+    enabled: Boolean,
+    bitmap: Bitmap?,
+    containerSize: IntSize,
+    onDrag: ((Float, Float) -> Unit)?
+): Modifier {
+    if (!enabled || onDrag == null || bitmap == null) return Modifier
+    if (containerSize.width <= 0 || containerSize.height <= 0) return Modifier
+
+    val bw = bitmap.width.toFloat()
+    val bh = bitmap.height.toFloat()
+    if (bw <= 0f || bh <= 0f) return Modifier
+
+    return Modifier.pointerInput(containerSize, bw, bh, onDrag) {
+        detectDragGestures { change, _ ->
+            change.consume()
+            // Fit 缩放比与居中偏移
+            val fitScale = minOf(containerSize.width / bw, containerSize.height / bh)
+            val drawW = bw * fitScale
+            val drawH = bh * fitScale
+            val drawLeft = (containerSize.width - drawW) / 2f
+            val drawTop = (containerSize.height - drawH) / 2f
+
+            val nx = ((change.position.x - drawLeft) / drawW).coerceIn(0f, 1f)
+            val ny = ((change.position.y - drawTop) / drawH).coerceIn(0f, 1f)
+            onDrag(nx, ny)
         }
     }
 }

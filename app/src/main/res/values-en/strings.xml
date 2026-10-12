@@ -314,6 +314,8 @@ Turn on DCT if you need tracing that survives compression.</string>
     <string name="editor_layout_alpha">Opacity</string>
     <string name="editor_gravity_section">Position and margin</string>
     <string name="editor_margin">Margin</string>
+    <string name="editor_drag_hint">Tip: you can also drag the watermark directly on the preview</string>
+    <string name="editor_position_custom">Position: custom (drag on the preview to adjust)</string>
     <string name="editor_count_value">%1$d</string>
     <string name="editor_enhance_section">Enhancements</string>
     <string name="editor_stroke">Outline</string>

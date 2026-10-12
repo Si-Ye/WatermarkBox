@@ -139,31 +139,42 @@ class WatermarkRenderer {
         val blockWidth = lines.maxOfOrNull { paint.measureText(it) } ?: 0f
         val blockHeight = lineHeight * lines.size
 
-        val baseLineX: Float
-        val baseLineY: Float
         val margin = config.margin * ctx.scale
 
-        // ---- 水平方向 ----
-        baseLineX = when (config.gravity) {
-            GravityPosition.TOP_LEFT, GravityPosition.CENTER_LEFT, GravityPosition.BOTTOM_LEFT ->
-                margin
-            GravityPosition.TOP_CENTER, GravityPosition.CENTER, GravityPosition.BOTTOM_CENTER ->
-                (output.width - blockWidth) / 2f
-            GravityPosition.TOP_RIGHT, GravityPosition.CENTER_RIGHT, GravityPosition.BOTTOM_RIGHT ->
-                output.width - blockWidth - margin
+        // ---- 位置计算 ----
+        //
+        // 两种来源：
+        //   1. 九宫格方位（TOP_LEFT ... BOTTOM_RIGHT）：按边距对齐
+        //   2. CUSTOM：用归一化坐标 (0~1) 算，由「在预览图上拖动水印」产生
+        //
+        // 归一化坐标存的是**水印块中心**的位置，所以算左上角时要减掉半宽半高。
+        val blockLeft: Float
+        val topY: Float
+        if (config.gravity == GravityPosition.CUSTOM) {
+            val cx = config.customX.coerceIn(0f, 1f) * output.width
+            val cy = config.customY.coerceIn(0f, 1f) * output.height
+            blockLeft = cx - blockWidth / 2f
+            topY = cy - blockHeight / 2f
+        } else {
+            blockLeft = when (config.gravity) {
+                GravityPosition.TOP_LEFT, GravityPosition.CENTER_LEFT, GravityPosition.BOTTOM_LEFT ->
+                    margin
+                GravityPosition.TOP_CENTER, GravityPosition.CENTER, GravityPosition.BOTTOM_CENTER ->
+                    (output.width - blockWidth) / 2f
+                else -> output.width - blockWidth - margin
+            }
+            topY = when (config.gravity) {
+                GravityPosition.TOP_LEFT, GravityPosition.TOP_CENTER, GravityPosition.TOP_RIGHT ->
+                    margin
+                GravityPosition.CENTER_LEFT, GravityPosition.CENTER, GravityPosition.CENTER_RIGHT ->
+                    (output.height - blockHeight) / 2f
+                else -> output.height - blockHeight - margin
+            }
         }
 
-        // ---- 垂直方向 ----
-        val topY = when (config.gravity) {
-            GravityPosition.TOP_LEFT, GravityPosition.TOP_CENTER, GravityPosition.TOP_RIGHT ->
-                margin
-            GravityPosition.CENTER_LEFT, GravityPosition.CENTER, GravityPosition.CENTER_RIGHT ->
-                (output.height - blockHeight) / 2f
-            GravityPosition.BOTTOM_LEFT, GravityPosition.BOTTOM_CENTER, GravityPosition.BOTTOM_RIGHT ->
-                output.height - blockHeight - margin
-        }
+        val baseLineX = blockLeft
         // 基线位置：先到首行顶部，再加 -ascent 得到首行基线
-        baseLineY = topY - paint.fontMetrics.ascent
+        val baseLineY = topY - paint.fontMetrics.ascent
 
         // 整体旋转：**绕水印自身中心**，而不是绕画布中心。
         //
@@ -524,21 +535,29 @@ class WatermarkRenderer {
         val (w, h) = computeLogoSize(logo, config, ctx)
         val margin = config.margin * ctx.scale
 
-        val left = when (config.gravity) {
-            GravityPosition.TOP_LEFT, GravityPosition.CENTER_LEFT, GravityPosition.BOTTOM_LEFT ->
-                margin
-            GravityPosition.TOP_CENTER, GravityPosition.CENTER, GravityPosition.BOTTOM_CENTER ->
-                (output.width - w) / 2f
-            GravityPosition.TOP_RIGHT, GravityPosition.CENTER_RIGHT, GravityPosition.BOTTOM_RIGHT ->
-                output.width - w - margin
-        }
-        val top = when (config.gravity) {
-            GravityPosition.TOP_LEFT, GravityPosition.TOP_CENTER, GravityPosition.TOP_RIGHT ->
-                margin
-            GravityPosition.CENTER_LEFT, GravityPosition.CENTER, GravityPosition.CENTER_RIGHT ->
-                (output.height - h) / 2f
-            GravityPosition.BOTTOM_LEFT, GravityPosition.BOTTOM_CENTER, GravityPosition.BOTTOM_RIGHT ->
-                output.height - h - margin
+        // 位置：九宫格方位 或 自定义归一化坐标（见 TextWatermarkStyle 的说明）
+        val left: Float
+        val top: Float
+        if (config.gravity == GravityPosition.CUSTOM) {
+            val cx = config.customX.coerceIn(0f, 1f) * output.width
+            val cy = config.customY.coerceIn(0f, 1f) * output.height
+            left = cx - w / 2f
+            top = cy - h / 2f
+        } else {
+            left = when (config.gravity) {
+                GravityPosition.TOP_LEFT, GravityPosition.CENTER_LEFT, GravityPosition.BOTTOM_LEFT ->
+                    margin
+                GravityPosition.TOP_CENTER, GravityPosition.CENTER, GravityPosition.BOTTOM_CENTER ->
+                    (output.width - w) / 2f
+                else -> output.width - w - margin
+            }
+            top = when (config.gravity) {
+                GravityPosition.TOP_LEFT, GravityPosition.TOP_CENTER, GravityPosition.TOP_RIGHT ->
+                    margin
+                GravityPosition.CENTER_LEFT, GravityPosition.CENTER, GravityPosition.CENTER_RIGHT ->
+                    (output.height - h) / 2f
+                else -> output.height - h - margin
+            }
         }
 
         val dst = Rect(left.toInt(), top.toInt(), (left + w).toInt(), (top + h).toInt())

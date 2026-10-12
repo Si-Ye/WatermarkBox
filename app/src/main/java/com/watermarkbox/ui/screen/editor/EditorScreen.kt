@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.R
+import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.component.DraggableBottomPanel
 import com.watermarkbox.ui.component.PanelDragBehavior
 import com.watermarkbox.ui.component.PanelDragHandle
@@ -186,7 +187,14 @@ fun EditorScreen(
                     logoBitmap = state.logoBitmap,
                     sourceFileName = state.sourceFileName,
                     isLoading = state.isLoading,
-                    modifier = previewModifier
+                    modifier = previewModifier,
+                    // 拖动水印改位置（仅单个模式生效，组件内部会判断）
+                    onWatermarkDrag = { x, y ->
+                        when (state.watermarkType) {
+                            WatermarkType.TEXT -> viewModel.updateCustomPosition(x, y)
+                            WatermarkType.IMAGE -> viewModel.updateImageCustomPosition(x, y)
+                        }
+                    }
                 )
             }
 
