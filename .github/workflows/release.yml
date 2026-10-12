@@ -119,35 +119,34 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      # 读取本版本的说明文件（docs/releases/<tag>.md）。
+      # 生成 Release 正文文件（release_body.md）。
       #
       # 版本说明**手写在仓库里**而不是由 CI 从 commit 拼凑，
       # 这样能写清「新增 / 修复 / 优化」三类信息 —— 用户最关心的部分。
       #
-      # 找不到文件时不让构建失败，而是退回到通用说明并在日志里警告：
+      # ## 为什么写文件而不是 GITHUB_OUTPUT（踩坑记录）
+      #
+      # 起初把正文塞进 `steps.<id>.outputs.body` 再用 `body:` 传给 action，
+      # 结果 **Release 正文始终是旧内容**：多行输出经 GITHUB_OUTPUT 传递时
+      # 容易在定界符/转义上出问题，且出错时不报错、静默用了空值。
+      #
+      # 改用 action 官方的 `body_path` 参数直接读文件后正常。
+      # 少一层变量传递，也就少一类难查的坑。
+      #
+      # 找不到说明文件时不让构建失败，而是退回到通用内容并在日志里告警：
       # 发版不该因为漏写文档而卡住（APK 已经构建好了）。
-      - name: 读取版本说明
-        id: notes
+      - name: 生成 Release 正文
         run: |
           TAG="${GITHUB_REF_NAME}"
           FILE="docs/releases/${TAG}.md"
+          BODY="release_body.md"
+
           if [ -f "$FILE" ]; then
             echo "找到版本说明：$FILE"
-            {
-              echo "body<<NOTES_EOF"
-              cat "$FILE"
-              echo ""
-              echo "### 校验值（SHA-256）"
-              echo ""
-              echo '```'
-              echo "${{ steps.checksums.outputs.checksums }}"
-              echo '```'
-              echo "NOTES_EOF"
-            } >> "$GITHUB_OUTPUT"
+            cat "$FILE" > "$BODY"
           else
             echo "::warning::未找到 $FILE，将使用通用说明。请补充该版本的更新内容。"
             {
-              echo "body<<NOTES_EOF"
               echo "## 水印盒 ${TAG}"
               echo ""
               echo "轻量 Android 图片水印工具，支持实时预览、批量处理与 DCT 频域隐藏水印溯源。"
@@ -159,18 +158,25 @@ jobs:
               echo "| \`WatermarkBox-${TAG#v}-release.apk\` | **推荐**，正式包 |"
               echo "| \`WatermarkBox-${TAG#v}-debug.apk\` | 调试用，含额外日志 |"
               echo ""
-              echo "### 校验值（SHA-256）"
-              echo ""
-              echo '```'
-              echo "${{ steps.checksums.outputs.checksums }}"
-              echo '```'
-              echo ""
               echo "### 系统要求"
               echo ""
               echo "Android 8.0（API 26）及以上"
-              echo "NOTES_EOF"
-            } >> "$GITHUB_OUTPUT"
+            } > "$BODY"
           fi
+
+          # 无论走哪个分支，都追加校验值（只有构建后才知道）
+          {
+            echo ""
+            echo "### 校验值（SHA-256）"
+            echo ""
+            echo '```'
+            echo "${{ steps.checksums.outputs.checksums }}"
+            echo '```'
+          } >> "$BODY"
+
+          echo "正文文件已生成，共 $(wc -l < "$BODY") 行"
+          echo "--- 前 12 行预览 ---"
+          head -12 "$BODY"
 
       - name: 创建 Release 并上传 APK
         uses: softprops/action-gh-release@v2
@@ -184,8 +190,9 @@ jobs:
           # 它是从 commit 标题拼的（如「ci: 修正 Secret 名称」），
           # 对用户没有意义，反而稀释了正文里真正的更新内容。
           generate_release_notes: false
-          # 正文来自仓库里的版本说明文件，见上一步
-          body: ${{ steps.notes.outputs.body }}
+          # 正文来自上一步生成的文件。
+          # 用 body_path 而非 body：见「生成 Release 正文」步骤的注释。
+          body_path: release_body.md
           files: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/apk/debug/*.apk
