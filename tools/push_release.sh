@@ -160,33 +160,49 @@ else
     fi
 fi
 
-# ===========================================================================
+# ---------- 推送（SSH 优先，HTTPS 回退）----------
 step "5/6 推送"
-# ===========================================================================
 if [ "$DRY_RUN" = "1" ]; then
     warn "试运行：跳过推送"
 else
-    if [ -z "${GITHUB_TOKEN:-}" ]; then
-        die "缺少 GITHUB_TOKEN 环境变量"
-    fi
+    CURRENT_URL=$(git remote get-url origin)
 
-    # 临时注入凭据，推送后立即还原（避免令牌留在 .git/config 里）
-    ORIGINAL_URL=$(git remote get-url origin)
-    git remote set-url origin \
-        "https://Si-Ye:${GITHUB_TOKEN}@github.com/Si-Ye/WatermarkBox.git"
+    # 判断走哪条路：
+    #   SSH  —— 凭据在 ~/.ssh/，无需令牌，最省心（推荐）
+    #   HTTPS —— 需要 GITHUB_TOKEN，脚本临时注入并在结束后还原
+    case "$CURRENT_URL" in
+        git@*|ssh://*)
+            info "使用 SSH 凭据（$CURRENT_URL）"
+            if git push origin main 2>&1 | tail -3; then
+                ok "推送成功"
+            else
+                die "推送失败 —— 检查 SSH 密钥是否已加到 GitHub 账号"
+            fi
+            ;;
+        *)
+            if [ -z "${GITHUB_TOKEN:-}" ]; then
+                die "remote 是 HTTPS 且缺少 GITHUB_TOKEN。\n     建议改用 SSH：git remote set-url origin git@github.com:Si-Ye/WatermarkBox.git"
+            fi
+            info "使用 HTTPS 令牌（推送后会自动清除）"
 
-    # 无论成败都要还原 remote
-    restore_remote() {
-        git remote set-url origin "$ORIGINAL_URL"
-        printf "${Y}  · 已还原 remote（令牌已从本地清除）${N}\n"
-    }
-    trap restore_remote EXIT
+            ORIGINAL_URL="$CURRENT_URL"
+            git remote set-url origin \
+                "https://Si-Ye:${GITHUB_TOKEN}@github.com/Si-Ye/WatermarkBox.git"
 
-    if git push origin main 2>&1 | tail -3; then
-        ok "推送成功"
-    else
-        die "推送失败（检查令牌权限或是否已过期）"
-    fi
+            # 无论成败都要还原 remote
+            restore_remote() {
+                git remote set-url origin "$ORIGINAL_URL"
+                printf "${Y}  · 已还原 remote（令牌已从本地清除）${N}\n"
+            }
+            trap restore_remote EXIT
+
+            if git push origin main 2>&1 | tail -3; then
+                ok "推送成功"
+            else
+                die "推送失败（检查令牌权限或是否已过期）"
+            fi
+            ;;
+    esac
 
     # 打 tag 会触发 GitHub 的 Release 草稿流程
     if [ -n "$TAG" ]; then
