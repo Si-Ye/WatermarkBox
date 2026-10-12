@@ -87,6 +87,63 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    // ------------------------------------------------------------------
+    // Android Lint
+    // ------------------------------------------------------------------
+    //
+    // ## 为什么用 baseline 而不是直接开 warningsAsErrors
+    //
+    // 当前有 84 条 Warning（0 条 Error），主要是：
+    //   - DefaultLocale：字符串格式化未指定 Locale
+    //   - GradleDependency：依赖有新版本
+    //   - OldTargetApi：compileSdk 不是最新
+    //
+    // 直接开 `warningsAsErrors` 会让 CI 立刻变红，必须一次性修完 84 条，
+    // 而其中相当一部分（如「有新版本可升级」）**不该由 lint 决定何时升级**。
+    //
+    // 用 baseline 的做法：把这 84 条**冻结**在 `lint-baseline.xml`，
+    // 之后**新增**的问题才会让 CI 失败。既立刻有约束力，
+    // 又不用为了过 CI 而做无意义的大改。
+    //
+    // ## 什么时候该更新 baseline
+    //
+    // **只在「确认某条问题不打算修」时**手动更新：
+    //
+    //     ./gradlew updateLintBaseline
+    //
+    // 但**不要**用它来「消除新增问题」—— 那等于把刚加的闸门又打开。
+    //
+    // ## 为什么要把 aborted 也设为 true（默认值，显式写出来）
+    //
+    // `abortOnError` 决定「发现 Error 是否让构建失败」。
+    // lint 的默认值是 true，这里显式声明是为了让意图一目了然
+    // —— 读代码的人不需要去查默认值。
+    lint {
+        // 已有问题冻结在这里，只有新增的才会报
+        baseline = file("lint-baseline.xml")
+
+        // 有 Error 就让构建失败（显式声明默认行为）
+        abortOnError = true
+
+        // 严重问题即使在 release 构建也不放过
+        checkReleaseBuilds = true
+
+        // 不在控制台刷 84 条明细（要看就跑 lintDebug 看 HTML 报告）
+        textReport = true
+        htmlReport = true
+        xmlReport = true
+
+        // 这些检查对本项目无意义，直接关掉，减少噪声：
+        //   - GradleDependency：何时升级依赖由人决定，不该由 lint 推着走
+        //   - AndroidGradlePluginVersion：同上
+        //   - OldTargetApi：升 compileSdk 是有成本的决定，不适合自动提醒
+        disable += setOf(
+            "GradleDependency",
+            "AndroidGradlePluginVersion",
+            "OldTargetApi"
+        )
+    }
 }
 
 // Force use of ARM64 binaries for AAPT2 in Proot environment

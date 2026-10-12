@@ -43,11 +43,40 @@ jobs:
       - name: 跑单元测试
         run: ./gradlew testDebugUnitTest --console=plain
 
+      - name: 静态检查（Android Lint）
+        # lint 检查代码质量与潜在 bug（未使用的资源、明显的空指针、
+        # 权限缺失、布局问题等）。不通过则整个 CI 失败。
+        #
+        # ## 为什么不加 `|| true` 忽略失败
+        #
+        # 加了就等于没检查 —— 没人会去看「检查通过但有警告」的日志。
+        # 既然加了这道关，就让它有约束力。
+        #
+        # ## 与 lint-baseline 的关系
+        #
+        # `app/lint-baseline.xml` 记录了**当前已存在的问题**，
+        # 这些被豁免；只有**新增**的问题才会让 CI 失败。
+        # 这样既能立刻启用，又不会因为历史欠账而卡住开发。
+        #
+        # 想查看全部问题（含基线里的）：本地跑 `./gradlew lintDebug` 看报告。
+        run: ./gradlew lintDebug --console=plain
+
       - name: 编译 Debug 包
         run: ./gradlew assembleDebug --console=plain
 
       - name: 编译 Release 包（未签名，仅验证能构建）
         run: ./gradlew assembleRelease --console=plain
+
+      - name: 上传 Lint 报告
+        # 失败时最需要看报告，所以 always()
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+          retention-days: 7
 
       - name: 上传测试报告
         # 无论测试是否失败都上传，方便排查
