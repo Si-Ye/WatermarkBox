@@ -290,15 +290,26 @@ git tag v1.4.1-test && git push origin v1.4.1-test
 
 ```bash
 # 1. 改版本号（app/build.gradle.kts 的 versionCode / versionName）
-# 2. 提交
-sh tools/push_release.sh "chore: 发布 v1.4.2"
+#    同时更新 app 内的更新说明（data/model/ReleaseHistory.kt）
 
-# 3. 打标签推送 —— 这一步会触发 CI 自动构建并发布
-git tag v1.4.2 && git push origin v1.4.2
+# 2. 写这一版的对外说明 —— 必做，否则 Release 页只有通用内容
+#    新建 docs/releases/vX.Y.Z.md
+#    按 docs/releases/README.md 的模板，写清「新增 / 修复 / 优化」
+
+# 3. 提交
+sh tools/push_release.sh "chore: 发布 vX.Y.Z"
+
+# 4. 打标签推送 —— 这一步会触发 CI 自动构建并发布
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 之后在 Actions 页面等几分钟，Release 就自动生成好了。
 
+> **为什么必须写 `docs/releases/vX.Y.Z.md`**：
+> CI 会把它作为 Release 正文，并自动追加下载表格用的 SHA-256 校验值。
+> 若是漏了，CI 会用一段通用说明兜底并在日志里告警 ——
+> 用户看到的就是「没有更新内容」的空壳版本页。
+>
 > 若 CI 跑失败，可用 Actions 页面的 **Run workflow** 手动重试
 > （`release.yml` 支持 `workflow_dispatch`）。
 
