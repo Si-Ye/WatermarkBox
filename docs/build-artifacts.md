@@ -51,6 +51,27 @@
 - 不会被提交、不会被 `.gitignore` 影响 —— **适合放体积大的临时产物**
 - 也**不会被备份**，删了就没了 —— **重要产物要另存或上传**
 
+### 相册可见性（.nomedia）
+
+本目录里有大量图片（截图、诊断图）。若不处理，它们会全部出现在相册里。
+
+**项目已放置 `.nomedia`**（Android 媒体扫描器会跳过含该文件的目录树）。
+
+但由于本目录在 git 外，那份 `.nomedia` **可能随目录被删而丢失**。
+用这个脚本兜底：
+
+```sh
+sh tools/ensure_nomedia.sh                 # 只检查
+sh tools/ensure_nomedia.sh --fix           # 缺了就补
+sh tools/ensure_nomedia.sh --fix --rescan  # 补完并触发媒体重扫
+```
+
+> ⚠️ `--rescan` 需要 Android 的 `content` 命令（Shizuku / adb / root shell）。
+> 在 Ubuntu 终端里没有它，脚本会检测并提示，不会当成失败。
+>
+> **补充**：`am broadcast -a MEDIA_MOUNTED` 在本机 ROM 上会崩（exit 255），
+> 可靠的做法是 `content call --uri content://media --method scan_volume --arg external_primary`。
+
 ---
 
 ## 命名建议
