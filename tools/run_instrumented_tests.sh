@@ -40,7 +40,7 @@
 #   sh tools/run_instrumented_tests.sh --quick
 #
 # 结果建议重定向到文件，避免长输出被截断：
-#   sh ... > /sdcard/Download/wmb_test_out.txt 2>&1
+#   sh ... > wmb_test_out.txt 2>&1
 # ---------------------------------------------------------------------------
 
 TEST_PKG="com.watermarkbox.test"

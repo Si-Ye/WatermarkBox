@@ -36,8 +36,16 @@ import java.io.File
  */
 @RunWith(AndroidJUnit4::class)
 class ExifChineseEncodingTest {
-
     private val ctx get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    /**
+     * 测试日志落盘目录。
+     *
+     * 用 `cacheDir` 而非外部存储路径：不依赖存储权限，任何设备都能跑。
+     * 需要查看结果时，从 `/data/data/com.watermarkbox/cache/` 取出即可。
+     */
+    private val dumpTarget: File get() = ctx.cacheDir
+
     private val sb = StringBuilder()
 
     private fun note(line: String) {
@@ -112,7 +120,7 @@ class ExifChineseEncodingTest {
             throw t
         } finally {
             runCatching {
-                File("/sdcard/Download/wmb_exif_cn.txt").writeText(sb.toString())
+                File(dumpTarget, "wmb_exif_cn.txt").writeText(sb.toString())
             }
         }
     }
@@ -150,7 +158,7 @@ class ExifChineseEncodingTest {
         } finally {
             f.delete()
             runCatching {
-                File("/sdcard/Download/wmb_exif_cn.txt").writeText(sb.toString())
+                File(dumpTarget, "wmb_exif_cn.txt").writeText(sb.toString())
             }
         }
     }

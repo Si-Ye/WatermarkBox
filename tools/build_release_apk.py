@@ -100,9 +100,11 @@ def _find_apksigner():
         candidates += sorted(
             glob.glob(os.path.join(sdk, "build-tools", "*", "apksigner")), reverse=True
         )
-    candidates += sorted(
-        glob.glob("/root/Android/build-tools/*/apksigner"), reverse=True
-    )
+    # 常见 SDK 安装位置的回退探测
+    for base in (os.path.expanduser("~/Android"), "/opt/android-sdk", "/usr/lib/android-sdk"):
+        candidates += sorted(
+            glob.glob(os.path.join(base, "build-tools", "*", "apksigner")), reverse=True
+        )
     for c in candidates:
         if os.path.isfile(c):
             return c
