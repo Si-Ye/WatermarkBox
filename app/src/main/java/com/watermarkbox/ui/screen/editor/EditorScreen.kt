@@ -37,16 +37,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.watermarkbox.R
 import com.watermarkbox.ui.component.DraggableBottomPanel
 import com.watermarkbox.ui.component.PanelDragBehavior
 import com.watermarkbox.ui.component.PanelDragHandle
 import com.watermarkbox.ui.component.ShrinkablePreviewArea
 import com.watermarkbox.ui.component.WatermarkPreview
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.util.resolve
 
 /**
  * 编辑与预览页（页面 2 - 核心页面）。
@@ -84,14 +87,19 @@ fun EditorScreen(
     var showPresetDialog by remember { mutableStateOf(false) }
 
     // 错误 / 提示消息
+    // 消息存的是资源 ID，在这里（Composable 上下文）先解析好文本，
+    // 再交给 LaunchedEffect —— 挂起块里不能调用 @Composable 函数。
+    val errorText = state.errorMessage?.resolve()
+    val infoText = state.infoMessage?.resolve()
+
     LaunchedEffect(state.errorMessage) {
-        state.errorMessage?.let {
+        errorText?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
     }
     LaunchedEffect(state.infoMessage) {
-        state.infoMessage?.let {
+        infoText?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearInfo()
         }
@@ -101,12 +109,12 @@ fun EditorScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("编辑水印", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.editor_screen_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -115,14 +123,14 @@ fun EditorScreen(
                     IconButton(onClick = { showPresetDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Bookmark,
-                            contentDescription = "预设"
+                            contentDescription = stringResource(R.string.editor_panel_presets)
                         )
                     }
                     // 导出设置入口
                     IconButton(onClick = { showExportDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Tune,
-                            contentDescription = "导出设置"
+                            contentDescription = stringResource(R.string.batch_export_settings)
                         )
                     }
                 },
@@ -148,7 +156,14 @@ fun EditorScreen(
                         Icon(Icons.Filled.Save, contentDescription = null)
                     }
                 },
-                text = { Text(if (state.isExporting) "导出中…" else "导出") }
+                text = {
+                    Text(
+                        stringResource(
+                            if (state.isExporting) R.string.editor_exporting
+                            else R.string.editor_export
+                        )
+                    )
+                }
             )
         }
     ) { innerPadding ->

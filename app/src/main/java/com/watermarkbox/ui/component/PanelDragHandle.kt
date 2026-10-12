@@ -1,5 +1,6 @@
 package com.watermarkbox.ui.component
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -16,9 +17,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.watermarkbox.R
 import com.watermarkbox.ui.theme.Spacing
 
 /**
@@ -44,7 +47,7 @@ fun PanelDragHandle(
     overlaying: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    title: String = "水印参数"
+    @StringRes titleRes: Int = R.string.panel_title
 ) {
     Row(
         modifier = modifier
@@ -56,14 +59,17 @@ fun PanelDragHandle(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = title,
+            text = stringResource(titleRes),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = if (overlaying) "继续拖将覆盖预览" else "拖动调整高度",
+                text = stringResource(
+                    if (overlaying) R.string.panel_hint_overlay
+                    else R.string.panel_hint_drag
+                ),
                 style = MaterialTheme.typography.labelSmall,
                 color = if (overlaying) MaterialTheme.colorScheme.secondary
                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -72,7 +78,10 @@ fun PanelDragHandle(
             Icon(
                 imageVector = if (expanded) Icons.Filled.ExpandMore
                 else Icons.Filled.ExpandLess,
-                contentDescription = if (expanded) "收起" else "展开",
+                contentDescription = stringResource(
+                    if (expanded) R.string.panel_collapse
+                    else R.string.panel_expand
+                ),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )

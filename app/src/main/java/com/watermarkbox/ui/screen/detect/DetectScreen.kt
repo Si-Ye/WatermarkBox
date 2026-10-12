@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.watermarkbox.R
 import com.watermarkbox.invisible.DetectResult
 import com.watermarkbox.ui.theme.Spacing
 import kotlin.math.roundToInt
@@ -70,12 +72,12 @@ fun DetectScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("检测隐藏水印", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.detect_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -98,9 +100,7 @@ fun DetectScreen(
             // ---- 说明 ----
             if (state.imageUri == null) {
                 Text(
-                    text = "选择一张图片，检测其中是否含有由本应用写入的隐藏水印。\n\n" +
-                        "检测分两级：先读 EXIF 元数据（若图片未被压缩过，此级即可命中）；" +
-                        "若 EXIF 无结果，再尝试从像素的频域中提取（可抵抗 JPEG 重压缩）。",
+                    text = stringResource(R.string.detect_intro),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -111,7 +111,7 @@ fun DetectScreen(
             if (state.imageUri != null) {
                 AsyncImage(
                     model = state.imageUri,
-                    contentDescription = "待检测图片",
+                    contentDescription = stringResource(R.string.detect_image_desc),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -136,7 +136,12 @@ fun DetectScreen(
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.size(8.dp))
-                Text(if (state.imageUri == null) "选择图片" else "换一张检测")
+                Text(
+                    stringResource(
+                        if (state.imageUri == null) R.string.detect_pick
+                        else R.string.detect_recheck
+                    )
+                )
             }
 
             Spacer(Modifier.height(Spacing.Item))
@@ -153,7 +158,7 @@ fun DetectScreen(
                         CircularProgressIndicator()
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            text = "正在检测…",
+                            text = stringResource(R.string.detect_running),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -178,24 +183,26 @@ private fun ResultCard(result: DetectResult) {
         is DetectResult.Found -> ResultCardImpl(
             icon = Icons.Filled.CheckCircle,
             iconTint = Color(0xFF2E7D32),
-            title = "检测到隐藏水印",
+            title = stringResource(R.string.detect_found_title),
             lines = buildList {
-                add("内容" to result.content)
-                add("来源通道" to result.channel.displayName)
-                add("置信度" to "${(result.confidence * 100).roundToInt()}%")
+                add(stringResource(R.string.detect_field_content) to result.content)
+                add(stringResource(R.string.detect_field_channel) to stringResource(result.channel.labelRes))
+                add(stringResource(R.string.detect_field_confidence) to "${(result.confidence * 100).roundToInt()}%")
             }
         )
         is DetectResult.NoWatermark -> ResultCardImpl(
             icon = Icons.Filled.CloudOff,
             iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
-            title = "未检测到隐藏水印",
-            lines = listOf("说明" to result.reason)
+            title = stringResource(R.string.detect_not_found_title),
+            lines = listOf(
+                stringResource(R.string.detect_field_reason) to localizedReason(result.reason)
+            )
         )
         is DetectResult.Error -> ResultCardImpl(
             icon = Icons.Filled.Cancel,
             iconTint = MaterialTheme.colorScheme.error,
-            title = "检测失败",
-            lines = listOf("原因" to result.message)
+            title = stringResource(R.string.detect_failed_title),
+            lines = listOf(stringResource(R.string.detect_field_error) to result.message)
         )
     }
 }
@@ -254,4 +261,22 @@ private fun ResultCardImpl(
             }
         }
     }
+}
+/**
+ * 把检测器返回的「未找到」原因映射为本地化文案。
+ *
+ * ## 为什么不在引擎里直接返回资源 ID
+ *
+ * [com.watermarkbox.invisible.InvisibleWatermarkEngine] 是**纯逻辑层** ——
+ * 它同时跑在单元测试和后台 Worker 里，不该依赖 Android 资源。
+ * 让引擎继续说中文原因、由界面层做一次映射，是既保住可测性、
+ * 又能本地化的折中。
+ *
+ * 认不出的原因原样返回：将来引擎新增原因时，界面不会空白。
+ */
+@Composable
+private fun localizedReason(reason: String): String = when (reason) {
+    "图片过小，无法承载水印" -> stringResource(R.string.invisible_error_too_small)
+    "未检测到水印（或损坏超出纠错能力）" -> stringResource(R.string.invisible_error_not_found)
+    else -> reason
 }

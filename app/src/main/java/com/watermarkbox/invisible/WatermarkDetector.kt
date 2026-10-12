@@ -1,5 +1,7 @@
 package com.watermarkbox.invisible
 
+import com.watermarkbox.R
+import androidx.annotation.StringRes
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -124,11 +126,14 @@ sealed class DetectResult {
 
 /**
  * 水印所在的通道。
+ *
+ * labelRes 存资源 ID：界面需跟随语言显示（中文「EXIF 元数据」/ 英文 "EXIF metadata"）。
+ * 该枚举不参与序列化，改类型无兼容性影响。
  */
-enum class DetectChannel(val displayName: String) {
+enum class DetectChannel(@param:StringRes val labelRes: Int) {
     /** EXIF UserComment —— 像素未被改动（若未经过压缩）。 */
-    EXIF("EXIF 元数据"),
+    EXIF(R.string.detect_channel_exif),
 
     /** DCT 频域 —— 能扛压缩。 */
-    FREQUENCY("频域（DCT）")
+    FREQUENCY(R.string.detect_channel_frequency)
 }

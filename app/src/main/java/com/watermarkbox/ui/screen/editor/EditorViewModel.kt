@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.watermarkbox.R
 import com.watermarkbox.data.model.ExportSettings
 import com.watermarkbox.data.model.FontFamilyOption
 import com.watermarkbox.data.model.GravityPosition
@@ -23,6 +24,7 @@ import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.invisible.InvisibleContentResolver
 import com.watermarkbox.invisible.InvisibleWatermarkEngine
 import com.watermarkbox.util.FileNameResolver
+import com.watermarkbox.util.UiMessage
 import com.watermarkbox.watermark.WatermarkRenderer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,10 +55,10 @@ data class EditorUiState(
     val logoBitmap: Bitmap? = null,
     /** 是否正在加载图片 */
     val isLoading: Boolean = false,
-    /** 错误信息 */
-    val errorMessage: String? = null,
-    /** 提示信息（成功类） */
-    val infoMessage: String? = null,
+    /** 错误信息（存资源 ID，由 UI 层按当前语言解析） */
+    val errorMessage: UiMessage? = null,
+    /** 提示信息（成功类，同上） */
+    val infoMessage: UiMessage? = null,
     /** 底部参数面板高度比例（0.35 ~ 1.0；1.0 = 全屏遮住预览） */
     val panelFraction: Float = 0.40f,
     /** 面板是否展开（收起时仅剩把手） */
@@ -135,7 +137,7 @@ class EditorViewModel(application: Application) :
             val bitmap = imageRepository.loadPreviewBitmap(uri)
             if (bitmap == null) {
                 _uiState.update {
-                    it.copy(isLoading = false, errorMessage = "图片加载失败，请重试或换一张图片")
+                    it.copy(isLoading = false, errorMessage = UiMessage(R.string.editor_error_load_failed))
                 }
                 return@launch
             }
@@ -218,13 +220,13 @@ class EditorViewModel(application: Application) :
         viewModelScope.launch {
             val name = fontRepository.queryFontName(uri)
             if (name == null) {
-                _uiState.update { it.copy(errorMessage = "无法读取字体文件名") }
+                _uiState.update { it.copy(errorMessage = UiMessage(R.string.editor_error_font_name)) }
                 return@launch
             }
             val saved = fontRepository.importFont(uri, name)
             if (saved == null) {
                 _uiState.update {
-                    it.copy(errorMessage = "字体导入失败（需为 ttf/otf/ttc 且小于 8MB）")
+                    it.copy(errorMessage = UiMessage(R.string.editor_error_font_import))
                 }
                 return@launch
             }
@@ -232,7 +234,7 @@ class EditorViewModel(application: Application) :
             updateConfig {
                 copy(fontFamily = FontFamilyOption.CUSTOM, customFontName = saved)
             }
-            _uiState.update { it.copy(infoMessage = "字体「$saved」已导入并启用") }
+            _uiState.update { it.copy(infoMessage = UiMessage(R.string.editor_info_font_imported, saved)) }
         }
     }
 
@@ -253,7 +255,7 @@ class EditorViewModel(application: Application) :
                     copy(fontFamily = FontFamilyOption.DEFAULT, customFontName = null)
                 }
             }
-            _uiState.update { it.copy(infoMessage = "字体「$fileName」已删除") }
+            _uiState.update { it.copy(infoMessage = UiMessage(R.string.editor_info_font_deleted, fileName)) }
         }
     }
 
@@ -285,7 +287,7 @@ class EditorViewModel(application: Application) :
         viewModelScope.launch {
             val bitmap = imageRepository.loadBitmapForLogo(uri, maxEdge = 512)
             if (bitmap == null) {
-                _uiState.update { it.copy(errorMessage = "Logo 图片加载失败") }
+                _uiState.update { it.copy(errorMessage = UiMessage(R.string.editor_error_logo_load)) }
                 return@launch
             }
             _uiState.update {
@@ -332,7 +334,7 @@ class EditorViewModel(application: Application) :
         val state = _uiState.value
         val uri = state.imageUri
         if (uri == null) {
-            _uiState.update { it.copy(errorMessage = "没有可导出的图片") }
+            _uiState.update { it.copy(errorMessage = UiMessage(R.string.editor_error_no_image)) }
             return
         }
         if (state.isExporting) return
@@ -345,7 +347,7 @@ class EditorViewModel(application: Application) :
                 fullBitmap = imageRepository.loadFullResolutionBitmap(uri)
                 if (fullBitmap == null) {
                     _uiState.update {
-                        it.copy(isExporting = false, errorMessage = "原图加载失败，无法导出")
+                        it.copy(isExporting = false, errorMessage = UiMessage(R.string.editor_error_source_load))
                     }
                     return@launch
                 }
@@ -363,7 +365,7 @@ class EditorViewModel(application: Application) :
                             _uiState.update {
                                 it.copy(
                                     isExporting = false,
-                                    errorMessage = "请先选择 Logo 图片"
+                                    errorMessage = UiMessage(R.string.editor_error_no_logo)
                                 )
                             }
                             return@launch
@@ -420,20 +422,20 @@ class EditorViewModel(application: Application) :
 
                 if (result == null) {
                     _uiState.update {
-                        it.copy(isExporting = false, errorMessage = "导出失败，请重试")
+                        it.copy(isExporting = false, errorMessage = UiMessage(R.string.editor_error_export_failed))
                     }
                 } else {
                     _uiState.update {
                         it.copy(
                             isExporting = false,
                             lastExportUri = result.uri,
-                            infoMessage = "已保存到相册：${result.displayName}"
+                            infoMessage = UiMessage(R.string.editor_info_exported, result.displayName)
                         )
                     }
                 }
             } catch (t: Throwable) {
                 _uiState.update {
-                    it.copy(isExporting = false, errorMessage = "导出异常：${t.message}")
+                    it.copy(isExporting = false, errorMessage = UiMessage(R.string.editor_error_export_exception, t.message ?: ""))
                 }
             } finally {
                 // 释放大对象，避免内存峰值滞留
@@ -554,7 +556,7 @@ class EditorViewModel(application: Application) :
     ) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "预设名称不能为空") }
+            _uiState.update { it.copy(errorMessage = UiMessage(R.string.editor_error_preset_name_empty)) }
             return
         }
         val state = _uiState.value
@@ -569,11 +571,13 @@ class EditorViewModel(application: Application) :
         viewModelScope.launch {
             val finalName = settingsRepository.savePreset(preset, overwrite)
             val action = if (finalName == trimmed) {
-                if (overwrite && state.presets.any { it.name == trimmed }) "已替换" else "已保存"
+                if (overwrite && state.presets.any { it.name == trimmed })
+            R.string.editor_info_preset_replaced
+        else R.string.editor_info_preset_saved
             } else {
-                "已另存为"
+                R.string.editor_info_preset_saved_as
             }
-            _uiState.update { it.copy(infoMessage = "预设「$finalName」$action") }
+            _uiState.update { it.copy(infoMessage = UiMessage(action, finalName)) }
             onSaved?.invoke(finalName)
         }
     }
@@ -589,7 +593,7 @@ class EditorViewModel(application: Application) :
                 config = preset.textStyle,
                 imageConfig = preset.imageStyle,
                 watermarkType = preset.type,
-                infoMessage = "已应用预设「${preset.name}」"
+                infoMessage = UiMessage(R.string.editor_info_preset_applied, preset.name)
             )
         }
         // 若预设引用了 logo 但当前未加载，尝试重新加载

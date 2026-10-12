@@ -25,12 +25,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.watermarkbox.R
 
 /**
  * 面板分组标题。
@@ -168,7 +170,7 @@ fun ColorPalette(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Filled.Check,
-                        contentDescription = "已选中",
+                        contentDescription = stringResource(R.string.common_selected),
                         tint = if (color.luminance() > 0.5f) Color.Black else Color.White,
                         modifier = Modifier.size(18.dp)
                     )

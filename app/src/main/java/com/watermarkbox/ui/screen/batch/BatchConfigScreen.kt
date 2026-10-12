@@ -51,11 +51,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.watermarkbox.R
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.component.DraggableBottomPanel
 import com.watermarkbox.ui.component.PanelDragBehavior
@@ -173,7 +175,11 @@ fun BatchConfigScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "批量处理（${state.images.size}/${BatchViewModel.MAX_BATCH_SIZE}）",
+                        text = stringResource(
+                        R.string.batch_title,
+                        state.images.size,
+                        BatchViewModel.MAX_BATCH_SIZE
+                    ),
                         fontWeight = FontWeight.SemiBold
                     )
                 },
@@ -181,7 +187,7 @@ fun BatchConfigScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -190,14 +196,14 @@ fun BatchConfigScreen(
                     IconButton(onClick = { showPresetDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Bookmark,
-                            contentDescription = "预设"
+                            contentDescription = stringResource(R.string.batch_presets)
                         )
                     }
                     // 导出设置入口
                     IconButton(onClick = { showExportDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Tune,
-                            contentDescription = "导出设置"
+                            contentDescription = stringResource(R.string.batch_export_settings)
                         )
                     }
                 },
@@ -384,7 +390,7 @@ private fun BatchPreviewPager(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Delete,
-                                contentDescription = "移除这张",
+                                contentDescription = stringResource(R.string.batch_remove_one),
                                 tint = MaterialTheme.colorScheme.error
                             )
                         }
@@ -441,14 +447,14 @@ private fun AddMorePage(onClick: () -> Unit) {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "添加更多图片",
+                text = stringResource(R.string.batch_add_more),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "还可以加 ${BatchViewModel.MAX_BATCH_SIZE} 张以内",
+                text = stringResource(R.string.batch_add_more_limit, BatchViewModel.MAX_BATCH_SIZE),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -504,7 +510,7 @@ private fun ThumbnailStrip(
         ) {
             Icon(
                 imageVector = Icons.Filled.AddPhotoAlternate,
-                contentDescription = "跳到添加更多",
+                contentDescription = stringResource(R.string.batch_jump_add_more),
                 tint = if (currentIndex >= images.size) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {
@@ -559,7 +565,7 @@ private fun BatchActionBar(
                 onClick = onCancel,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("取消")
+                Text(stringResource(R.string.common_cancel))
             }
         } else {
             Button(
@@ -567,7 +573,7 @@ private fun BatchActionBar(
                 enabled = state.images.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("开始处理（${state.images.size} 张）")
+                Text(stringResource(R.string.batch_start, state.images.size))
             }
         }
     }
@@ -582,32 +588,32 @@ private fun BatchSummaryDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("批量处理完成") },
+        title = { Text(stringResource(R.string.batch_done_title)) },
         text = {
             Column {
                 Text(
-                    text = "成功 $success 张",
+                    text = stringResource(R.string.batch_success_count, success),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
                 if (fail > 0) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "失败 $fail 张",
+                        text = stringResource(R.string.batch_fail_count, fail),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error
                     )
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "已保存到相册。",
+                    text = stringResource(R.string.batch_saved_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("好") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.batch_ok)) }
         }
     )
 }

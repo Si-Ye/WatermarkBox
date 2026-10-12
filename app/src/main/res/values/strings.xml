@@ -322,4 +322,82 @@
     <string name="preset_edit_preview">效果示意</string>
     <string name="preset_edit_empty_text">（未填写文字）</string>
     <string name="preset_edit_logo_note">logo 本身不能在预设里更换（它已内嵌在预设中）。这里可以调整它的大小、位置、透明度等样式。</string>
+
+    <!-- ==================== 编辑器消息 ==================== -->
+    <string name="editor_error_load_failed">图片加载失败，请重试或换一张图片</string>
+    <string name="editor_error_font_name">无法读取字体文件名</string>
+    <string name="editor_error_font_import">字体导入失败（需为 ttf/otf/ttc 且小于 8MB）</string>
+    <string name="editor_info_font_imported">字体「%1$s」已导入并启用</string>
+    <string name="editor_info_font_deleted">字体「%1$s」已删除</string>
+    <string name="editor_error_logo_load">Logo 图片加载失败</string>
+    <string name="editor_error_no_image">没有可导出的图片</string>
+    <string name="editor_error_source_load">原图加载失败，无法导出</string>
+    <string name="editor_error_no_logo">请先选择 Logo 图片</string>
+    <string name="editor_error_export_failed">导出失败，请重试</string>
+    <string name="editor_error_export_exception">导出异常：%1$s</string>
+    <string name="editor_info_exported">已保存到相册：%1$s</string>
+    <string name="editor_error_preset_name_empty">预设名称不能为空</string>
+    <string name="editor_info_preset_saved">预设「%1$s」已保存</string>
+    <string name="editor_info_preset_replaced">预设「%1$s」已替换</string>
+    <string name="editor_info_preset_saved_as">预设「%1$s」已另存为</string>
+    <string name="editor_info_preset_applied">已应用预设「%1$s」</string>
+
+    <!-- ==================== 检测页 ==================== -->
+    <string name="detect_title">检测隐藏水印</string>
+    <string name="detect_intro">选择一张图片，检测其中是否含有由本应用写入的隐藏水印。
+
+检测分两级：先读 EXIF 元数据（若图片未被压缩过，此级即可命中）；若 EXIF 无结果，再尝试从像素的频域中提取（可抵抗 JPEG 重压缩）。</string>
+    <string name="detect_image_desc">待检测图片</string>
+    <string name="detect_pick">选择图片</string>
+    <string name="detect_recheck">换一张检测</string>
+    <string name="detect_running">正在检测…</string>
+    <string name="detect_found_title">检测到隐藏水印</string>
+    <string name="detect_not_found_title">未检测到隐藏水印</string>
+    <string name="detect_failed_title">检测失败</string>
+    <string name="detect_field_content">内容</string>
+    <string name="detect_field_channel">来源通道</string>
+    <string name="detect_field_confidence">置信度</string>
+    <string name="detect_field_reason">说明</string>
+    <string name="detect_field_error">原因</string>
+    <string name="detect_channel_exif">EXIF 元数据</string>
+    <string name="detect_channel_frequency">频域（DCT）</string>
+
+    <!-- ==================== 批量 / 组件 / 其他 ==================== -->
+    <string name="batch_title">批量处理（%1$d/%2$d）</string>
+    <string name="batch_presets">预设</string>
+    <string name="batch_export_settings">导出设置</string>
+    <string name="batch_remove_one">移除这张</string>
+    <string name="batch_add_more">添加更多图片</string>
+    <string name="batch_add_more_limit">还可以加 %1$d 张以内</string>
+    <string name="batch_jump_add_more">跳到添加更多</string>
+    <string name="batch_start">开始处理（%1$d 张）</string>
+    <string name="batch_done_title">批量处理完成</string>
+    <string name="batch_success_count">成功 %1$d 张</string>
+    <string name="batch_fail_count">失败 %1$d 张</string>
+    <string name="batch_saved_hint">已保存到相册。</string>
+    <string name="batch_ok">好</string>
+    <string name="batch_error_logo">Logo 加载失败</string>
+    <string name="batch_error_no_images">请先选择图片</string>
+    <string name="batch_error_logo_required">图片水印需要先选择 Logo</string>
+    <string name="batch_error_interrupted">处理被中断或失败</string>
+    <string name="batch_error_cancelled">已取消批量处理</string>
+    <string name="editor_screen_title">编辑水印</string>
+    <string name="editor_panel_presets">预设</string>
+    <string name="editor_export">导出</string>
+    <string name="editor_exporting">导出中…</string>
+    <string name="preset_error_not_found">预设不存在，可能已被删除</string>
+    <string name="preset_error_name_empty">名称不能为空</string>
+    <string name="preset_error_save_failed">保存失败：找不到该预设</string>
+    <string name="preset_info_deleted">预设「%1$s」已删除</string>
+    <string name="preview_no_image">暂无图片</string>
+    <string name="preview_desc">预览</string>
+    <string name="preview_choose_logo">请选择 Logo 图片</string>
+    <string name="panel_title">水印参数</string>
+    <string name="panel_hint_overlay">继续拖将覆盖预览</string>
+    <string name="panel_hint_drag">拖动调整高度</string>
+    <string name="panel_collapse">收起</string>
+    <string name="panel_expand">展开</string>
+    <string name="common_selected">已选中</string>
+    <string name="invisible_error_too_small">图片过小，无法承载水印</string>
+    <string name="invisible_error_not_found">未检测到水印（或损坏超出纠错能力）</string>
 </resources>

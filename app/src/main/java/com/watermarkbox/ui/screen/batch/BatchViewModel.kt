@@ -9,6 +9,8 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.watermarkbox.R
+import com.watermarkbox.util.UiMessage
 import com.watermarkbox.data.model.BatchLimits
 import com.watermarkbox.data.model.ExportSettings
 import com.watermarkbox.data.model.FontFamilyOption
@@ -65,7 +67,7 @@ data class BatchUiState(
     /** 是否已结束（用于展示统计） */
     val finished: Boolean = false,
     /** 错误提示 */
-    val errorMessage: String? = null,
+    val errorMessage: UiMessage? = null,
     // ---- 预览（v1.4.0：批量页支持左右滑切换图片）----
     /**
      * 当前正在预览的图片下标。
@@ -200,7 +202,7 @@ class BatchViewModel(application: Application) :
         viewModelScope.launch {
             val bitmap = imageRepository.loadBitmapForLogo(uri, maxEdge = 512)
             if (bitmap == null) {
-                _uiState.update { it.copy(errorMessage = "Logo 加载失败") }
+                _uiState.update { it.copy(errorMessage = UiMessage(R.string.batch_error_logo)) }
                 return@launch
             }
             _uiState.update {
@@ -236,13 +238,13 @@ class BatchViewModel(application: Application) :
     fun startProcessing() {
         val state = _uiState.value
         if (state.images.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "请先选择图片") }
+            _uiState.update { it.copy(errorMessage = UiMessage(R.string.batch_error_no_images)) }
             return
         }
         if (state.watermarkType == WatermarkType.IMAGE &&
             (state.logoBitmap == null || state.logoBitmap.isRecycled)
         ) {
-            _uiState.update { it.copy(errorMessage = "图片水印需要先选择 Logo") }
+            _uiState.update { it.copy(errorMessage = UiMessage(R.string.batch_error_logo_required)) }
             return
         }
         if (state.isProcessing) return
@@ -350,7 +352,7 @@ class BatchViewModel(application: Application) :
                             it.copy(
                                 isProcessing = false,
                                 finished = true,
-                                errorMessage = "处理被中断或失败"
+                                errorMessage = UiMessage(R.string.batch_error_interrupted)
                             )
                         }
                     }
@@ -365,7 +367,7 @@ class BatchViewModel(application: Application) :
     fun cancelProcessing() {
         workManager.cancelAllWorkByTag(BatchWatermarkWorker.WORK_NAME)
         _uiState.update {
-            it.copy(isProcessing = false, errorMessage = "已取消批量处理")
+            it.copy(isProcessing = false, errorMessage = UiMessage(R.string.batch_error_cancelled))
         }
     }
 
@@ -489,7 +491,7 @@ class BatchViewModel(application: Application) :
     ) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "预设名称不能为空") }
+            _uiState.update { it.copy(errorMessage = UiMessage(R.string.preset_error_name_empty)) }
             return
         }
         val state = _uiState.value

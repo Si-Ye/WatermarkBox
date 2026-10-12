@@ -52,6 +52,7 @@ import com.watermarkbox.R
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.util.resolve
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -86,13 +87,14 @@ fun PresetsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     // 操作反馈
+    // 先在 Composable 上下文里解析好文本，再交给 LaunchedEffect
+    val messageText = state.message?.resolve()
     LaunchedEffect(state.message) {
-        state.message?.let {
+        messageText?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
     }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {

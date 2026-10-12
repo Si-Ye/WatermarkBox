@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.R
 import com.watermarkbox.ui.screen.editor.WatermarkPanel
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.util.resolve
 
 /**
  * 预设参数编辑页（**无图片预览**）。
@@ -113,21 +114,26 @@ fun PresetEditScreen(
     LaunchedEffect(state.saved) {
         if (state.saved) onBack()
     }
-
-    // 提示
+// 提示
+    // 先在 Composable 上下文里解析好文本，再交给 LaunchedEffect
+    // （挂起块里不能调用 @Composable 函数）
+    val messageText = state.message?.takeIf { it.resId != 0 }?.resolve()
     LaunchedEffect(state.message) {
         val msg = state.message ?: return@LaunchedEffect
-        // NAME_CLASH 是给 UI 的信号（弹确认框），不当作提示文字
-        if (msg != NAME_CLASH) {
-            snackbarHostState.showSnackbar(msg)
-            viewModel.clearMessage()
+        // resId == 0 是「弹确认框」的控制信号，不是给用户看的文案。
+        // 资源 ID 永远非 0，所以不会与真实文案冲突。
+        if (msg.resId != 0) {
+            messageText?.let {
+                snackbarHostState.showSnackbar(it)
+                viewModel.clearMessage()
+            }
         }
     }
 
     // 重名确认框
     var showClashDialog by remember { mutableStateOf(false) }
     LaunchedEffect(state.message) {
-        if (state.message == NAME_CLASH) {
+        if (state.message?.resId == 0) {
             showClashDialog = true
             viewModel.clearMessage()
         }
@@ -252,12 +258,8 @@ fun PresetEditScreen(
         )
     }
 }
-
-/** 重名信号的哨兵值（ViewModel → UI）。 */
-private const val NAME_CLASH = "NAME_CLASH"
-
 /**
- * 灰色占位画布：16:9 浅灰底 + 按参数绘制的水印示意。
+* 灰色占位画布：16:9 浅灰底 + 按参数绘制的水印示意。
  *
  * 不是真实图片，只用来让「位置 / 字号 / 颜色 / 旋转 / 透明度 / 平铺」
  * 这些参数的变化**看得见**。见 [PresetEditScreen] 的说明。

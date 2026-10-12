@@ -316,4 +316,82 @@ To create one: pick an image → adjust the watermark → tap the bookmark icon 
     <string name="preset_edit_preview">Preview</string>
     <string name="preset_edit_empty_text">(no text)</string>
     <string name="preset_edit_logo_note">The logo itself cannot be changed in a preset (it is embedded in it). You can still adjust its size, position, opacity and other styling here.</string>
+
+    <!-- ==================== Editor messages ==================== -->
+    <string name="editor_error_load_failed">Could not load the image — try again or pick another one</string>
+    <string name="editor_error_font_name">Could not read the font filename</string>
+    <string name="editor_error_font_import">Font import failed (must be ttf/otf/ttc under 8 MB)</string>
+    <string name="editor_info_font_imported">Font "%1$s" imported and enabled</string>
+    <string name="editor_info_font_deleted">Font "%1$s" deleted</string>
+    <string name="editor_error_logo_load">Could not load the Logo image</string>
+    <string name="editor_error_no_image">No image to export</string>
+    <string name="editor_error_source_load">Could not load the original image — export aborted</string>
+    <string name="editor_error_no_logo">Choose a Logo image first</string>
+    <string name="editor_error_export_failed">Export failed — please try again</string>
+    <string name="editor_error_export_exception">Export error: %1$s</string>
+    <string name="editor_info_exported">Saved to the gallery: %1$s</string>
+    <string name="editor_error_preset_name_empty">Preset name cannot be empty</string>
+    <string name="editor_info_preset_saved">Preset "%1$s" saved</string>
+    <string name="editor_info_preset_replaced">Preset "%1$s" replaced</string>
+    <string name="editor_info_preset_saved_as">Preset "%1$s" saved as a new copy</string>
+    <string name="editor_info_preset_applied">Applied preset "%1$s"</string>
+
+    <!-- ==================== Detect screen ==================== -->
+    <string name="detect_title">Detect hidden watermark</string>
+    <string name="detect_intro">Pick an image to check whether it carries a hidden watermark written by this app.
+
+Detection has two passes: first the EXIF metadata (enough if the image was never compressed), then the pixel frequency domain (survives JPEG re-compression).</string>
+    <string name="detect_image_desc">Image to check</string>
+    <string name="detect_pick">Choose a photo</string>
+    <string name="detect_recheck">Check another</string>
+    <string name="detect_running">Checking…</string>
+    <string name="detect_found_title">Hidden watermark detected</string>
+    <string name="detect_not_found_title">No hidden watermark found</string>
+    <string name="detect_failed_title">Detection failed</string>
+    <string name="detect_field_content">Content</string>
+    <string name="detect_field_channel">Channel</string>
+    <string name="detect_field_confidence">Confidence</string>
+    <string name="detect_field_reason">Details</string>
+    <string name="detect_field_error">Reason</string>
+    <string name="detect_channel_exif">EXIF metadata</string>
+    <string name="detect_channel_frequency">Frequency domain (DCT)</string>
+
+    <!-- ==================== Batch / components / misc ==================== -->
+    <string name="batch_title">Batch processing (%1$d/%2$d)</string>
+    <string name="batch_presets">Presets</string>
+    <string name="batch_export_settings">Export settings</string>
+    <string name="batch_remove_one">Remove this one</string>
+    <string name="batch_add_more">Add more images</string>
+    <string name="batch_add_more_limit">You can add up to %1$d more</string>
+    <string name="batch_jump_add_more">Jump to Add more</string>
+    <string name="batch_start">Start processing (%1$d)</string>
+    <string name="batch_done_title">Batch processing finished</string>
+    <string name="batch_success_count">%1$d succeeded</string>
+    <string name="batch_fail_count">%1$d failed</string>
+    <string name="batch_saved_hint">Saved to the gallery.</string>
+    <string name="batch_ok">OK</string>
+    <string name="batch_error_logo">Could not load the Logo</string>
+    <string name="batch_error_no_images">Choose some images first</string>
+    <string name="batch_error_logo_required">An image watermark needs a Logo</string>
+    <string name="batch_error_interrupted">Processing was interrupted or failed</string>
+    <string name="batch_error_cancelled">Batch processing cancelled</string>
+    <string name="editor_screen_title">Edit watermark</string>
+    <string name="editor_panel_presets">Presets</string>
+    <string name="editor_export">Export</string>
+    <string name="editor_exporting">Exporting…</string>
+    <string name="preset_error_not_found">This preset no longer exists — it may have been deleted</string>
+    <string name="preset_error_name_empty">Name cannot be empty</string>
+    <string name="preset_error_save_failed">Save failed: preset not found</string>
+    <string name="preset_info_deleted">Preset "%1$s" deleted</string>
+    <string name="preview_no_image">No image</string>
+    <string name="preview_desc">Preview</string>
+    <string name="preview_choose_logo">Choose a Logo image</string>
+    <string name="panel_title">Watermark settings</string>
+    <string name="panel_hint_overlay">Keep dragging to cover the preview</string>
+    <string name="panel_hint_drag">Drag to resize</string>
+    <string name="panel_collapse">Collapse</string>
+    <string name="panel_expand">Expand</string>
+    <string name="common_selected">Selected</string>
+    <string name="invisible_error_too_small">Image is too small to carry a watermark</string>
+    <string name="invisible_error_not_found">No watermark found (or the damage exceeds error-correction capacity)</string>
 </resources>

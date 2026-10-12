@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.watermarkbox.R
+import com.watermarkbox.util.UiMessage
 import com.watermarkbox.data.model.FontFamilyOption
 import com.watermarkbox.data.model.GravityPosition
 import com.watermarkbox.data.model.ImageWatermarkStyle
@@ -48,7 +50,7 @@ data class PresetEditUiState(
     /** 是否已保存并触发退出 */
     val saved: Boolean = false,
     /** 错误 / 提示 */
-    val message: String? = null
+    val message: UiMessage? = null
 )
 
 /**
@@ -128,7 +130,7 @@ class PresetEditViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             val preset = settingsRepository.getPresets().firstOrNull { it.id == id }
             if (preset == null) {
-                _uiState.update { it.copy(loaded = true, message = "预设不存在，可能已被删除") }
+                _uiState.update { it.copy(loaded = true, message = UiMessage(R.string.preset_error_not_found)) }
                 return@launch
             }
             _uiState.update {
@@ -169,7 +171,7 @@ class PresetEditViewModel(application: Application) : AndroidViewModel(applicati
         val s = _uiState.value
         val name = s.name.trim()
         if (name.isEmpty()) {
-            _uiState.update { it.copy(message = "名称不能为空") }
+            _uiState.update { it.copy(message = UiMessage(R.string.preset_error_name_empty)) }
             return
         }
         viewModelScope.launch {
@@ -177,7 +179,7 @@ class PresetEditViewModel(application: Application) : AndroidViewModel(applicati
             val clash = all.firstOrNull { it.id != id && it.name == name }
             if (clash != null && !overwriteSameName) {
                 // 交给 UI 弹确认框
-                _uiState.update { it.copy(message = "NAME_CLASH") }
+                _uiState.update { it.copy(message = UiMessage(resId = 0)) }
                 return@launch
             }
             if (clash != null) {
@@ -194,7 +196,7 @@ class PresetEditViewModel(application: Application) : AndroidViewModel(applicati
             _uiState.update {
                 it.copy(
                     saved = ok,
-                    message = if (ok) null else "保存失败：找不到该预设"
+                    message = if (ok) null else UiMessage(R.string.preset_error_save_failed)
                 )
             }
         }

@@ -3,6 +3,8 @@ package com.watermarkbox.ui.screen.presets
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.watermarkbox.R
+import com.watermarkbox.util.UiMessage
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +23,7 @@ data class PresetsUiState(
     /** 待删除确认的预设 */
     val pendingDelete: WatermarkPreset? = null,
     /** 操作反馈 */
-    val message: String? = null
+    val message: UiMessage? = null
 )
 
 /**
@@ -60,7 +62,7 @@ class PresetsViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             settingsRepository.deletePreset(target.id)
             _uiState.update {
-                it.copy(pendingDelete = null, message = "预设「${target.name}」已删除")
+                it.copy(pendingDelete = null, message = UiMessage(R.string.preset_info_deleted, target.name))
             }
         }
     }

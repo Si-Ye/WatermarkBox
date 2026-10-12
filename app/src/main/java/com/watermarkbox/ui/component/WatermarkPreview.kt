@@ -22,6 +22,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import com.watermarkbox.R
 import com.watermarkbox.data.model.ImageWatermarkStyle
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkType
@@ -161,7 +163,7 @@ fun WatermarkPreview(
 
             renderedBitmap == null -> {
                 Text(
-                    text = "暂无图片",
+                    text = stringResource(R.string.preview_no_image),
                     color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -177,7 +179,7 @@ fun WatermarkPreview(
                 // 拖面板时图片尺寸完全不变。
                 Image(
                     bitmap = renderedBitmap.asImageBitmap(),
-                    contentDescription = "预览",
+                    contentDescription = stringResource(R.string.preview_desc),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
@@ -225,7 +227,7 @@ fun WatermarkPreview(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "请选择 Logo 图片",
+                        text = stringResource(R.string.preview_choose_logo),
                         color = Color.White.copy(alpha = 0.85f),
                         style = MaterialTheme.typography.labelSmall
                     )
