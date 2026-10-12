@@ -253,7 +253,7 @@ class WatermarkRenderer {
 
         val count = config.tileCount.coerceIn(1, 20)
 
-        // 对角线默认 45°，再叠加用户自定义角度
+        // 对角线 = 整体旋转 45°（再叠加用户自定义角度）
         val angle = -45f + config.rotationDegrees
 
         // ---- 网格尺寸 ----
@@ -267,59 +267,50 @@ class WatermarkRenderer {
         val cellWidth = step
         val cellHeight = max(step / 1.6f, lineHeight * 1.4f)
 
-        // ---- 铺开方式：在原图坐标系铺满网格，再逐格旋转绘制 ----
+        // ---- 铺开方式：整体旋转坐标系 + 按「旋转后包围盒」铺满 ----
         //
-        // ## 为什么改成这样（踩坑记录，第三版）
+        // ## 与「平铺」的区别（本次重构）
         //
-        // 前两版都是「先 canvas.rotate()，再在旋转后的坐标系里铺网格」。
-        // 这在数学上没错，但有个致命副作用：
+        // - 平铺：不做整体旋转（只按用户角度微调），文字水平，网格轴对齐。
+        // - 对角线：**整个坐标系转 45°**，水印呈斜向条带排列。
         //
-        //   旋转后的坐标系里，画布是一个**斜矩形（菱形）**。
-        //   网格是按 x/y 轴对齐铺的，于是**大量网格行整行落在菱形之外**，
-        //   被判定跳过 → 成图上看就是「水印只集中在中间一条斜带」。
-        //   3000×1000 的图实测只覆盖画布宽度的 26%。
+        // 之前的实现是「逐格旋转」——每个文字自己斜 45°，但网格还是轴对齐的。
+        // 那样看起来不像「斜着铺满」，只是「一堆斜着的字排在方格里」。
         //
-        // 根因：铺网格的坐标系和「图片的形状」不再对齐了。
+        // ## 为什么必须按「旋转后包围盒」铺（踩坑记录）
         //
-        // 现方案反过来：**在原图坐标系里按图片尺寸铺满网格**
-        // （网格天然铺满整个矩形，不会有整行跳过的现象），
-        // 然后对**每个格子单独做旋转绘制** —— 只让水印文字转，不让坐标系转。
+        // 整体 canvas.rotate(45°) 之后，**画布自身也被转了**：
+        //   在旋转后的坐标系里，画布是一个**斜矩形**，它的包围盒比原画布大得多
+        //   （3000×1000 转 45° 后包围盒约 2828×2828）。
         //
-        // 这样「铺满」和「旋转」两件事互不干扰，分布自然均匀。
+        // 如果还按「原画布尺寸」铺网格，旋转后四个角就会空出来 ——
+        // 这正是用户看到的「对角线模式下角上没有水印」。
         //
-        // ## 关于「沿对角线错开」
-        //
-        // 奇数行在 x 方向错开半格，形成砖块式排布。
-        // 因为整体旋转 45°，这个错位在视觉上就表现为「沿对角线方向错开」。
-        val tileCellW = cellWidth
-        val tileCellH = cellHeight
+        // 所以这里按**旋转后包围盒**的尺寸铺网格，再整体旋转坐标系。
+        // 网格本身仍然轴对齐（在旋转坐标系里），但因为整体转了，视觉上就是斜纹。
+        val bounds = rotatedBounds(output.width.toFloat(), output.height.toFloat(), angle)
+        val originX = output.width / 2f
+        val originY = output.height / 2f
 
-        // 网格覆盖范围：从画布外一角开始铺，向右下覆盖到画布外另一角。
-        //
-        // 余量取「一个格子」：
-        //   - 起点在负方向留一格，保证旋转后左上角超出的部分也被盖到；
-        //   - 列/行数按画布尺寸算完再 +2，保证右下角也被盖到。
-        //
-        // 之前写成 margin = cell + |w-h|/2，在 4000×500 这种极端长宽比下
-        // 会让起点偏移过多、尾部反而盖不到 —— 这是被单测发现的问题。
-        val cols = ceil(output.width / tileCellW).toInt() + 2
-        val rows = ceil(output.height / tileCellH).toInt() + 2
-        val startX = -tileCellW
-        val startY = -tileCellH
+        // 在旋转坐标系里，画布包围盒是 [originX + left, originX + left + width] × ...
+        // 从包围盒左上角再外扩一格开始铺，保证四角都被覆盖。
+        val startX = originX + bounds.left - cellWidth
+        val startY = originY + bounds.top - cellHeight
+        val cols = ceil((bounds.width + cellWidth * 2) / cellWidth).toInt() + 1
+        val rows = ceil((bounds.height + cellHeight * 2) / cellHeight).toInt() + 1
+
+        canvas.save()
+        canvas.rotate(angle, originX, originY)
 
         for (row in 0..rows) {
             for (col in 0..cols) {
-                val offsetX = if (row % 2 == 1) tileCellW / 2f else 0f
-                val x = startX + col * tileCellW + offsetX
-                val y = startY + row * tileCellH
-
-                // 逐格旋转：save → rotate(绕该格中心) → 画文字 → restore
-                canvas.save()
-                canvas.rotate(angle, x, y)
+                val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
+                val x = startX + col * cellWidth + offsetX
+                val y = startY + row * cellHeight
                 drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
-                canvas.restore()
             }
         }
+        canvas.restore()
 
         return output
     }
@@ -588,31 +579,33 @@ class WatermarkRenderer {
         val cellWidth = step
         val cellHeight = max(step / 1.6f, h * 1.4f)
 
-        // 铺开方式：与文字对角线一致 —— 在原图坐标系铺满网格，再逐格旋转。
-        // 前两版「先 rotate 再铺网格」会让大量网格行落在旋转后的斜矩形之外，
-        // 表现为「水印只集中中间一条」。详见 renderDiagonal 的踩坑记录。
-        val cols = ceil(output.width / cellWidth).toInt() + 2
-        val rows = ceil(output.height / cellHeight).toInt() + 2
-        val startX = -cellWidth
-        val startY = -cellHeight
+        // 铺开方式：与文字对角线一致 —— 整体旋转坐标系，
+        // 并按「旋转后包围盒」铺满网格。原因见 renderDiagonal 的踩坑记录。
+        val bounds = rotatedBounds(output.width.toFloat(), output.height.toFloat(), angle)
+        val originX = output.width / 2f
+        val originY = output.height / 2f
+
+        val startX = originX + bounds.left - cellWidth
+        val startY = originY + bounds.top - cellHeight
+        val cols = ceil((bounds.width + cellWidth * 2) / cellWidth).toInt() + 1
+        val rows = ceil((bounds.height + cellHeight * 2) / cellHeight).toInt() + 1
+
+        canvas.save()
+        canvas.rotate(angle, originX, originY)
 
         for (row in 0..rows) {
             for (col in 0..cols) {
                 val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
                 val x = startX + col * cellWidth + offsetX
                 val y = startY + row * cellHeight
-
-                // 逐格旋转：绕该格中心旋转后再画 logo
-                canvas.save()
-                canvas.rotate(angle, x + w / 2f, y + h / 2f)
                 canvas.drawBitmap(
                     logo, null,
                     Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
                     paint
                 )
-                canvas.restore()
             }
         }
+        canvas.restore()
         return output
     }
 
