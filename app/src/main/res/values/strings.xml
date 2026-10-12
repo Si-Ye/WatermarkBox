@@ -210,6 +210,14 @@
     <string name="release_1_5_0_c4">更新说明现在能正确渲染 Markdown 格式（标题、列表、表格、代码块）</string>
     <string name="release_1_5_0_c5">导出目录统一为 Pictures/WatermarkBox（旧目录中的图片仍可正常读取）</string>
 
+    <!-- ==================== v1.6.0 ==================== -->
+    <string name="release_1_6_0_title">拖动定位水印 · 下载校验</string>
+    <string name="release_1_6_0_c1">单个水印可以直接在预览图上拖动定位，不再局限于九宫格</string>
+    <string name="release_1_6_0_c2">应用内下载后校验安装包（SHA-256 + 包名 + 签名），不通过则拒绝安装</string>
+    <string name="release_1_6_0_c3">修复：对角线水印在长方形图片上覆盖不全</string>
+    <string name="release_1_6_0_c4">修复：对角线改为整体斜铺、平铺改为逐字旋转，两个模式的旋转逻辑互换</string>
+    <string name="release_1_6_0_c5">修复：单个模式在四角位置旋转时会甩出画面</string>
+
     <!-- ==================== 更新日志：1.4.1 ==================== -->
     <string name="release_1_4_1_title">更新说明页</string>
     <string name="release_1_4_1_c1">设置 → 其他 新增「更新说明」，可查看从 1.0.0 至今的全部变更</string>

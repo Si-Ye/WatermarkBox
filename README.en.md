@@ -322,7 +322,7 @@ Apache-2.0 — see [LICENSE](LICENSE).
 
 <br>
 
-**WatermarkBox**　`v1.5.0`
+**WatermarkBox**　`v1.6.0`
 
 Made with 🐺 by [Si-Ye](https://github.com/Si-Ye)
 

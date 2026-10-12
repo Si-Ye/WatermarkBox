@@ -462,7 +462,7 @@ limitations under the License.
 
 <br>
 
-**水印盒 · WatermarkBox**　`v1.5.0`
+**水印盒 · WatermarkBox**　`v1.6.0`
 
 Made with 🐺 by [肆叶](https://github.com/Si-Ye)
 

@@ -205,6 +205,14 @@
     <string name="release_1_5_0_c4">Release notes now render Markdown correctly (headings, lists, tables, code blocks)</string>
     <string name="release_1_5_0_c5">Export folder unified as Pictures/WatermarkBox (images in the old folder still readable)</string>
 
+    <!-- ==================== v1.6.0 ==================== -->
+    <string name="release_1_6_0_title">Drag to position · Download verification</string>
+    <string name="release_1_6_0_c1">In single mode you can drag the watermark directly on the preview, no longer limited to the 3×3 grid</string>
+    <string name="release_1_6_0_c2">In-app downloads are verified (SHA-256 + package name + signature); installation is refused if any check fails</string>
+    <string name="release_1_6_0_c3">Fixed: diagonal watermarks did not cover the whole of a landscape image</string>
+    <string name="release_1_6_0_c4">Fixed: diagonal now rotates the whole grid, tiled rotates each item — the two modes had their rotation logic swapped</string>
+    <string name="release_1_6_0_c5">Fixed: in single mode, rotating a watermark placed at a corner threw it off-screen</string>
+
     <!-- ==================== Changelog: 1.4.1 ==================== -->
     <string name="release_1_4_1_title">Changelog screen</string>
     <string name="release_1_4_1_c1">Added a changelog under Settings → Other, listing every change since 1.0.0</string>
