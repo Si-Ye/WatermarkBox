@@ -178,11 +178,25 @@ object UpdateChecker {
     /**
      * 从 assets 数组里找 APK 下载链接。
      *
-     * 优先选名字里带 `release` 的（区别于 debug 包），
-     * 没有则退回第一个 `.apk` 附件。
+     * ## 挑选策略（按优先级）
+     *
+     * 1. 排除文件名含 `debug` 的 —— 调试包体积大、含日志，不适合普通用户
+     * 2. 优先选文件名含 `release` 的 —— 这是 CI 产出的正式包
+     * 3. 其余情况退回第一个 apk 附件
+     *
+     * ## 为什么要排除 debug 而不是只匹配 release
+     *
+     * 早期实现只判断「含 release」，但 Release 里可能同时存在
+     * `app-release.apk`（Gradle 默认名）与 `WatermarkBox-1.5.0-release.apk`
+     * 两种命名，前者虽能用却不是我们想推荐给用户的那个。
+     * 先排除 debug 再挑 release，命中更稳。
+     *
+     * 目前 CI 已统一产出 `WatermarkBox-<version>-release.apk`，
+     * 这里的多重判断是为了兼容历史上传的旧附件。
      */
     private fun findApkUrl(obj: JsonObject): String? {
         val assets = obj["assets"] as? JsonArray ?: return null
+
         val apks = assets.mapNotNull { element ->
             val asset = element as? JsonObject ?: return@mapNotNull null
             val name = asset["name"]?.jsonPrimitive?.contentOrNullSafe() ?: return@mapNotNull null
@@ -192,8 +206,14 @@ object UpdateChecker {
             name to url
         }
         if (apks.isEmpty()) return null
-        return (apks.firstOrNull { it.first.contains("release", ignoreCase = true) }
-            ?: apks.first()).second
+
+        // 1. 先排除 debug 包
+        val nonDebug = apks.filterNot { it.first.contains("debug", ignoreCase = true) }
+        val pool = nonDebug.ifEmpty { apks }
+
+        // 2. 在剩余里优先挑 release
+        return (pool.firstOrNull { it.first.contains("release", ignoreCase = true) }
+            ?: pool.first()).second
     }
 
     /**

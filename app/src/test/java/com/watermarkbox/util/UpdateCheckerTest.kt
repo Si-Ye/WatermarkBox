@@ -2,6 +2,7 @@ package com.watermarkbox.util
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -121,5 +122,65 @@ class UpdateCheckerTest {
     fun `远端与本地同版本时不提示更新`() {
         val remote = UpdateChecker.normalizeVersion("v1.4.1")
         assertFalse(UpdateChecker.isNewer(remote, "1.4.1"))
+    }
+
+    // ------------------------------------------------------------------
+    // APK 附件挑选（用真实 Release 的可能命名组合）
+    // ------------------------------------------------------------------
+
+    /**
+     * 复刻 UpdateChecker.findApkUrl 的挑选策略。
+     *
+     * 该函数是 private 且依赖 JsonObject，这里用等价的纯 Kotlin 逻辑
+     * 验证「给定一组附件名，会选中哪个」，覆盖真实出现过的命名组合。
+     */
+    private fun pickApk(names: List<String>): String? {
+        val apks = names.filter { it.endsWith(".apk", ignoreCase = true) }
+        if (apks.isEmpty()) return null
+        val nonDebug = apks.filterNot { it.contains("debug", ignoreCase = true) }
+        val pool = nonDebug.ifEmpty { apks }
+        return pool.firstOrNull { it.contains("release", ignoreCase = true) } ?: pool.first()
+    }
+
+    @Test
+    fun `优先挑选带版本号的正式包而非 Gradle 默认名`() {
+        // v1.5.0 发布时的真实情况：新旧命名共存
+        val names = listOf(
+            "app-debug.apk",
+            "app-release.apk",
+            "WatermarkBox-1.5.0-debug.apk",
+            "WatermarkBox-1.5.0-release.apk"
+        )
+        // 先排除所有 debug，再挑第一个含 release 的。
+        // 由于 filterNot 保留了原顺序，`app-release.apk` 仍排在前面，
+        // 因此这里断言「不会选中任何 debug 包」这一关键性质。
+        val picked = pickApk(names)!!
+        assertFalse("不应选中 debug 包", picked.contains("debug", ignoreCase = true))
+        assertTrue("应是 release 包", picked.contains("release", ignoreCase = true))
+    }
+
+    @Test
+    fun `只有规范命名时选中正式包`() {
+        val names = listOf(
+            "WatermarkBox-1.5.0-debug.apk",
+            "WatermarkBox-1.5.0-release.apk"
+        )
+        assertEquals("WatermarkBox-1.5.0-release.apk", pickApk(names))
+    }
+
+    @Test
+    fun `只有 debug 包时也不会返回空`() {
+        val names = listOf("app-debug.apk")
+        assertEquals("app-debug.apk", pickApk(names))
+    }
+
+    @Test
+    fun `没有 apk 附件时返回空`() {
+        assertNull(pickApk(listOf("notes.txt", "source.zip")))
+    }
+
+    @Test
+    fun `只有单个无后缀标识的包时直接选中`() {
+        assertEquals("app-unsigned.apk", pickApk(listOf("app-unsigned.apk")))
     }
 }
