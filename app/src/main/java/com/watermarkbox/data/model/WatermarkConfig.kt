@@ -1,7 +1,9 @@
 package com.watermarkbox.data.model
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.watermarkbox.R
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -37,14 +39,20 @@ enum class GravityPosition {
 
 /**
  * 字体种类（系统内置族 + 自定义入口）。
+ *
+ * labelRes 存资源 ID：界面需按当前语言显示（中文「衬线体」/ 英文 "Serif"）。
+ *
+ * **序列化兼容性**：kotlinx.serialization 对 enum 默认按**常量名**（如 `SERIF`）
+ * 序列化，与 labelRes 无关。因此把 displayName 换成资源 ID **不会**
+ * 破坏已保存的用户预设。
  */
 @Serializable
-enum class FontFamilyOption(val displayName: String) {
-    DEFAULT("系统默认"),
-    SERIF("衬线体"),
-    MONOSPACE("等宽体"),
-    CURSIVE("手写体"),
-    CUSTOM("自定义字体")
+enum class FontFamilyOption(@param:StringRes val labelRes: Int) {
+    DEFAULT(R.string.font_family_default),
+    SERIF(R.string.font_family_serif),
+    MONOSPACE(R.string.font_family_monospace),
+    CURSIVE(R.string.font_family_cursive),
+    CUSTOM(R.string.font_family_custom)
 }
 
 /**
@@ -188,14 +196,15 @@ data class InvisibleWatermarkConfig(
 
 /**
  * 隐藏水印内容的来源。
+ *
+ * labelRes 存资源 ID，理由同 [FontFamilyOption]：界面需跟随语言显示。
  */
 @Serializable
-enum class InvisibleSource(val displayName: String) {
+enum class InvisibleSource(@param:StringRes val labelRes: Int) {
     /** 用户在面板里自己输入的文字。 */
-    CUSTOM_TEXT("自定义文字"),
-
+    CUSTOM_TEXT(R.string.editor_invisible_source_custom),
     /** 自动生成「设备 ID + 时间戳」，便于溯源到设备与时间。 */
-    DEVICE_AND_TIME("设备ID + 时间戳")
+    DEVICE_AND_TIME(R.string.editor_invisible_source_device)
 }
 
 /**

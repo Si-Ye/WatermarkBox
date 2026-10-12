@@ -42,11 +42,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.watermarkbox.R
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.theme.Spacing
@@ -95,12 +97,12 @@ fun PresetsScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("水印预设", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.presets_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -123,7 +125,7 @@ fun PresetsScreen(
                 // 尚未加载完成：不显示"空"文案，避免误导
                 !state.loaded -> {
                     Text(
-                        text = "正在读取…",
+                        text = stringResource(R.string.presets_loading),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -135,8 +137,7 @@ fun PresetsScreen(
 
                 else -> {
                     Text(
-                        text = "点任意预设可编辑它的名称与水印参数（无需图片）。\n" +
-                            "右侧图标：铅笔=编辑、垃圾桶=删除。",
+                        text = stringResource(R.string.presets_tip),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -164,17 +165,17 @@ fun PresetsScreen(
     state.pendingDelete?.let { preset ->
         AlertDialog(
             onDismissRequest = { viewModel.cancelDelete() },
-            title = { Text("删除预设") },
-            text = { Text("确定删除「${preset.name}」吗？此操作不可撤销。") },
+            title = { Text(stringResource(R.string.preset_delete_title)) },
+            text = { Text(stringResource(R.string.preset_delete_message, preset.name)) },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.confirmDelete() }
                 ) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.preset_delete_confirm), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.cancelDelete() }) { Text("取消") }
+                TextButton(onClick = { viewModel.cancelDelete() }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -203,15 +204,13 @@ private fun EmptyHint() {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "还没有任何预设",
+                text = stringResource(R.string.presets_empty_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "预设可以保存一套水印参数（文字、字号、颜色、位置等），\n" +
-                    "下次一键套用，不用重新调。\n\n" +
-                    "创建方式：选一张图片 → 调好水印 → 点顶部「书签」图标保存。",
+                text = stringResource(R.string.presets_empty_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -293,7 +292,7 @@ private fun PresetCard(
             IconButton(onClick = onEdit) {
                 Icon(
                     imageVector = Icons.Filled.Edit,
-                    contentDescription = "编辑参数",
+                    contentDescription = stringResource(R.string.presets_edit_action),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -301,7 +300,7 @@ private fun PresetCard(
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "删除",
+                    contentDescription = stringResource(R.string.preset_delete_action),
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
@@ -314,8 +313,8 @@ private fun PresetCard(
 @Composable
 private fun TypeBadge(type: WatermarkType) {
     val (label, color) = when (type) {
-        WatermarkType.TEXT -> "文字" to MaterialTheme.colorScheme.primary
-        WatermarkType.IMAGE -> "图片" to MaterialTheme.colorScheme.tertiary
+        WatermarkType.TEXT -> stringResource(R.string.presets_type_text) to MaterialTheme.colorScheme.primary
+        WatermarkType.IMAGE -> stringResource(R.string.presets_type_image) to MaterialTheme.colorScheme.tertiary
     }
     Surface(
         shape = RoundedCornerShape(6.dp),
@@ -330,16 +329,21 @@ private fun TypeBadge(type: WatermarkType) {
     }
 }
 
-/** 生成预设摘要，便于用户辨识。 */
+/**
+ * 生成预设摘要，便于用户辨识。
+ *
+ * 标为 @Composable 是因为要调用 [stringResource] 取当前语言的文案。
+ */
+@Composable
 private fun buildSummary(preset: WatermarkPreset): String {
     val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
         .format(Date(preset.createdAt))
     return when (preset.type) {
         WatermarkType.TEXT -> {
             val text = preset.textStyle.text.replace("\n", " ").take(16)
-            "「$text」 · ${time}"
+            stringResource(R.string.preset_summary_text, text, time)
         }
         WatermarkType.IMAGE ->
-            "Logo 宽 ${(preset.imageStyle.widthPercent * 100).toInt()}% · ${time}"
+            stringResource(R.string.presets_logo_width, (preset.imageStyle.widthPercent * 100).toInt(), time)
     }
 }

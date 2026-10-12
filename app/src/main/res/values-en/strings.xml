@@ -201,4 +201,119 @@
     <string name="editor_export_cancel">Cancel</string>
     <string name="editor_export_png">PNG</string>
     <string name="editor_export_jpeg">JPEG</string>
+
+    <!-- ==================== Editor panel ==================== -->
+    <string name="editor_type_text">Text watermark</string>
+    <string name="editor_type_image">Image watermark</string>
+    <string name="editor_invisible_title">Hidden watermark (invisible · for tracing)</string>
+    <string name="editor_invisible_enable">Enable hidden watermark</string>
+    <string name="editor_invisible_disabled_hint">When on, tracing data is written into the image without changing how it looks. Survives JPEG re-compression, but not screenshots or photos of the screen.</string>
+    <string name="editor_invisible_source">Watermark content</string>
+    <string name="editor_invisible_source_custom">Custom text</string>
+    <string name="editor_invisible_source_device">Device ID + time</string>
+    <string name="editor_invisible_content">Watermark content</string>
+    <string name="editor_invisible_content_placeholder">e.g. © 2026 Your Studio</string>
+    <string name="editor_invisible_content_limit">Up to 255 bytes</string>
+    <string name="editor_invisible_auto_hint">Writes "device ID + export time" automatically, formatted as WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss</string>
+    <string name="editor_invisible_strength">Embedding strength</string>
+    <string name="editor_invisible_strength_hint">Higher strength survives more compression, but changes more pixels (1 × is subtlest, 4 × is the most stubborn)</string>
+    <string name="editor_invisible_dct">DCT frequency embedding</string>
+    <string name="editor_invisible_dct_on">DCT is on: survives JPEG re-compression and format conversion, but slightly affects quality (pixels shift by ±3/255, virtually invisible to the eye).
+
+Best for images that need long-term tracing and may be compressed again.</string>
+    <string name="editor_invisible_dct_off">Only EXIF metadata is written: completely lossless, but the tracing data is lost as soon as the image is compressed or converted.
+
+Turn on DCT if you need tracing that survives compression.</string>
+    <string name="editor_invisible_strength_value">%1$d×</string>
+    <string name="editor_text_section">Watermark text</string>
+    <string name="editor_text_placeholder">Enter watermark text…</string>
+    <string name="editor_text_placeholders">Placeholders: {timestamp} · {date} · {filename}</string>
+    <string name="editor_font_section">Font</string>
+    <string name="editor_font_size">Size</string>
+    <string name="editor_font_family">Typeface</string>
+    <string name="editor_font_custom">Custom font</string>
+    <string name="editor_font_import">Import font</string>
+    <string name="editor_font_import_hint">Supports .ttf / .otf / .ttc (under 8 MB)</string>
+    <string name="editor_font_delete">Delete font</string>
+    <string name="editor_font_color">Text color</string>
+    <string name="editor_font_bold">Bold</string>
+    <string name="editor_font_italic">Italic</string>
+    <string name="font_family_default">System default</string>
+    <string name="font_family_serif">Serif</string>
+    <string name="font_family_monospace">Monospace</string>
+    <string name="font_family_cursive">Cursive</string>
+    <string name="font_family_custom">Custom font</string>
+    <string name="editor_layout_section">Layout and density</string>
+    <string name="editor_layout_mode">Layout mode</string>
+    <string name="editor_layout_single">Single</string>
+    <string name="editor_layout_tiled">Tiled</string>
+    <string name="editor_layout_diagonal">Diagonal</string>
+    <string name="editor_layout_density">Watermark count</string>
+    <string name="editor_layout_rotation">Rotation</string>
+    <string name="editor_layout_alpha">Opacity</string>
+    <string name="editor_gravity_section">Position and margin</string>
+    <string name="editor_margin">Margin</string>
+    <string name="editor_count_value">%1$d</string>
+    <string name="editor_enhance_section">Enhancements</string>
+    <string name="editor_stroke">Outline</string>
+    <string name="editor_stroke_width">Outline width</string>
+    <string name="editor_stroke_color">Outline color</string>
+    <string name="editor_shadow">Shadow</string>
+    <string name="editor_shadow_radius">Shadow blur</string>
+    <string name="editor_logo_section">Logo image</string>
+    <string name="editor_logo_preview">Logo preview</string>
+    <string name="editor_logo_pick">Choose Logo</string>
+    <string name="editor_logo_change">Change Logo</string>
+    <string name="editor_logo_remove">Remove Logo</string>
+    <string name="editor_size_section">Size</string>
+    <string name="editor_logo_width">Logo width</string>
+    <string name="editor_logo_aspect">Keep original aspect ratio</string>
+
+    <!-- ==================== Presets ==================== -->
+    <string name="preset_dialog_title">Watermark presets</string>
+    <string name="preset_save_section">Save current settings</string>
+    <string name="preset_name_label">Preset name</string>
+    <string name="preset_name_placeholder">e.g. My blog watermark</string>
+    <string name="preset_save">Save</string>
+    <string name="preset_duplicate_warning">⚠️ A preset with this name already exists — you will be asked what to do</string>
+    <string name="preset_saved_section">Saved presets (%1$d)</string>
+    <string name="preset_empty_hint">No presets yet. Set up a watermark, then enter a name above to save it.</string>
+    <string name="preset_close">Close</string>
+    <string name="preset_conflict_title">Name already exists</string>
+    <string name="preset_conflict_message">A preset named "%1$s" already exists. What would you like to do?
+
+• Replace: overwrite it with the current settings (its original settings will be lost)
+• Keep both: leave it untouched and save this one as "%1$s (2)"</string>
+    <string name="preset_keep_both">Keep both</string>
+    <string name="preset_replace">Replace</string>
+    <string name="preset_delete_title">Delete preset</string>
+    <string name="preset_delete_message">Delete "%1$s"? This cannot be undone.</string>
+    <string name="preset_delete_confirm">Delete</string>
+    <string name="preset_delete_action">Delete</string>
+    <string name="preset_summary_text">Text: "%1$s" · %2$s</string>
+    <string name="preset_summary_image">Image: width %1$d%% · %2$s</string>
+    <string name="presets_title">Watermark presets</string>
+    <string name="presets_loading">Loading…</string>
+    <string name="presets_tip">Tap a preset to edit its name and watermark settings (no image needed).
+Icons on the right: pencil = edit, trash = delete.</string>
+    <string name="presets_empty_title">No presets yet</string>
+    <string name="presets_empty_desc">A preset stores a full set of watermark settings (text, size, color, position and more),
+so you can apply it again in one tap.
+
+To create one: pick an image → adjust the watermark → tap the bookmark icon at the top.</string>
+    <string name="presets_edit_action">Edit settings</string>
+    <string name="presets_type_text">Text</string>
+    <string name="presets_type_image">Image</string>
+    <string name="presets_logo_width">Logo width %1$d%% · %2$s</string>
+    <string name="preset_edit_title">Edit preset</string>
+    <string name="preset_edit_loading">Loading preset…</string>
+    <string name="preset_clash_title">Name already exists</string>
+    <string name="preset_clash_message">Another preset is already named "%1$s".
+
+"Replace" deletes that preset and renames the one you are editing;
+"Cancel" discards your changes so you can go back and pick another name.</string>
+    <string name="preset_edit_image_logo_fixed">Image watermark (the logo cannot be changed here)</string>
+    <string name="preset_edit_preview">Preview</string>
+    <string name="preset_edit_empty_text">(no text)</string>
+    <string name="preset_edit_logo_note">The logo itself cannot be changed in a preset (it is embedded in it). You can still adjust its size, position, opacity and other styling here.</string>
 </resources>

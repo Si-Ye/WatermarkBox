@@ -39,7 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.watermarkbox.R
 import com.watermarkbox.data.model.FontFamilyOption
 import com.watermarkbox.data.model.GravityPosition
 import com.watermarkbox.data.model.InvisibleSource
@@ -97,8 +99,8 @@ fun WatermarkPanel(
         // ============ 水印类型切换 ============
         SegmentedControl(
             options = listOf(
-                WatermarkType.TEXT to "文字水印",
-                WatermarkType.IMAGE to "图片水印"
+                WatermarkType.TEXT to stringResource(R.string.editor_type_text),
+                WatermarkType.IMAGE to stringResource(R.string.editor_type_image)
             ),
             selected = state.watermarkType,
             onSelect = viewModel::updateWatermarkType
@@ -144,17 +146,16 @@ private fun InvisibleWatermarkSection(
 ) {
     val config = state.invisibleConfig
 
-    SectionLabel("隐藏水印（不可见 · 用于溯源）")
+    SectionLabel(stringResource(R.string.editor_invisible_title))
 
-    ToggleRow("启用隐藏水印", config.enabled) {
+    ToggleRow(stringResource(R.string.editor_invisible_enable), config.enabled) {
         viewModel.toggleInvisibleWatermark()
     }
 
     if (!config.enabled) {
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "开启后会在不改变画面观感的前提下，把溯源信息写入图片。" +
-                "可抵抗 JPEG 重压缩，但无法抵抗截图重拍。",
+            text = stringResource(R.string.editor_invisible_disabled_hint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -165,15 +166,15 @@ private fun InvisibleWatermarkSection(
 
     // ---- 内容来源 ----
     Text(
-        text = "水印内容来源",
+        text = stringResource(R.string.editor_invisible_source),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface
     )
     Spacer(Modifier.height(6.dp))
     SegmentedControl(
         options = listOf(
-            InvisibleSource.CUSTOM_TEXT to "自定义文字",
-            InvisibleSource.DEVICE_AND_TIME to "设备ID+时间戳"
+            InvisibleSource.CUSTOM_TEXT to stringResource(R.string.editor_invisible_source_custom),
+            InvisibleSource.DEVICE_AND_TIME to stringResource(R.string.editor_invisible_source_device)
         ),
         selected = config.source,
         onSelect = viewModel::updateInvisibleSource
@@ -187,11 +188,11 @@ private fun InvisibleWatermarkSection(
             onValueChange = viewModel::updateInvisibleContent,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("水印内容") },
-            placeholder = { Text("例如：© 2026 某某工作室") },
+            label = { Text(stringResource(R.string.editor_invisible_content)) },
+            placeholder = { Text(stringResource(R.string.editor_invisible_content_placeholder)) },
             supportingText = {
                 Text(
-                    "最多 255 字节（约 85 个汉字）",
+                    stringResource(R.string.editor_invisible_content_limit),
                     style = MaterialTheme.typography.labelSmall
                 )
             }
@@ -199,7 +200,7 @@ private fun InvisibleWatermarkSection(
     } else {
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "将自动写入「设备短 ID + 导出时间」，格式：WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss",
+            text = stringResource(R.string.editor_invisible_auto_hint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -208,14 +209,14 @@ private fun InvisibleWatermarkSection(
     // ---- 强度 ----
     Spacer(Modifier.height(Spacing.Item))
     LabeledSlider(
-        label = "嵌入强度",
+        label = stringResource(R.string.editor_invisible_strength),
         value = config.strength.toFloat(),
         onValueChange = { viewModel.updateInvisibleStrength(it.roundToInt()) },
         valueRange = 1f..4f,
-        valueText = "${config.strength} ×"
+        valueText = stringResource(R.string.editor_invisible_strength_value, config.strength)
     )
     Text(
-        text = "强度越高越抗压缩，但对像素的改动也越大（1 × 最隐蔽，4 × 最顽固）",
+        text = stringResource(R.string.editor_invisible_strength_hint),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -247,7 +248,7 @@ private fun DctToggle(
     viewModel: WatermarkPanelHost
 ) {
     ToggleRow(
-        label = "DCT 频域嵌入",
+        label = stringResource(R.string.editor_invisible_dct),
         checked = config.dctEnabled,
         onCheckedChange = { viewModel.toggleInvisibleDct() }
     )
@@ -284,13 +285,9 @@ private fun DctToggle(
             Spacer(Modifier.width(8.dp))
             Text(
                 text = if (config.dctEnabled) {
-                    "已开启 DCT：能抵抗 JPEG 重压缩、转格式等处理，" +
-                        "但会**轻微影响画质**（像素有 ±3/255 的扰动，肉眼几乎不可见）。\n\n" +
-                        "适合需要长期溯源、且图片会被二次压缩的场景。"
+                    stringResource(R.string.editor_invisible_dct_on)
                 } else {
-                    "当前只写入 EXIF 元数据：**画质完全无损**，" +
-                        "但图片一旦被压缩或转格式，溯源信息就会丢失。\n\n" +
-                        "需要抗压缩溯源时，请开启 DCT。"
+                    stringResource(R.string.editor_invisible_dct_off)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = content
@@ -312,17 +309,17 @@ private fun TextWatermarkPanelContent(
     val config = state.config
 
     // ---- 1. 水印文字 ----
-    SectionLabel("水印文字")
+    SectionLabel(stringResource(R.string.editor_text_section))
     OutlinedTextField(
         value = config.text,
         onValueChange = viewModel::updateText,
         modifier = Modifier.fillMaxWidth(),
         minLines = 2,
         maxLines = 4,
-        placeholder = { Text("输入水印文字…") },
+        placeholder = { Text(stringResource(R.string.editor_text_placeholder)) },
         supportingText = {
             Text(
-                "占位符：{timestamp} 时间戳 · {date} 日期 · {filename} 文件名",
+                stringResource(R.string.editor_text_placeholders),
                 style = MaterialTheme.typography.labelSmall
             )
         }
@@ -350,9 +347,9 @@ private fun TextWatermarkPanelContent(
     Spacer(Modifier.height(Spacing.Item))
 
     // ---- 2. 字体设置 ----
-    SectionLabel("字体设置")
+    SectionLabel(stringResource(R.string.editor_font_section))
     LabeledSlider(
-        label = "字号",
+        label = stringResource(R.string.editor_font_size),
         value = config.fontSize,
         onValueChange = viewModel::updateFontSize,
         valueRange = 6f..300f,
@@ -361,7 +358,7 @@ private fun TextWatermarkPanelContent(
 
     Spacer(Modifier.height(8.dp))
     Text(
-        text = "字体种类",
+        text = stringResource(R.string.editor_font_family),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface
     )
@@ -379,7 +376,7 @@ private fun TextWatermarkPanelContent(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "自定义字体",
+            text = stringResource(R.string.editor_font_custom),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -396,14 +393,14 @@ private fun TextWatermarkPanelContent(
                 modifier = Modifier.size(16.dp)
             )
             Spacer(Modifier.size(4.dp))
-            Text("导入字体", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(R.string.editor_font_import), style = MaterialTheme.typography.labelSmall)
         }
     }
 
     if (state.customFonts.isEmpty()) {
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "支持 .ttf / .otf / .ttc（小于 8MB）",
+            text = stringResource(R.string.editor_font_import_hint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -449,7 +446,7 @@ private fun TextWatermarkPanelContent(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "删除字体",
+                        contentDescription = stringResource(R.string.editor_font_delete),
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(16.dp)
                     )
@@ -461,7 +458,7 @@ private fun TextWatermarkPanelContent(
 
     Spacer(Modifier.height(Spacing.Item))
     Text(
-        text = "字体颜色",
+        text = stringResource(R.string.editor_font_color),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface
     )
@@ -473,24 +470,24 @@ private fun TextWatermarkPanelContent(
     )
 
     Spacer(Modifier.height(Spacing.Item))
-    ToggleRow("加粗", config.bold) { viewModel.toggleBold() }
-    ToggleRow("斜体", config.italic) { viewModel.toggleItalic() }
+    ToggleRow(stringResource(R.string.editor_font_bold), config.bold) { viewModel.toggleBold() }
+    ToggleRow(stringResource(R.string.editor_font_italic), config.italic) { viewModel.toggleItalic() }
 
     PanelDivider()
 
     // ---- 3. 布局与密度 ----
-    SectionLabel("布局与密度")
+    SectionLabel(stringResource(R.string.editor_layout_section))
     Text(
-        text = "布局模式",
+        text = stringResource(R.string.editor_layout_mode),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurface
     )
     Spacer(Modifier.height(6.dp))
     SegmentedControl(
         options = listOf(
-            LayoutMode.SINGLE to "单个",
-            LayoutMode.TILED to "平铺",
-            LayoutMode.DIAGONAL to "对角线"
+            LayoutMode.SINGLE to stringResource(R.string.editor_layout_single),
+            LayoutMode.TILED to stringResource(R.string.editor_layout_tiled),
+            LayoutMode.DIAGONAL to stringResource(R.string.editor_layout_diagonal)
         ),
         selected = config.layoutMode,
         onSelect = viewModel::updateLayoutMode
@@ -499,24 +496,24 @@ private fun TextWatermarkPanelContent(
     if (config.layoutMode != LayoutMode.SINGLE) {
         Spacer(Modifier.height(Spacing.Item))
         LabeledSlider(
-            label = "水印数量（密度）",
+            label = stringResource(R.string.editor_layout_density),
             value = config.tileCount.toFloat(),
             onValueChange = { viewModel.updateTileCount(it.roundToInt()) },
             valueRange = 1f..20f,
-            valueText = "${config.tileCount} 个"
+            valueText = stringResource(R.string.editor_count_value, config.tileCount)
         )
     }
 
     Spacer(Modifier.height(Spacing.Item))
     LabeledSlider(
-        label = "旋转角度",
+        label = stringResource(R.string.editor_layout_rotation),
         value = config.rotationDegrees,
         onValueChange = viewModel::updateRotation,
         valueRange = -90f..90f,
         valueText = "${config.rotationDegrees.roundToInt()}°"
     )
     LabeledSlider(
-        label = "透明度",
+        label = stringResource(R.string.editor_layout_alpha),
         value = config.alpha,
         onValueChange = viewModel::updateAlpha,
         valueRange = 0.01f..1f,
@@ -526,14 +523,14 @@ private fun TextWatermarkPanelContent(
     // ---- 4. 位置与边距（仅单个模式）----
     if (config.layoutMode == LayoutMode.SINGLE) {
         PanelDivider()
-        SectionLabel("位置与边距")
+        SectionLabel(stringResource(R.string.editor_gravity_section))
         GravityGrid(
             selectedIndex = config.gravity.toIndex(),
             onSelect = { viewModel.updateGravity(gravityFromIndex(it)) }
         )
         Spacer(Modifier.height(Spacing.Item))
         LabeledSlider(
-            label = "边距",
+            label = stringResource(R.string.editor_margin),
             value = config.margin,
             onValueChange = viewModel::updateMargin,
             valueRange = 0f..100f,
@@ -544,18 +541,18 @@ private fun TextWatermarkPanelContent(
     PanelDivider()
 
     // ---- 5. 水印增强 ----
-    SectionLabel("水印增强")
-    ToggleRow("描边", config.strokeEnabled) { viewModel.toggleStroke() }
+    SectionLabel(stringResource(R.string.editor_enhance_section))
+    ToggleRow(stringResource(R.string.editor_stroke), config.strokeEnabled) { viewModel.toggleStroke() }
     if (config.strokeEnabled) {
         LabeledSlider(
-            label = "描边宽度",
+            label = stringResource(R.string.editor_stroke_width),
             value = config.strokeWidth,
             onValueChange = viewModel::updateStrokeWidth,
             valueRange = 0.5f..10f,
             valueText = String.format("%.1f px", config.strokeWidth)
         )
         Text(
-            text = "描边颜色",
+            text = stringResource(R.string.editor_stroke_color),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -568,10 +565,10 @@ private fun TextWatermarkPanelContent(
     }
 
     Spacer(Modifier.height(8.dp))
-    ToggleRow("阴影", config.shadowEnabled) { viewModel.toggleShadow() }
+    ToggleRow(stringResource(R.string.editor_shadow), config.shadowEnabled) { viewModel.toggleShadow() }
     if (config.shadowEnabled) {
         LabeledSlider(
-            label = "阴影模糊度",
+            label = stringResource(R.string.editor_shadow_radius),
             value = config.shadowRadius,
             onValueChange = viewModel::updateShadowRadius,
             valueRange = 0f..20f,
@@ -593,7 +590,7 @@ private fun ImageWatermarkPanelContent(
     val config = state.imageConfig
 
     // ---- 1. Logo 选择 ----
-    SectionLabel("Logo 图片")
+    SectionLabel(stringResource(R.string.editor_logo_section))
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -615,7 +612,7 @@ private fun ImageWatermarkPanelContent(
             if (logo != null && !logo.isRecycled) {
                 androidx.compose.foundation.Image(
                     bitmap = logo.asImageBitmap(),
-                    contentDescription = "Logo 预览",
+                    contentDescription = stringResource(R.string.editor_logo_preview),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .size(56.dp)
@@ -638,7 +635,7 @@ private fun ImageWatermarkPanelContent(
                 onClick = onPickLogo,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (state.logoBitmap == null) "选择 Logo" else "更换 Logo")
+                Text(stringResource(if (state.logoBitmap == null) R.string.editor_logo_pick else R.string.editor_logo_change))
             }
         }
 
@@ -646,7 +643,7 @@ private fun ImageWatermarkPanelContent(
             IconButton(onClick = { viewModel.clearLogo() }) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "移除 Logo",
+                    contentDescription = stringResource(R.string.editor_logo_remove),
                     tint = MaterialTheme.colorScheme.error
                 )
             }
@@ -656,27 +653,27 @@ private fun ImageWatermarkPanelContent(
     Spacer(Modifier.height(Spacing.Item))
 
     // ---- 2. 尺寸与比例 ----
-    SectionLabel("尺寸")
+    SectionLabel(stringResource(R.string.editor_size_section))
     LabeledSlider(
-        label = "Logo 宽度占比",
+        label = stringResource(R.string.editor_logo_width),
         value = config.widthPercent,
         onValueChange = viewModel::updateLogoWidth,
         valueRange = 0.05f..0.8f,
         valueText = "${(config.widthPercent * 100).roundToInt()}%"
     )
-    ToggleRow("保持原始宽高比", config.preserveAspectRatio) {
+    ToggleRow(stringResource(R.string.editor_logo_aspect), config.preserveAspectRatio) {
         viewModel.togglePreserveAspectRatio()
     }
 
     PanelDivider()
 
     // ---- 3. 布局与密度 ----
-    SectionLabel("布局与密度")
+    SectionLabel(stringResource(R.string.editor_layout_section))
     SegmentedControl(
         options = listOf(
-            LayoutMode.SINGLE to "单个",
-            LayoutMode.TILED to "平铺",
-            LayoutMode.DIAGONAL to "对角线"
+            LayoutMode.SINGLE to stringResource(R.string.editor_layout_single),
+            LayoutMode.TILED to stringResource(R.string.editor_layout_tiled),
+            LayoutMode.DIAGONAL to stringResource(R.string.editor_layout_diagonal)
         ),
         selected = config.layoutMode,
         onSelect = viewModel::updateImageLayoutMode
@@ -685,24 +682,24 @@ private fun ImageWatermarkPanelContent(
     if (config.layoutMode != LayoutMode.SINGLE) {
         Spacer(Modifier.height(Spacing.Item))
         LabeledSlider(
-            label = "水印数量（密度）",
+            label = stringResource(R.string.editor_layout_density),
             value = config.tileCount.toFloat(),
             onValueChange = { viewModel.updateImageTileCount(it.roundToInt()) },
             valueRange = 1f..20f,
-            valueText = "${config.tileCount} 个"
+            valueText = stringResource(R.string.editor_count_value, config.tileCount)
         )
     }
 
     Spacer(Modifier.height(Spacing.Item))
     LabeledSlider(
-        label = "旋转角度",
+        label = stringResource(R.string.editor_layout_rotation),
         value = config.rotationDegrees,
         onValueChange = viewModel::updateImageRotation,
         valueRange = -90f..90f,
         valueText = "${config.rotationDegrees.roundToInt()}°"
     )
     LabeledSlider(
-        label = "透明度",
+        label = stringResource(R.string.editor_layout_alpha),
         value = config.alpha,
         onValueChange = viewModel::updateImageAlpha,
         valueRange = 0.01f..1f,
@@ -712,14 +709,14 @@ private fun ImageWatermarkPanelContent(
     // ---- 4. 位置与边距（仅单个模式）----
     if (config.layoutMode == LayoutMode.SINGLE) {
         PanelDivider()
-        SectionLabel("位置与边距")
+        SectionLabel(stringResource(R.string.editor_gravity_section))
         GravityGrid(
             selectedIndex = config.gravity.toIndex(),
             onSelect = { viewModel.updateImageGravity(gravityFromIndex(it)) }
         )
         Spacer(Modifier.height(Spacing.Item))
         LabeledSlider(
-            label = "边距",
+            label = stringResource(R.string.editor_margin),
             value = config.margin,
             onValueChange = viewModel::updateImageMargin,
             valueRange = 0f..100f,
@@ -758,7 +755,7 @@ private fun FontFamilySelector(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = option.displayName,
+                        text = stringResource(option.labelRes),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isSelected) MaterialTheme.colorScheme.onSecondary
                         else MaterialTheme.colorScheme.onSurfaceVariant

@@ -35,9 +35,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.watermarkbox.R
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.component.SectionLabel
@@ -78,11 +80,11 @@ fun PresetDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("水印预设", fontWeight = FontWeight.SemiBold) },
+        title = { Text(stringResource(R.string.preset_dialog_title), fontWeight = FontWeight.SemiBold) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // ---- 保存当前配置 ----
-                SectionLabel("保存当前配置")
+                SectionLabel(stringResource(R.string.preset_save_section))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -92,8 +94,8 @@ fun PresetDialog(
                         onValueChange = { newName = it },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        label = { Text("预设名称") },
-                        placeholder = { Text("例如：我的博客水印") }
+                        label = { Text(stringResource(R.string.preset_name_label)) },
+                        placeholder = { Text(stringResource(R.string.preset_name_placeholder)) }
                     )
                     Spacer(Modifier.width(8.dp))
                     TextButton(
@@ -109,7 +111,7 @@ fun PresetDialog(
                             }
                         }
                     ) {
-                        Text("保存")
+                        Text(stringResource(R.string.preset_save))
                     }
                 }
                 // 输入的名称已存在时，就地在输入框下方提示（避免用户点了才知道）
@@ -117,7 +119,7 @@ fun PresetDialog(
                 if (typed.isNotEmpty() && presets.any { it.name == typed }) {
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "⚠ 已存在同名预设，保存时会询问如何处理",
+                        text = stringResource(R.string.preset_duplicate_warning),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -126,7 +128,7 @@ fun PresetDialog(
                 Spacer(Modifier.height(Spacing.Item))
 
                 // ---- 预设列表 ----
-                SectionLabel("已保存的预设（${presets.size}）")
+                SectionLabel(stringResource(R.string.preset_saved_section, presets.size))
                 if (presets.isEmpty()) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
@@ -134,7 +136,7 @@ fun PresetDialog(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "还没有预设。调好水印后在上方输入名称保存吧。",
+                            text = stringResource(R.string.preset_empty_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp)
@@ -159,7 +161,7 @@ fun PresetDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.preset_close)) }
         }
     )
 
@@ -167,13 +169,9 @@ fun PresetDialog(
     pendingConflict?.let { name ->
         AlertDialog(
             onDismissRequest = { pendingConflict = null },
-            title = { Text("名称已存在") },
+            title = { Text(stringResource(R.string.preset_conflict_title)) },
             text = {
-                Text(
-                    "已有一个名为「$name」的预设，要如何处理？\n\n" +
-                        "• 替换：用当前配置覆盖它（原预设的配置会丢失）\n" +
-                        "• 保留两者：原预设不动，本次另存为「$name (2)」"
-                )
+                Text(stringResource(R.string.preset_conflict_message, name))
             },
             // 主操作放 confirmButton（右侧）
             confirmButton = {
@@ -183,12 +181,12 @@ fun PresetDialog(
                         pendingConflict = null
                         newName = ""
                     }
-                ) { Text("保留两者") }
+                ) { Text(stringResource(R.string.preset_keep_both)) }
             },
             // 次操作与"替换"都放在 dismiss 侧；"取消"最左
             dismissButton = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { pendingConflict = null }) { Text("取消") }
+                    TextButton(onClick = { pendingConflict = null }) { Text(stringResource(R.string.common_cancel)) }
                     Spacer(Modifier.width(2.dp))
                     TextButton(
                         onClick = {
@@ -198,7 +196,7 @@ fun PresetDialog(
                         }
                     ) {
                         Text(
-                            text = "替换",
+                            text = stringResource(R.string.preset_replace),
                             color = MaterialTheme.colorScheme.error
                         )
                     }
@@ -211,18 +209,18 @@ fun PresetDialog(
     pendingDelete?.let { preset ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("删除预设") },
-            text = { Text("确定删除「${preset.name}」吗？此操作不可撤销。") },
+            title = { Text(stringResource(R.string.preset_delete_title)) },
+            text = { Text(stringResource(R.string.preset_delete_message, preset.name)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onDelete(preset.id)
                         pendingDelete = null
                     }
-                ) { Text("删除") }
+                ) { Text(stringResource(R.string.preset_delete_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("取消") }
+                TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -289,7 +287,7 @@ private fun PresetRow(
             IconButton(onClick = onDeleteRequest) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
-                    contentDescription = "删除",
+                    contentDescription = stringResource(R.string.preset_delete_action),
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(20.dp)
                 )
@@ -298,16 +296,22 @@ private fun PresetRow(
     }
 }
 
-/** 生成预设的一行摘要，便于用户辨识。 */
+/**
+ * 生成预设的一行摘要，便于用户辨识。
+ *
+ * 标为 @Composable 是因为要调用 [stringResource] 取当前语言的文案
+ * （摘要含「文字：」「图片：宽度」这类标签，需跟随界面语言）。
+ */
+@Composable
 private fun buildSummary(preset: WatermarkPreset): String {
     val time = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
         .format(Date(preset.createdAt))
     return when (preset.type) {
         WatermarkType.TEXT -> {
             val text = preset.textStyle.text.replace("\n", " ").take(14)
-            "文字：「$text」 · ${time}"
+            stringResource(R.string.preset_summary_text, text, time)
         }
         WatermarkType.IMAGE ->
-            "图片：宽度 ${(preset.imageStyle.widthPercent * 100).toInt()}% · ${time}"
+            stringResource(R.string.preset_summary_image, (preset.imageStyle.widthPercent * 100).toInt(), time)
     }
 }

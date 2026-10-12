@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -53,6 +54,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.watermarkbox.R
 import com.watermarkbox.ui.screen.editor.WatermarkPanel
 import com.watermarkbox.ui.theme.Spacing
 
@@ -135,12 +137,12 @@ fun PresetEditScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text("编辑预设", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.preset_edit_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = stringResource(R.string.common_back)
                         )
                     }
                 },
@@ -155,7 +157,7 @@ fun PresetEditScreen(
                             modifier = Modifier.width(18.dp)
                         )
                         Spacer(Modifier.width(4.dp))
-                        Text("保存")
+                        Text(stringResource(R.string.preset_save))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -173,7 +175,7 @@ fun PresetEditScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "正在载入预设…",
+                    text = stringResource(R.string.preset_edit_loading),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -194,7 +196,7 @@ fun PresetEditScreen(
                     onValueChange = viewModel::updateName,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    label = { Text("预设名称") }
+                    label = { Text(stringResource(R.string.preset_name_label)) }
                 )
                 Spacer(Modifier.height(Spacing.Item))
                 WatermarkPreviewCanvas(state)
@@ -228,12 +230,10 @@ fun PresetEditScreen(
         val name = state.name.trim()
         AlertDialog(
             onDismissRequest = { showClashDialog = false },
-            title = { Text("名称已存在") },
+            title = { Text(stringResource(R.string.preset_clash_title)) },
             text = {
                 Text(
-                    "已有另一个预设叫「$name」。\n\n" +
-                        "选择「替换」会删除那个预设、把当前编辑的内容改为这个名字；\n" +
-                        "选择「取消」则不保存，你可以回去改个名。"
+                    stringResource(R.string.preset_clash_message, name)
                 )
             },
             confirmButton = {
@@ -243,11 +243,11 @@ fun PresetEditScreen(
                         viewModel.save(overwriteSameName = true)
                     }
                 ) {
-                    Text("替换", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.preset_replace), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClashDialog = false }) { Text("取消") }
+                TextButton(onClick = { showClashDialog = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -280,7 +280,7 @@ private fun WatermarkPreviewCanvas(state: PresetEditUiState) {
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "图片水印（logo 不可在此更换）",
+                    text = stringResource(R.string.preset_edit_image_logo_fixed),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -288,7 +288,7 @@ private fun WatermarkPreviewCanvas(state: PresetEditUiState) {
         }
         // 角落标注，避免被误认为真实预览
         Text(
-            text = "效果示意",
+            text = stringResource(R.string.preset_edit_preview),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier
@@ -307,7 +307,7 @@ private fun WatermarkPreviewCanvas(state: PresetEditUiState) {
  */
 @Composable
 private fun TextPreview(config: com.watermarkbox.data.model.TextWatermarkStyle) {
-    val text = config.text.ifBlank { "（未填写文字）" }
+    val text = config.text.ifBlank { stringResource(R.string.preset_edit_empty_text) }
     val color = config.color.color
     val alpha = config.alpha.coerceIn(0f, 1f)
     val rotation = config.rotationDegrees
@@ -413,8 +413,7 @@ private fun LogoNotice() {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "logo 本身不能在预设里更换（它已内嵌在预设中）。" +
-                    "这里可以调整它的大小、位置、透明度等样式。",
+                text = stringResource(R.string.preset_edit_logo_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
             )

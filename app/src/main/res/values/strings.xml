@@ -207,4 +207,119 @@
     <string name="editor_export_png">PNG</string>
     <string name="editor_export_jpeg">JPEG</string>
 
+
+    <!-- ==================== 编辑器面板 ==================== -->
+    <string name="editor_type_text">文字水印</string>
+    <string name="editor_type_image">图片水印</string>
+    <string name="editor_invisible_title">隐藏水印（不可见 · 用于溯源）</string>
+    <string name="editor_invisible_enable">启用隐藏水印</string>
+    <string name="editor_invisible_disabled_hint">开启后会在不改变画面观感的前提下，把溯源信息写入图片。可抵抗 JPEG 重压缩，但无法抵抗截图重拍。</string>
+    <string name="editor_invisible_source">水印内容来源</string>
+    <string name="editor_invisible_source_custom">自定义文字</string>
+    <string name="editor_invisible_source_device">设备ID+时间戳</string>
+    <string name="editor_invisible_content">水印内容</string>
+    <string name="editor_invisible_content_placeholder">例如：© 2026 某某工作室</string>
+    <string name="editor_invisible_content_limit">最多 255 字节（约 85 个汉字）</string>
+    <string name="editor_invisible_auto_hint">将自动写入「设备短 ID + 导出时间」，格式：WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss</string>
+    <string name="editor_invisible_strength">嵌入强度</string>
+    <string name="editor_invisible_strength_hint">强度越高越抗压缩，但对像素的改动也越大（1 × 最隐蔽，4 × 最顽固）</string>
+    <string name="editor_invisible_dct">DCT 频域嵌入</string>
+    <string name="editor_invisible_dct_on">已开启 DCT：能抵抗 JPEG 重压缩、转格式等处理，但会轻微影响画质（像素有 ±3/255 的扰动，肉眼几乎不可见）。
+
+适合需要长期溯源、且图片会被二次压缩的场景。</string>
+    <string name="editor_invisible_dct_off">当前只写入 EXIF 元数据：画质完全无损，但图片一旦被压缩或转格式，溯源信息就会丢失。
+
+需要抗压缩溯源时，请开启 DCT。</string>
+    <string name="editor_invisible_strength_value">%1$d ×</string>
+    <string name="editor_text_section">水印文字</string>
+    <string name="editor_text_placeholder">输入水印文字…</string>
+    <string name="editor_text_placeholders">占位符：{timestamp} 时间戳 · {date} 日期 · {filename} 文件名</string>
+    <string name="editor_font_section">字体设置</string>
+    <string name="editor_font_size">字号</string>
+    <string name="editor_font_family">字体种类</string>
+    <string name="editor_font_custom">自定义字体</string>
+    <string name="editor_font_import">导入字体</string>
+    <string name="editor_font_import_hint">支持 .ttf / .otf / .ttc（小于 8MB）</string>
+    <string name="editor_font_delete">删除字体</string>
+    <string name="editor_font_color">字体颜色</string>
+    <string name="editor_font_bold">加粗</string>
+    <string name="editor_font_italic">斜体</string>
+    <string name="font_family_default">系统默认</string>
+    <string name="font_family_serif">衬线体</string>
+    <string name="font_family_monospace">等宽体</string>
+    <string name="font_family_cursive">手写体</string>
+    <string name="font_family_custom">自定义字体</string>
+    <string name="editor_layout_section">布局与密度</string>
+    <string name="editor_layout_mode">布局模式</string>
+    <string name="editor_layout_single">单个</string>
+    <string name="editor_layout_tiled">平铺</string>
+    <string name="editor_layout_diagonal">对角线</string>
+    <string name="editor_layout_density">水印数量（密度）</string>
+    <string name="editor_layout_rotation">旋转角度</string>
+    <string name="editor_layout_alpha">透明度</string>
+    <string name="editor_gravity_section">位置与边距</string>
+    <string name="editor_margin">边距</string>
+    <string name="editor_count_value">%1$d 个</string>
+    <string name="editor_enhance_section">水印增强</string>
+    <string name="editor_stroke">描边</string>
+    <string name="editor_stroke_width">描边宽度</string>
+    <string name="editor_stroke_color">描边颜色</string>
+    <string name="editor_shadow">阴影</string>
+    <string name="editor_shadow_radius">阴影模糊度</string>
+    <string name="editor_logo_section">Logo 图片</string>
+    <string name="editor_logo_preview">Logo 预览</string>
+    <string name="editor_logo_pick">选择 Logo</string>
+    <string name="editor_logo_change">更换 Logo</string>
+    <string name="editor_logo_remove">移除 Logo</string>
+    <string name="editor_size_section">尺寸</string>
+    <string name="editor_logo_width">Logo 宽度占比</string>
+    <string name="editor_logo_aspect">保持原始宽高比</string>
+
+    <!-- ==================== 预设 ==================== -->
+    <string name="preset_dialog_title">水印预设</string>
+    <string name="preset_save_section">保存当前配置</string>
+    <string name="preset_name_label">预设名称</string>
+    <string name="preset_name_placeholder">例如：我的博客水印</string>
+    <string name="preset_save">保存</string>
+    <string name="preset_duplicate_warning">⚠️ 已存在同名预设，保存时会询问如何处理</string>
+    <string name="preset_saved_section">已保存的预设（%1$d）</string>
+    <string name="preset_empty_hint">还没有预设。调好水印后在上方输入名称保存吧。</string>
+    <string name="preset_close">关闭</string>
+    <string name="preset_conflict_title">名称已存在</string>
+    <string name="preset_conflict_message">已有一个名为「%1$s」的预设，要如何处理？
+
+• 替换：用当前配置覆盖它（原预设的配置会丢失）
+• 保留两者：原预设不动，本次另存为「%1$s (2)」</string>
+    <string name="preset_keep_both">保留两者</string>
+    <string name="preset_replace">替换</string>
+    <string name="preset_delete_title">删除预设</string>
+    <string name="preset_delete_message">确定删除「%1$s」吗？此操作不可撤销。</string>
+    <string name="preset_delete_confirm">删除</string>
+    <string name="preset_delete_action">删除</string>
+    <string name="preset_summary_text">文字：「%1$s」 · %2$s</string>
+    <string name="preset_summary_image">图片：宽度 %1$d%% · %2$s</string>
+    <string name="presets_title">水印预设</string>
+    <string name="presets_loading">正在读取…</string>
+    <string name="presets_tip">点任意预设可编辑它的名称与水印参数（无需图片）。
+右侧图标：铅笔=编辑、垃圾桶=删除。</string>
+    <string name="presets_empty_title">还没有任何预设</string>
+    <string name="presets_empty_desc">预设可以保存一套水印参数（文字、字号、颜色、位置等），
+下次一键套用，不用重新调。
+
+创建方式：选一张图片 → 调好水印 → 点顶部「书签」图标保存。</string>
+    <string name="presets_edit_action">编辑参数</string>
+    <string name="presets_type_text">文字</string>
+    <string name="presets_type_image">图片</string>
+    <string name="presets_logo_width">Logo 宽 %1$d%% · %2$s</string>
+    <string name="preset_edit_title">编辑预设</string>
+    <string name="preset_edit_loading">正在载入预设…</string>
+    <string name="preset_clash_title">名称已存在</string>
+    <string name="preset_clash_message">已有另一个预设叫「%1$s」。
+
+选择「替换」会删除那个预设、把当前编辑的内容改为这个名字；
+选择「取消」则不保存，你可以回去改个名。</string>
+    <string name="preset_edit_image_logo_fixed">图片水印（logo 不可在此更换）</string>
+    <string name="preset_edit_preview">效果示意</string>
+    <string name="preset_edit_empty_text">（未填写文字）</string>
+    <string name="preset_edit_logo_note">logo 本身不能在预设里更换（它已内嵌在预设中）。这里可以调整它的大小、位置、透明度等样式。</string>
 </resources>
