@@ -95,4 +95,21 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         registry.clear()
         viewModelScope.launch { repository.setOnboardingDone() }
     }
+
+    /**
+     * 重新看一遍引导。
+     *
+     * 供「设置 → 其他 → 使用教程」页里的按钮调用。
+     *
+     * ## 为什么要清掉持久化的标记
+     *
+     * 只把 `_active` 设回 true 的话，这次会话能看到引导，
+     * 但**下次冷启动又没了** —— 用户会以为"按钮只有一次有效"。
+     * 所以这里把「已看过」标记也一并重置，行为才和第一次安装一致。
+     */
+    fun restart() {
+        viewModelScope.launch { repository.setOnboardingDone(done = false) }
+        _index.value = 0
+        _active.value = true
+    }
 }

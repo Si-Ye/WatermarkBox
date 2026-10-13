@@ -24,6 +24,7 @@
     <string name="common_save">保存</string>
     <string name="tutorial_title">使用教程</string>
     <string name="tutorial_load_failed">教程内容加载失败</string>
+    <string name="tutorial_restart_onboarding">重新过一遍新手引导</string>
     <string name="settings_tutorial_title">使用教程</string>
     <string name="settings_tutorial_desc">从头了解各项功能怎么用</string>
 

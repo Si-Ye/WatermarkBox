@@ -19,6 +19,7 @@
     <string name="common_save">Save</string>
     <string name="tutorial_title">Tutorial</string>
     <string name="tutorial_load_failed">Could not load the tutorial</string>
+    <string name="tutorial_restart_onboarding">Show the onboarding tour again</string>
     <string name="settings_tutorial_title">Tutorial</string>
     <string name="settings_tutorial_desc">Learn how each feature works, from the start</string>
 

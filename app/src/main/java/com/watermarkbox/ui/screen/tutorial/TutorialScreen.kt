@@ -3,16 +3,22 @@ package com.watermarkbox.ui.screen.tutorial
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -50,6 +56,14 @@ import com.watermarkbox.ui.theme.Spacing
 @Composable
 fun TutorialScreen(
     onBack: () -> Unit,
+    /**
+     * 重新过一遍新手引导。
+     *
+     * 引导本身挂在首页，所以这里只负责「重置状态」，
+     * 由导航层决定是否顺带退到首页 —— 那样用户点完就能立刻看到引导，
+     * 不必自己再找回去。
+     */
+    onRestartOnboarding: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -107,6 +121,29 @@ fun TutorialScreen(
                 )
             } else {
                 MarkdownText(markdown = markdown)
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // 「重新过一遍引导」放在教程**末尾**。
+            //
+            // 位置是有考虑的：用户读完才最可能产生「想再看看引导」的念头；
+            // 放顶部会干扰阅读，这里正好是读完的自然落点。
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+            Spacer(Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = onRestartOnboarding,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.RestartAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.tutorial_restart_onboarding))
             }
 
             Spacer(Modifier.height(32.dp))

@@ -13,8 +13,13 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -123,6 +128,14 @@ fun WatermarkBoxNavHost(
     val activity = LocalContext.current as ComponentActivity
     val updateViewModel: UpdateViewModel = viewModel(viewModelStoreOwner = activity)
 
+    // 新手引导的状态用 **Activity 作用域**。
+    //
+    // 首页要用它挂目标坐标，教程页要用它重置「已看过」标记 ——
+    // 两个页面必须拿到**同一个实例**。用 composable 默认作用域的话，
+    // 每页各拿一份，教程页里的「重新过一遍」就只会改到自己那份，白点。
+    val onboardingViewModel: OnboardingViewModel =
+        viewModel(viewModelStoreOwner = activity)
+
     // 应用启动即尝试自动检查（内部有「每天一次」节流，幂等）
     LaunchedEffect(Unit) { updateViewModel.autoCheckIfDue() }
 
@@ -141,9 +154,6 @@ fun WatermarkBoxNavHost(
 
             // ---------------- 首页 ----------------
             composable(Routes.HOME) {
-                // 引导状态放在导航层（原因见下方注释）。
-                // 必须定义在 HomeScreen **之前** —— 它要把 registry 传下去。
-                val onboardingViewModel: OnboardingViewModel = viewModel()
                 val onboardingCurrent by onboardingViewModel.current.collectAsStateWithLifecycle()
                 val onboardingIndex by onboardingViewModel.stepIndex.collectAsStateWithLifecycle()
 
@@ -188,6 +198,20 @@ fun WatermarkBoxNavHost(
                             decorFitsSystemWindows = false    // 内容延伸到系统栏之下
                         )
                     ) {
+                        // ⚠️ 关键：把 Dialog 的 window 背景设成**透明**。
+                        //
+                        // 否则 `BlendMode.Clear` 擦掉遮罩之后，露出来的是
+                        // Dialog 自己 window 的不透明背景，而不是下面的 Activity ——
+                        // 表现就是「高亮孔里依然是一片暗色」，整个聚焦效果失效。
+                        //
+                        // 光靠 `decorFitsSystemWindows = false` 解决不了这个问题：
+                        // 那只管尺寸与系统栏，不管 window 背景。
+                        val view = LocalView.current
+                        SideEffect {
+                            (view.parent as? DialogWindowProvider)?.window
+                                ?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                        }
+
                         OnboardingOverlay(
                             step = step,
                             stepIndex = onboardingIndex,
@@ -296,7 +320,15 @@ fun WatermarkBoxNavHost(
 
             // ---------------- 使用教程 ----------------
             composable(Routes.TUTORIAL) {
-                TutorialScreen(onBack = { navController.popBackStack() })
+                TutorialScreen(
+                    onBack = { navController.popBackStack() },
+                    onRestartOnboarding = {
+                        // 先重置引导状态，再退回首页 ——
+                        // 首页一组合出来就会弹出引导，用户不必自己再找回去
+                        onboardingViewModel.restart()
+                        navController.popBackStack(Routes.HOME, inclusive = false)
+                    }
+                )
             }
 
 
