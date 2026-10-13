@@ -377,6 +377,18 @@ private fun BatchPreviewPager(
                             // 关掉单指平移，把手势让给外层 HorizontalPager 切图。
                             // 详见该参数文档。
                             panEnabled = false,
+                            // ⚠️ 关键：**只有当前页参与渲染**。
+                            //
+                            // pager 会把相邻页也短暂组合起来，若它们也渲染：
+                            // - 每个实例一套三缓冲 + 渲染引擎
+                            // - 拖参数时全部重组、全部触发渲染
+                            // - 但相邻页 bitmap 为 null，渲染结果根本用不到
+                            //
+                            // 实测（2048×1536 × 3 页）：submit 579 次、
+                            // result 仅 143 次 —— 大量渲染被丢弃，
+                            // 抢走当前页的 CPU/内存 → 当前页结果延迟上屏
+                            // → 表现就是「批量页预览不实时」。
+                            enabled = isCurrent,
                             modifier = Modifier.fillMaxSize()
                         )
 

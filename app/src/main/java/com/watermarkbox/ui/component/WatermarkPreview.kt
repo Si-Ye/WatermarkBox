@@ -94,9 +94,21 @@ fun rememberRenderedPreview(
     imageConfig: ImageWatermarkStyle,
     logoBitmap: Bitmap?,
     sourceFileName: String?,
-    renderer: WatermarkRenderer = remember { WatermarkRenderer() }
+    renderer: WatermarkRenderer = remember { WatermarkRenderer() },
+    /**
+     * 是否参与渲染（默认 true）。
+     *
+     * 传 `false` 时不分配缓冲池、不建引擎、不提交渲染 ——
+     * 直接原样返回源位图。用于 `HorizontalPager` 里**非当前页**的预览：
+     * 那些实例看不到（或只是短暂经过），为它们渲染纯属浪费 CPU/内存，
+     * 还会抢走当前页的渲染资源导致「预览不实时」。
+     *
+     * 详见 [WatermarkPreview] 的 `enabled` 参数说明。
+     */
+    enabled: Boolean = true
 ): RenderedPreview {
     val scope = rememberCoroutineScope()
+
     // 三缓冲：复用已经分配好的位图，避免每帧新分配一整张（1024 边约 3 MB）。
     //
     // **为什么是 3 而不是 2**：
@@ -106,6 +118,12 @@ fun rememberRenderedPreview(
     // 即使 UI 落后两帧也不会画到一半被覆写。
     //
     // 代价：多约 3 MB 常驻。相比「画面稳定」，这个代价是值得的。
+    //
+    // ⚠️ `remember` 的调用**必须无条件执行**（Compose 规则：
+    // 条件分支里不能改变 composable 调用顺序）。所以这里即使
+    // `enabled=false` 也会创建一个空的缓冲池对象 —— 但它**不会
+    // 分配任何位图**（`PreviewBuffers` 的位图是 acquire 时才分配的）。
+    // 真正省下来的是「不提交渲染、不做绘制」的开销。
     val buffers = remember { PreviewBuffers(slotCount = 3) }
     val engine = remember(scope, renderer) {
         PreviewRenderEngine<PreviewRequest, Bitmap>(
@@ -156,7 +174,12 @@ fun rememberRenderedPreview(
     val rendered by engine.result.collectAsStateWithLifecycle()
     val rendering by engine.rendering.collectAsStateWithLifecycle()
 
-    LaunchedEffect(bitmap, watermarkType, textConfig, imageConfig, logoBitmap, sourceFileName) {
+    LaunchedEffect(enabled, bitmap, watermarkType, textConfig, imageConfig, logoBitmap, sourceFileName) {
+        // ⬇️ enabled=true 时才提交渲染。
+        //
+        // 为什么把 enabled 也放进 key：从 false 变 true（例如滑到该页）
+        // 需要**立刻补一次渲染**，否则会一直显示未加水的原图。
+        if (!enabled) return@LaunchedEffect
         if (bitmap != null && !bitmap.isRecycled) {
             engine.submit(
                 PreviewRequest(
@@ -173,7 +196,14 @@ fun rememberRenderedPreview(
 
     return RenderedPreview(
         // 没有源图时不显示任何结果（哪怕上一张的结果还在）
-        bitmap = if (bitmap == null) null else rendered,
+        //
+        // enabled=false 时直接回显源图（不加水印）：那些页通常是不可见的，
+        // 渲染它们毫无收益，等滑到位再补渲染即可。
+        bitmap = when {
+            bitmap == null -> null
+            !enabled -> bitmap
+            else -> rendered
+        },
         isRendering = rendering
     )
 }
@@ -228,6 +258,30 @@ fun WatermarkPreview(
     panEnabled: Boolean = true,
 
     /**
+     * 是否**参与渲染**（默认 true）。
+     *
+     * ## 为什么需要这个开关
+     *
+     * 批量页把预览放进了 `HorizontalPager`。Pager 会**预加载相邻页**
+     * （Compose 默认 beyondBoundsPageCount = 0，但相邻页在滑动时
+     * 会短暂进入组合），于是页面上同时存在 2~3 个 [WatermarkPreview]：
+     *
+     * - 每个实例都有自己的 `PreviewBuffers`（3 块）+ `WatermarkRenderer`
+     * - 拖动参数时，**所有实例都会重组** → 都触发一轮渲染
+     * - 但只有当前页有源图，其余页 `bitmap == null`，渲染纯属浪费
+     *
+     * 实测（2048×1536 的图，3 页）：`submit` 579 次但 `result` 只 143 次
+     * —— 大量渲染被丢弃，CPU/内存被无效渲染抢走，
+     * **导致当前页的渲染变慢、结果延迟上屏，看起来就是「预览不实时」**。
+     *
+     * 传 `false` 时：不提交任何渲染请求、不占缓冲池，
+     * 只显示传入的静态 `bitmap`（或占位）。滑到它成为当前页时再置回 `true`。
+     *
+     * 编辑页只有一份预览，保持默认 `true`。
+     */
+    enabled: Boolean = true,
+
+    /**
      * 拖动水印位置的回调（仅**单个模式**且本参数非 null 时生效）。
      *
      * 接收的参数是水印中心的**归一化坐标**（0~1，相对图片宽高）。
@@ -258,7 +312,8 @@ fun WatermarkPreview(
         textConfig = textConfig,
         imageConfig = imageConfig,
         logoBitmap = logoBitmap,
-        sourceFileName = sourceFileName
+        sourceFileName = sourceFileName,
+        enabled = enabled
     )
     // 取出来当局部值：下面的 when 与手势换算都要用，
     // 也顺带保住了「非空分支里渲染位图必然非空」的智能转换
