@@ -223,9 +223,9 @@ private fun DetectOptionsCard(
             ToggleRow(
                 label = stringResource(R.string.detect_option_exif),
                 checked = options.checkExif,
-                onCheckedChange = { onChange(options.copy(checkExif = !options.checkExif)) }
+                onCheckedChange = { onChange(options.copy(checkExif = !options.checkExif)) },
+                hint = stringResource(R.string.detect_option_exif_hint)
             )
-            OptionHint(stringResource(R.string.detect_option_exif_hint))
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
 
@@ -233,9 +233,9 @@ private fun DetectOptionsCard(
             ToggleRow(
                 label = stringResource(R.string.detect_option_dct),
                 checked = options.checkDct,
-                onCheckedChange = { onChange(options.copy(checkDct = !options.checkDct)) }
+                onCheckedChange = { onChange(options.copy(checkDct = !options.checkDct)) },
+                hint = stringResource(R.string.detect_option_dct_hint)
             )
-            OptionHint(stringResource(R.string.detect_option_dct_hint))
 
             if (options.checkDct) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
@@ -243,18 +243,22 @@ private fun DetectOptionsCard(
                 ToggleRow(
                     label = stringResource(R.string.detect_option_strength),
                     checked = options.autoStrength,
-                    onCheckedChange = { onChange(options.copy(autoStrength = !options.autoStrength)) }
+                    onCheckedChange = {
+                        onChange(options.copy(autoStrength = !options.autoStrength))
+                    },
+                    hint = stringResource(R.string.detect_option_strength_hint)
                 )
-                OptionHint(stringResource(R.string.detect_option_strength_hint))
 
                 Spacer(Modifier.height(10.dp))
 
                 ToggleRow(
                     label = stringResource(R.string.detect_option_rotation),
                     checked = options.autoRotation,
-                    onCheckedChange = { onChange(options.copy(autoRotation = !options.autoRotation)) }
+                    onCheckedChange = {
+                        onChange(options.copy(autoRotation = !options.autoRotation))
+                    },
+                    hint = stringResource(R.string.detect_option_rotation_hint)
                 )
-                OptionHint(stringResource(R.string.detect_option_rotation_hint))
 
                 Spacer(Modifier.height(10.dp))
 
@@ -265,9 +269,9 @@ private fun DetectOptionsCard(
                         onChange(
                             options.copy(verifySignatureViaDct = !options.verifySignatureViaDct)
                         )
-                    }
+                    },
+                    hint = stringResource(R.string.detect_option_verify_sig_hint)
                 )
-                OptionHint(stringResource(R.string.detect_option_verify_sig_hint))
             }
 
             Spacer(Modifier.height(10.dp))
@@ -278,17 +282,6 @@ private fun DetectOptionsCard(
             )
         }
     }
-}
-
-/** 选项下方的一行小字说明。 */
-@Composable
-private fun OptionHint(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 2.dp)
-    )
 }
 
 /** 检测结果卡片。 */

@@ -21,6 +21,7 @@
     <string name="common_back">返回</string>
     <string name="common_cancel">取消</string>
     <string name="common_confirm">确定</string>
+    <string name="common_whats_this">查看说明</string>
     <string name="common_clear">清除</string>
     <string name="common_select">选择</string>
     <string name="common_open">打开</string>

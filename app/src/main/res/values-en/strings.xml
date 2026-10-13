@@ -16,6 +16,7 @@
     <string name="common_back">Back</string>
     <string name="common_cancel">Cancel</string>
     <string name="common_confirm">OK</string>
+    <string name="common_whats_this">View description</string>
     <string name="common_clear">Clear</string>
     <string name="common_select">Select</string>
     <string name="common_open">Open</string>

@@ -17,12 +17,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -229,12 +237,68 @@ fun GravityGrid(
     }
 }
 
-/** 简单的开关行（左侧标题 + 右侧 Switch）。 */
+/**
+ * 「圈里一个 i」的说明图标：点一下弹出完整解释。
+ *
+ * ## 为什么要有它
+ *
+ * 选项解释动辄两三行。直接铺在界面上有两个问题：
+ * - 把真正要操作的东西挤下去，滚动变长
+ * - 信息量太大，用户反而会整段跳过 —— 那这些字就等于白写
+ *
+ * 收进一个图标里：想了解的人点开看，不想看的人不受打扰。
+ *
+ * @param title 弹窗标题（通常就是选项名）
+ * @param text  完整说明
+ */
+@Composable
+fun InfoDot(
+    title: String,
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    Icon(
+        imageVector = Icons.Outlined.Info,
+        contentDescription = stringResource(R.string.common_whats_this),
+        tint = MaterialTheme.colorScheme.outline,
+        modifier = modifier
+            .size(17.dp)
+            .clip(CircleShape)
+            .clickable { showDialog = true }
+    )
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(title) },
+            text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+            confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(stringResource(R.string.common_confirm))
+                }
+            }
+        )
+    }
+}
+
+/**
+ * 简单的开关行（左侧标题 + 右侧 Switch）。
+ *
+ * @param hint 非空时，在标题右侧显示一个 ⓘ 图标，点击弹出这段说明。
+ *             解释性文案走这里，不要直接铺在界面上（见 [InfoDot]）。
+ *
+ * 注意 [hint] 放在 [onCheckedChange] **之前**：Kotlin 的「尾随 lambda」
+ * 只会绑定到最后一个参数，若把 hint 放最后，现有写法
+ * `ToggleRow(label, checked) { ... }` 全会编译不过。
+ */
 @Composable
 fun ToggleRow(
     label: String,
     checked: Boolean,
     modifier: Modifier = Modifier,
+    hint: String? = null,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
@@ -244,12 +308,22 @@ fun ToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        androidx.compose.material3.Switch(
+        Row(
+            // 标题占满剩余宽度 —— 否则长标题会把 Switch 挤到屏幕外
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (hint != null) {
+                Spacer(Modifier.width(6.dp))
+                InfoDot(title = label, text = hint)
+            }
+        }
+        Switch(
             checked = checked,
             onCheckedChange = onCheckedChange
         )
