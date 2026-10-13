@@ -128,13 +128,13 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 | 项 | 值 |
 |---|---|
-| 本地 HEAD | `ac7bfca` |
-| 远端 | `origin/main`（落后 25 个提交）|
-| **ahead** | **25（未推送）** |
-| 单测基线 | **406 个用例，全绿** |
-| lint | 0 错误（6 条 baseline）|
+| 本地 HEAD | 见 `git log`（本轮为 `ac812bb` 代码修复 + 紧随其后的文档提交）|
+| 远端 | `origin/main`（= `b1a254e`，tag `v2.1.0`）|
+| **ahead** | **2（未推送）** |
+| 单测基线 | **416 个用例，全绿** |
+| lint | 0 错误（6 条 baseline + 1 条既有 warning）|
 | debug 包名 | `com.watermarkbox.final` |
-| 版本 | 2.0.1 (versionCode 11) |
+| 版本 | 2.1.0 (versionCode 12) |
 
 **更新约定**：任何会话在一轮工作结束时，如果 HEAD 变了，
 **顺手更新上表的 HEAD 与 ahead**（一行的事，但对下一个人很关键）。
@@ -149,6 +149,7 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 | 任务 | 负责 | 说明 |
 |---|---|---|
+| **更新说明「远端化」** | 另一会话 | 工作区有进展、**尚未同步到 git 仓库**：新增 `ChangelogRepository` / `ChangelogJson` / `ChangelogEntry` / `ChangelogViewModel`，配套 `docs/changelog.json`、`tools/check_release_consistency.py`（CI 三方比对版本号）、`tools/export_changelog.py`。`ReleaseHistory` 退化为「离线兜底快照，不再要求随版本同步」|
 | **导出内存预算修复的验证** | 等人类验证 | 见 §5.9，大图导出是否不再报「图片过大」|
 
 ### 📋 待办（需要人类拍板才能动）
@@ -157,14 +158,18 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 |---|---|
 | README 截图 | 等人类提供真机截图 |
 | Baseline Profile | 收益评估偏小，优先级低 |
-| 是否发 2.0.2 | 等人类决定（**ahead 25 个提交已攒多，建议讨论推送/发版**）|
-| **推送 ahead 个提交** | **必须等人类明示** |
+| **是否发 2.1.1** | 等人类决定（`ac812bb` 已补上 2.1.0 的更新日志遗漏，可考虑小版本补发）|
+| **推送 ahead 1 个提交** | **必须等人类明示** |
 
-### ✅ 近期完成（未推送，别惊讶于这些改动）
+### ✅ 近期完成（别惊讶于这些改动）
 
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
 
+- `ac812bb` 补 v2.1.0 更新日志 + 预览基准 EXIF 换算 + 批量预览竞态（详见 §8）
+- `b1a254e` 发布 2.1.0（tag `v2.1.0`）
+- `5bec32c` 描边颜色重叠 + 隐藏水印过渡动画 + 导出对话框作用域语义 + 字符串里的假 Markdown
+- `3fc9091` 预览与导出的水印大小不一致（基准坐标系没接上）—— `ac812bb` 补修其 EXIF 旋转遗留
 - `ac7bfca` 导出「图稍大就失败」：内存预算三重保守（largeHeap + 按需份数 + 系数）
 - `e403895` 批量页预览卡顿：重组爆炸 + 降采样失效 + 分辨率过高（**三个独立原因**）
 - `0c46fc8` / `afd79b6` / `793832a` / `c2f8d75` 预览频闪的**三次**修复（详见 §5.1）
@@ -429,6 +434,27 @@ git log --oneline --since='2 hours ago'
 > 格式：时间 + 会话干了什么 + 留下什么未决。
 
 ```
+[2026-10-13 23:50] 2.1.0 交付后审阅：补更新日志 + 修 2 处遗留缺陷
+  - 提交 ac812bb，ahead 1，单测 416（411 → +5，新增 BitmapUtilsExifOrientationTest）
+  - ① 2.1.0 发布漏了 ReleaseHistory（b1a254e 只动了 README 与 docs/releases/v2.1.0.md）
+       → 补 15 条条目 + strings 中英各 16 条
+       → 测试为何没拦住：ReleaseHistoryTest 的版本常量长期停在 1.4.1，
+         那条「更新日志覆盖当前版本」校验的是 1.4.1（列表里确实有）→ 永远通过
+         （「把现状写成断言」第三次，见 §5.6 / §5.9）
+  - ② BitmapUtils.queryImageSize 返回 bounds 原值，而位图经 EXIF 旋正
+       → 90/270 度时行列互换，预览与导出的水印占比仍差 1.33 倍，
+         且只对手机竖拍照片发作（横图完全正常，极难发现）
+       → 改为返回「旋正后」尺寸，抽 swapsWidthHeight() 加纯 JVM 单测
+  - ③ BatchViewModel 预览竞态两处：setPreviewIndex 未递增令牌
+       （缓存命中切页时保护恒失效）；queryImageSize 新挂起点后未复查令牌
+       → 顺带去掉 token 不匹配时的 recycle（会把已入 LRU 缓存的位图
+         recycle 成僵尸条目，与 LruCacheMap 的取舍相悖）
+  - ⚠️ 同时发现另一会话在做「更新说明远端化」（工作区有、仓库尚未见）：
+       他们已删除 ReleaseHistoryTest 那条失效测试，防线搬到
+       tools/check_release_consistency.py（CI 读 versionName 三方比对）
+       —— 本提交里对 VERSION_NAME 的改动已被该方案取代，属正常演进
+  - 教训：Ubuntu proot 访问不了 /data/local/tmp，构建日志要写 /tmp
+
 [2026-10-13 23:5x] 导出「图稍大就失败」—— 内存预算三重保守
   - 提交 ac7bfca，ahead 25，单测 406
   - ① Manifest 加 largeHeap（堆 256MB → 512MB）
