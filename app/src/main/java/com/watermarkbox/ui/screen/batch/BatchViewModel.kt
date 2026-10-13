@@ -95,6 +95,19 @@ data class BatchUiState(
     val previewIndex: Int = 0,
     /** 当前预览图的降采样 Bitmap（仅在渲染完成后填充） */
     val previewBitmap: Bitmap? = null,
+    /**
+     * 当前预览图的**原图**宽高（不是 [previewBitmap] 的尺寸）。
+     *
+     * ## 为什么需要
+     *
+     * 预览渲染要用原图尺寸当基准坐标系，才能让水印的**视觉占比**
+     * 与导出一致。若拿降采样图的宽高当基准，同一个字号
+     * 在预览（540px 宽）与导出（4032px 宽）上会差 7.5 倍。
+     *
+     * 详见 `WatermarkPreview.sourceWidth`。
+     */
+    val previewSourceWidth: Int = 0,
+    val previewSourceHeight: Int = 0,
     /** 预览是否正在加载（避免切换时闪黑） */
     val previewLoading: Boolean = false,
     /** 已导入的自定义字体（供面板选择） */
@@ -164,7 +177,14 @@ class BatchViewModel(application: Application) :
     fun setImages(uris: List<Uri>) {
         // 按上限截断（上限由 BatchLimits 统一管理）
         _uiState.update {
-            it.copy(images = uris.take(MAX_BATCH_SIZE), finished = false, previewIndex = 0)
+            it.copy(
+                images = uris.take(MAX_BATCH_SIZE),
+                finished = false,
+                previewIndex = 0,
+                // 换了一批图，上一批的原图尺寸也失效（否则会用旧基准渲染新图）
+                previewSourceWidth = 0,
+                previewSourceHeight = 0
+            )
         }
         // 换了一批图，上一批的解码结果已无意义。
         // 用 drop（只丢引用）而不是 recycle —— 旧图可能还在当前这一帧里画着。
@@ -550,10 +570,18 @@ class BatchViewModel(application: Application) :
             it.copy(
                 previewIndex = clamped,
                 previewBitmap = cached,
+                // 换页了，原图尺寸也必须跟着换 ——
+                // 否则会用上一张的基准渲染这一张，水印大小错误。
+                // 命中缓存时先清零（渲染会用 fallback 的 bitmap 尺寸），
+                // 真正的原图尺寸由下面的 loadPreviewForCurrent 补上。
+                previewSourceWidth = 0,
+                previewSourceHeight = 0,
                 previewLoading = cached == null
             )
         }
-        if (cached == null) loadPreviewForCurrent() else prefetchNeighbours()
+        // 无论是否命中缓存，都要取一次原图尺寸（只读文件头，很便宜）。
+        // 命中缓存时 loadPreviewForCurrent 不会跑，所以这里单独补。
+        if (cached != null) loadSourceSizeForCurrent() else loadPreviewForCurrent()
     }
 
     /** 移除图片后修正下标，避免越界或停在空白页。 */
@@ -585,8 +613,16 @@ class BatchViewModel(application: Application) :
                 bitmap?.recycle()
                 return@launch
             }
+            // 同时探测**原图**尺寸：预览渲染要用它当基准坐标系，
+            // 才能让水印大小与导出一致（见 BatchUiState.previewSourceWidth）
+            val originalSize = imageRepository.queryImageSize(uri)
             _uiState.update {
-                it.copy(previewBitmap = bitmap, previewLoading = false)
+                it.copy(
+                    previewBitmap = bitmap,
+                    previewSourceWidth = originalSize?.first ?: bitmap?.width ?: 0,
+                    previewSourceHeight = originalSize?.second ?: bitmap?.height ?: 0,
+                    previewLoading = false
+                )
             }
             // 当前这张好了，顺手把左右两张也解码好 —— 用户下一滑就是瞬时的
             prefetchNeighbours()
@@ -595,6 +631,26 @@ class BatchViewModel(application: Application) :
 
     /** 预览加载的竞态令牌：只有最新一次请求的结果会被采用。 */
     private var previewToken = 0
+
+    /**
+     * 只取当前预览图的**原图尺寸**（不解码像素）。
+     *
+     * 命中预览缓存时走这条路 —— 位图已经有了，但原图尺寸还不知道。
+     * 只读文件头，开销可忽略。
+     */
+    private fun loadSourceSizeForCurrent() {
+        val uri = _uiState.value.previewUri ?: return
+        val token = previewToken
+        viewModelScope.launch {
+            val size = imageRepository.queryImageSize(uri)
+            // 竞态保护：期间可能已经滑走了
+            if (token != previewToken) return@launch
+            if (size == null) return@launch
+            _uiState.update {
+                it.copy(previewSourceWidth = size.first, previewSourceHeight = size.second)
+            }
+        }
+    }
 
     /** 预取任务句柄：换页时取消上一个，避免连续滑动堆积一串解码。 */
     private var prefetchJob: Job? = null
@@ -640,6 +696,10 @@ class BatchViewModel(application: Application) :
         val cached = _uiState.value.previewUri?.let { imageRepository.peekPreview(it) }
         if (cached != null) {
             _uiState.update { it.copy(previewBitmap = cached) }
+            // ⚠️ 命中缓存时**必须**单独取原图尺寸：
+            // 预览渲染需要它当基准坐标系，否则水印大小与导出不一致。
+            // （另一条路径 loadPreviewForCurrent 会顺带取，这里不会跑到。）
+            loadSourceSizeForCurrent()
         } else {
             loadPreviewForCurrent()
         }

@@ -31,7 +31,17 @@ data class PreviewRequest(
     val textConfig: TextWatermarkStyle,
     val imageConfig: ImageWatermarkStyle,
     val logoBitmap: Bitmap?,
-    val sourceFileName: String?
+    val sourceFileName: String?,
+    /**
+     * **原图**宽高（不是 [source] 的宽高）。
+     *
+     * 参与 `data class` 的 equals —— 换图（原图尺寸变了）时必须
+     * 触发新一轮渲染，否则 scale 还是旧的。
+     *
+     * 详见 [PreviewRenderer.render] 的 `sourceBaseWidth` 说明。
+     */
+    val baseWidth: Int = 0,
+    val baseHeight: Int = 0
 )
 
 /**

@@ -50,7 +50,7 @@ sealed interface BitmapLoadOutcome {
  */
 object BitmapUtils {
 
-    /**
+/**
      * 预览用缩略图的最大边长（px），平衡清晰度与流畅性。
      *
      * ## 为什么是 720 而不是 1024（实测调优）
@@ -177,6 +177,32 @@ object BitmapUtils {
             bitmap.recycle()
         }
         return scaled
+    }
+
+    /**
+     * 只**探测尺寸**，不解码像素。
+     *
+     * ## 用途
+     *
+     * 预览需要知道「原图多大」才能把水印按正确比例渲染
+     * （见 `WatermarkPreview.sourceWidth` 的说明）。
+     * 但为了拿尺寸去解码整张原图显然荒谬 —— 用 `inJustDecodeBounds`
+     * 只读文件头，开销可以忽略（几 KB 的读取）。
+     *
+     * @return (width, height)；探测失败返回 null
+     */
+    fun queryImageSize(context: Context, uri: Uri): Pair<Int, Int>? {
+        return try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            }
+            val w = options.outWidth
+            val h = options.outHeight
+            if (w > 0 && h > 0) w to h else null
+        } catch (t: Throwable) {
+            null
+        }
     }
 
     /**

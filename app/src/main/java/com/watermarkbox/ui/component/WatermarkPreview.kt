@@ -105,7 +105,14 @@ fun rememberRenderedPreview(
      *
      * 详见 [WatermarkPreview] 的 `enabled` 参数说明。
      */
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    /**
+     * **原图**宽高，用于让预览的渲染 scale 与导出保持一致。
+     * 传 0 表示不知道（退回旧行为，scale = 1）。
+     * 详见 [WatermarkPreview] 的 `sourceWidth` 参数说明。
+     */
+    sourceWidth: Int = 0,
+    sourceHeight: Int = 0
 ): RenderedPreview {
     val scope = rememberCoroutineScope()
 
@@ -151,10 +158,14 @@ fun rememberRenderedPreview(
                         textConfig = request.textConfig,
                         imageConfig = request.imageConfig,
                         logoBitmap = request.logoBitmap,
-                        sourceFileName = request.sourceFileName,
-                        // 把取消状态一路传到平铺循环里 —— 它是渲染链路中
-                        // 唯一耗时的地方，也是唯一能让取消真正生效的点。
-                        cancel = cancel
+                            sourceFileName = request.sourceFileName,
+                            // 原图尺寸：让预览的 scale 与导出一致
+                            // （0 表示不知道，退回旧行为）
+                            sourceBaseWidth = request.baseWidth,
+                            sourceBaseHeight = request.baseHeight,
+                            // 把取消状态一路传到平铺循环里 —— 它是渲染链路中
+                            // 唯一耗时的地方，也是唯一能让取消真正生效的点。
+                            cancel = cancel
                     )
                 } finally {
                     // 这个渲染器不归缓冲池，别让它长期握着复用目标
@@ -174,7 +185,11 @@ fun rememberRenderedPreview(
     val rendered by engine.result.collectAsStateWithLifecycle()
     val rendering by engine.rendering.collectAsStateWithLifecycle()
 
-    LaunchedEffect(enabled, bitmap, watermarkType, textConfig, imageConfig, logoBitmap, sourceFileName) {
+    LaunchedEffect(
+        enabled, bitmap, watermarkType, textConfig, imageConfig, logoBitmap, sourceFileName,
+        // 原图尺寸也进 key：换图后 scale 变了必须重渲
+        sourceWidth, sourceHeight
+    ) {
         // ⬇️ enabled=true 时才提交渲染。
         //
         // 为什么把 enabled 也放进 key：从 false 变 true（例如滑到该页）
@@ -188,7 +203,9 @@ fun rememberRenderedPreview(
                     textConfig = textConfig,
                     imageConfig = imageConfig,
                     logoBitmap = logoBitmap,
-                    sourceFileName = sourceFileName
+                    sourceFileName = sourceFileName,
+                    baseWidth = sourceWidth,
+                    baseHeight = sourceHeight
                 )
             )
         }
@@ -282,6 +299,32 @@ fun WatermarkPreview(
     enabled: Boolean = true,
 
     /**
+     * **原图**宽高（不是 [bitmap] 的宽高）。
+     *
+     * ## 为什么需要它（「预览与导出水印大小不一致」的修复）
+     *
+     * 配置里的 `fontSize` / `margin` / logo 宽度百分比都是**绝对像素**，
+     * 渲染时靠 `RenderContext.scale = targetWidth / baseWidth` 换算。
+     *
+     * 若 `baseWidth` 取 [bitmap] 自己的宽度（旧行为），scale 恒为 1 ——
+     * 于是同一个字号在预览图和导出原图上**各按原值渲染**：
+     *
+     * ```
+     * 字号 36，预览宽 540  →  占画面 6.7%
+     * 字号 36，导出宽 4032 →  占画面 0.9%     ← 差 7.5 倍
+     * ```
+     *
+     * 用户按预览调好的水印，导出后小得几乎看不见。
+     *
+     * 传入原图尺寸后，预览的 scale 变成 `540 / 4032 = 0.134`，
+     * 字号等数值等比缩小 —— **视觉占比与导出完全一致**。
+     *
+     * 传 0（默认）表示调用方不知道原图尺寸，退回旧行为。
+     */
+    sourceWidth: Int = 0,
+    sourceHeight: Int = 0,
+
+    /**
      * 拖动水印位置的回调（仅**单个模式**且本参数非 null 时生效）。
      *
      * 接收的参数是水印中心的**归一化坐标**（0~1，相对图片宽高）。
@@ -313,7 +356,10 @@ fun WatermarkPreview(
         imageConfig = imageConfig,
         logoBitmap = logoBitmap,
         sourceFileName = sourceFileName,
-        enabled = enabled
+        enabled = enabled,
+        // 原图尺寸：让预览的渲染 scale 与导出一致（见该参数文档）
+        sourceWidth = sourceWidth,
+        sourceHeight = sourceHeight
     )
     // 取出来当局部值：下面的 when 与手势换算都要用，
     // 也顺带保住了「非空分支里渲染位图必然非空」的智能转换

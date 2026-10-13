@@ -241,6 +241,9 @@ fun BatchConfigScreen(
                     previewIndex = state.previewIndex,
                     previewBitmap = state.previewBitmap,
                     previewLoading = state.previewLoading,
+                    // 原图尺寸：让预览的水印大小与导出一致
+                    previewSourceWidth = state.previewSourceWidth,
+                    previewSourceHeight = state.previewSourceHeight,
                     watermarkType = state.watermarkType,
                     textStyle = state.textStyle,
                     imageStyle = state.imageStyle,
@@ -369,6 +372,9 @@ private fun BatchPreviewPager(
     previewIndex: Int,
     previewBitmap: android.graphics.Bitmap?,
     previewLoading: Boolean,
+    /** 原图宽高：预览渲染的基准坐标系，保证水印大小与导出一致 */
+    previewSourceWidth: Int,
+    previewSourceHeight: Int,
     watermarkType: WatermarkType,
     textStyle: TextWatermarkStyle,
     imageStyle: ImageWatermarkStyle,
@@ -417,6 +423,8 @@ private fun BatchPreviewPager(
                     previewIndex = previewIndex,
                     previewBitmap = previewBitmap,
                     previewLoading = previewLoading,
+                    previewSourceWidth = previewSourceWidth,
+                    previewSourceHeight = previewSourceHeight,
                     watermark = watermarkState,
                     onRemove = onRemove,
                     onAddMore = onAddMore
@@ -471,6 +479,8 @@ private fun BatchPagerPage(
     previewIndex: Int,
     previewBitmap: android.graphics.Bitmap?,
     previewLoading: Boolean,
+    previewSourceWidth: Int,
+    previewSourceHeight: Int,
     watermark: androidx.compose.runtime.State<WatermarkParams>,
     onRemove: (Uri) -> Unit,
     onAddMore: () -> Unit
@@ -511,6 +521,10 @@ private fun BatchPagerPage(
             // 实测：submit 次数远多于 result 次数，大量渲染被丢弃，
             // 抢走当前页的 CPU/内存 → 当前页结果延迟上屏。
             enabled = isCurrent,
+            // 原图尺寸：预览的渲染基准必须与导出一致，
+            // 否则「预览里调好的水印，导出后大小完全不同」
+            sourceWidth = previewSourceWidth,
+            sourceHeight = previewSourceHeight,
             modifier = Modifier.fillMaxSize()
         )
 

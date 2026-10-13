@@ -177,6 +177,12 @@ class EditorViewModel(application: Application) :
                 }
                 return@launch
             }
+            // ⚠️ 原图尺寸必须单独探测，**不能**用 previewBitmap 的宽高！
+            //
+            // previewBitmap 是降采样图（最大边 720），用它当基准会让
+            // 水印的缩放系数算错 —— 详情见 `WatermarkPreview.sourceWidth`。
+            // 这里只读文件头，不解码像素，开销可忽略。
+            val originalSize = imageRepository.queryImageSize(uri)
             val defaultAlpha = _uiState.value.exportSettings.defaultAlpha
             val defaults = _uiState.value.exportSettings
             _uiState.update {
@@ -184,8 +190,10 @@ class EditorViewModel(application: Application) :
                     isLoading = false,
                     previewBitmap = bitmap,
                     sourceFileName = name,
-                    sourceWidth = bitmap.width,
-                    sourceHeight = bitmap.height,
+                    // 原图尺寸（不是 previewBitmap 的尺寸）——
+                    // 预览渲染用它当基准坐标系，才能与导出的水印大小一致
+                    sourceWidth = originalSize?.first ?: bitmap.width,
+                    sourceHeight = originalSize?.second ?: bitmap.height,
                     // 新图片沿用设置里的默认透明度
                     config = it.config.copy(alpha = defaultAlpha),
                     imageConfig = it.imageConfig.copy(alpha = defaultAlpha)

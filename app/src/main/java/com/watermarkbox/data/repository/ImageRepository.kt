@@ -93,6 +93,19 @@ class ImageRepository(private val context: Context) {
         }
 
     /**
+     * 只**探测原图尺寸**（不解码像素）。
+     *
+     * 预览需要它来把水印按「相对原图的比例」渲染 ——
+     * 否则预览与导出的水印大小会差出图片缩放倍数
+     * （见 `WatermarkPreview.sourceWidth`）。
+     *
+     * @return (width, height)；失败返回 null
+     */
+    suspend fun queryImageSize(uri: Uri): Pair<Int, Int>? = withContext(Dispatchers.IO) {
+        BitmapUtils.queryImageSize(context, uri)
+    }
+
+    /**
      * 加载 logo 图片（阶段二）。
      * 与预览图不同，logo 通常较小，按给定 maxEdge 降采样即可。
      */
