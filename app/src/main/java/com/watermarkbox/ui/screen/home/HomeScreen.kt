@@ -7,11 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -116,13 +114,12 @@ fun HomeScreen(
                 .padding(horizontal = Spacing.PageHorizontal),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(64.dp))
 
             // ---- 品牌头部 ----
             AppLogo()
-            // Logo 从 96dp 收到 84dp：三个入口卡片才是这一页的主角，
-            // 品牌头只是「报个到」，不该占掉五分之一屏。
-            Spacer(Modifier.height(16.dp))
+
+            Spacer(Modifier.height(20.dp))
 
             Text(
                 text = stringResource(R.string.home_brand_name),
@@ -138,14 +135,6 @@ fun HomeScreen(
                 textAlign = TextAlign.Center
             )
 
-            // ============ 两个弹性间隔 ============
-            //
-            // 用 weight 而不是固定高度：卡片数量/字号变化时，
-            // 间距会自适应地把内容推向中间。
-            //
-            // ⚠️ 但 weight 会把「剩余空间」全部吃掉 —— 前提是**其它子项的高度是确定的**。
-            // 上面 AppLogo / 文字高度固定，卡片现在也有 min+max 兜住，
-            // 所以这里算出来的剩余空间是稳定的，不会出现「某个卡片膨胀」的连锁反应。
             Spacer(Modifier.weight(0.6f))
 
             // ---- 两个主入口 ----
@@ -200,20 +189,24 @@ fun HomeScreen(
  * 保证「启动器图标」与「App 内品牌标识」视觉统一。
  *
  * 说明：
- * - 图标**自带**深蓝背景与圆角（见矢量图内的路径），这里不再 clip ——
- *   再裁一次只会把已经圆好的边角又切掉一圈
+ * - 图标自带深蓝背景，因此外层只需圆角裁切
  * - 用矢量图而非位图，任意尺寸都清晰
  */
 @Composable
 private fun AppLogo() {
-    Image(
-        painter = painterResource(R.drawable.ic_app_logo),
-        contentDescription = stringResource(R.string.a11y_app_icon),
-        contentScale = ContentScale.Crop,
-        // 84dp：与「关于页头部」一致。首页的主角是下面三张入口卡片，
-        // Logo 只是品牌点缀 —— 96dp 会显得头重脚轻。
-        modifier = Modifier.size(84.dp)
-    )
+    Box(
+        modifier = Modifier
+            .size(96.dp)
+            .clip(RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_app_logo),
+            contentDescription = stringResource(R.string.a11y_app_icon),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 /**
@@ -237,54 +230,26 @@ private fun EntryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = modifier
             .fillMaxWidth()
-            // 用 heightIn 而不是 height：系统字号调大后卡片能长高，
-            // 否则标题 + 副标题会被裁掉（无障碍：不只是读屏，字号也算）
-            //
-            // ⚠️ min 必须贴近**实际内容高度**，不能拍脑袋给大数。
-            //
-            // 内容构成：图标 48dp 与「标题 + 4dp + 副标题」两行文字取较大者，
-            // 再各加 12dp 上下 padding：
-            //     48 + 24 = 72dp      ← 图标 + padding
-            //     24 + 4 + 20 + 24 = 72dp  ← 两行文字 + padding
-            // 取 **76dp**：比内容略高一点，让三种字形组合看起来一致。
-            //
-            // 之前给 104dp 时，每张卡片白多出约 28dp —— 三张就多 84dp，
-            // 直接把第三个入口挤出屏幕。min 只负责「对齐观感」，
-            // 不该承担「撑大」的职责。
-            //
-            // max 给 2 倍：大字号（无障碍设置里可到 200%）时文字换行也不会被裁。
-            .heightIn(min = 76.dp, max = 152.dp)
+            .height(104.dp)
     ) {
         Row(
             modifier = Modifier
-                // ⚠️ 这里必须是 fillMaxHeight 而不是 fillMaxSize / fillMaxWidth：
-                //
-                // - fillMaxSize  → 撑满宽高。Card 高度不受限时会把高度顶爆
-                //                  （曾导致首页只剩一个巨卡的 bug）
-                // - fillMaxWidth → 只有内容高。而 Card 被 heightIn(min = 104.dp)
-                //                  撑到了 104dp，Row 却只有约 88dp 且贴顶，
-                //                  于是文字/图标**整体偏上**，下面留一条空白
-                // - fillMaxHeight → 跟着 Card 撑满高度，宽度仍由内容决定 ✓
-                //
-                // 配合 verticalAlignment = CenterVertically，内容就在
-                // 卡片的垂直中线上 —— 这才是「文字居中」的正确解。
-                .fillMaxHeight()
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(accent.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
+                    .size(56.dp)
+                    .background(accent.copy(alpha = 0.12f), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
                     tint = accent,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(30.dp)
                 )
             }
             Spacer(Modifier.width(16.dp))
