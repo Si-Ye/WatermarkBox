@@ -190,24 +190,18 @@ fun HomeScreen(
  * 保证「启动器图标」与「App 内品牌标识」视觉统一。
  *
  * 说明：
- * - 图标自带深蓝背景，因此外层只需圆角裁切
+ * - 图标**自带**深蓝背景与圆角（见矢量图内的路径），这里不再 clip ——
+ *   再裁一次只会把已经圆好的边角又切掉一圈
  * - 用矢量图而非位图，任意尺寸都清晰
  */
 @Composable
 private fun AppLogo() {
-    Box(
-        modifier = Modifier
-            .size(96.dp)
-            .clip(RoundedCornerShape(24.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(R.drawable.ic_app_logo),
-            contentDescription = stringResource(R.string.a11y_app_icon),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
+    Image(
+        painter = painterResource(R.drawable.ic_app_logo),
+        contentDescription = stringResource(R.string.a11y_app_icon),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.size(96.dp)
+    )
 }
 
 /**

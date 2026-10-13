@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -337,19 +338,15 @@ private fun AppIdentityHeader(onCheckUpdate: () -> Unit = {}) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // 应用图标（与启动器图标同源，见 branding/ic_launcher.svg）
-        Box(
-            modifier = Modifier
-                .size(84.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = R.drawable.ic_app_logo),
-                contentDescription = stringResource(R.string.a11y_app_logo),
-                modifier = Modifier.size(72.dp)
-            )
-        }
+        //
+        // 图标**自带圆角**（矢量图内画好了），所以这里不 clip；
+        // 外层那圈淡色底也不再需要 —— 它会从图标的圆角外露出来，
+        // 在深色模式下看起来像「图标外面套了一个方框」。
+        Image(
+            painter = painterResource(id = R.drawable.ic_app_logo),
+            contentDescription = stringResource(R.string.a11y_app_logo),
+            modifier = Modifier.size(84.dp)
+        )
         Spacer(Modifier.height(12.dp))
         Text(
             text = stringResource(R.string.about_app_name),
