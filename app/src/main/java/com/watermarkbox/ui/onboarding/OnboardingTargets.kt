@@ -35,10 +35,7 @@ enum class OnboardingTarget {
     ENTRY_PRESETS,
 
     /** 首页右上角「设置」齿轮。 */
-    ENTRY_SETTINGS,
-
-    /** 预设管理页右上角的「⋮」菜单（导入 / 导出在里面）。 */
-    PRESETS_OVERFLOW_MENU
+    ENTRY_SETTINGS
 }
 
 /**
@@ -49,15 +46,23 @@ enum class OnboardingTarget {
  * 一套引导只能在**同一个页面**里跑 —— 高亮孔要指向真实控件，
  * 而其它页面的控件此刻根本没组合出来，坐标无从获取。
  *
- * 所以每套引导各自独立记录「看没看过」：用户可能看过首页引导、
- * 但还没进过预设页，那时进预设页仍应看到引导。
+ * 所以每套引导各自独立记录「看没看过」——
+ * 将来若真加了第二套，用户看过首页那套不该影响另一套。
  */
 enum class OnboardingTour {
-    /** 首页：三个入口 + 设置。 */
-    HOME,
-
-    /** 预设管理页：导入 / 导出入口。 */
-    PRESETS
+    /**
+     * 首页：三个入口 + 右上角两个图标（预设 / 设置）。
+     *
+     * ## 现在只有这一套
+     *
+     * 曾经有第二套（预设管理页，指向右上角 ⋮），实测体验很糟：
+     * 那是用户**主动点进来、目标明确**的页面，进门先被蒙版罩住像「突袭」；
+     * 而且「导入 / 导出在这里」这件事，首页引导的第 4 步已经讲过了。
+     *
+     * 保留「按套取脚本」的机制（而不是把抽象整个删掉）是因为：
+     * 真要给别的页面加引导时，这条路已经打通，不必重做。
+     */
+    HOME
 }
 
 /** 气泡相对目标的位置。 */
@@ -161,30 +166,9 @@ object OnboardingSteps {
         )
     )
 
-    /**
-     * 预设管理页的引导。
-     *
-     * ## 为什么只有 1 步
-     *
-     * 这个页面本身就一个职能（管理预设），值得专门指出的事情只有一件：
-     * **导入 / 导出藏在右上角「⋮」里** —— 不点开根本发现不了。
-     *
-     * 另一个原因是**空状态**：用户第一次进来时一张预设都没有，
-     * 没有卡片可以指。多写几步就会出现「只有蒙版、没有高亮孔」的尴尬帧。
-     */
-    val PRESETS: List<SpotlightStep> = listOf(
-        SpotlightStep(
-            target = OnboardingTarget.PRESETS_OVERFLOW_MENU,
-            titleRes = R.string.onboarding_presets_title,
-            bodyRes = R.string.onboarding_presets_body,
-            side = BubbleSide.BOTTOM
-        )
-    )
-
-    /** 按页面取对应的引导脚本。 */
+    /** 按引导套取脚本。 */
     fun of(tour: OnboardingTour): List<SpotlightStep> = when (tour) {
         OnboardingTour.HOME -> HOME
-        OnboardingTour.PRESETS -> PRESETS
     }
 }
 

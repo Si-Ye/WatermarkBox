@@ -42,8 +42,6 @@
     <string name="onboarding_p4_body">调好的一套参数能存成预设，下次一键套用，不用每次重调。</string>
     <string name="onboarding_p5_title">更多在这里</string>
     <string name="onboarding_p5_body">语言、导出默认值、使用教程、检查更新……都在设置里。</string>
-    <string name="onboarding_presets_title">导入 / 导出在这里</string>
-    <string name="onboarding_presets_body">右上角这个菜单能把预设导出成文件（换手机、分享给别人），也能从文件导入。</string>
     <string name="common_whats_this">查看说明</string>
     <string name="common_clear">清除</string>
     <string name="common_current">当前</string>

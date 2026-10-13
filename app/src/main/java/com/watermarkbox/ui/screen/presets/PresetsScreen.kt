@@ -57,9 +57,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.BuildConfig
 import com.watermarkbox.R
-import com.watermarkbox.ui.onboarding.OnboardingTarget
-import com.watermarkbox.ui.onboarding.OnboardingTargetRegistry
-import com.watermarkbox.ui.onboarding.targetIf
 import com.watermarkbox.ui.component.InfoDot
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
@@ -97,9 +94,7 @@ fun PresetsScreen(
     onExportAll: () -> Unit = {},
     onExportOne: (WatermarkPreset) -> Unit = {},
     onImport: () -> Unit = {},
-    modifier: Modifier = Modifier,
-    /** 引导目标的注册中心；传 null 时不挂上报 Modifier（便于 Preview）。 */
-    onboardingRegistry: OnboardingTargetRegistry? = null
+    modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -151,13 +146,7 @@ fun PresetsScreen(
                     Box {
                         IconButton(
                             onClick = { menuOpen = true },
-                            enabled = !state.transferBusy,
-                            // 引导要指着它说「导入 / 导出在这里」——
-                            // 这个入口不点开根本发现不了，是本页最值得聚焦的东西
-                            modifier = Modifier.targetIf(
-                                OnboardingTarget.PRESETS_OVERFLOW_MENU,
-                                onboardingRegistry
-                            )
+                            enabled = !state.transferBusy
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,

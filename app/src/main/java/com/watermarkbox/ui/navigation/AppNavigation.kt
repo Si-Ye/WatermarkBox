@@ -230,11 +230,14 @@ fun WatermarkBoxNavHost(
 
             // ---------------- 首页的预设管理 ----------------
             composable(Routes.PRESETS) {
-                // 进本页时尝试开始预设页引导（没看过的才开）
-                LaunchedEffect(Unit) {
-                    onboardingViewModel.startIfNeeded(OnboardingTour.PRESETS)
-                }
-
+                // ⚠️ 本页**故意不做**新手引导。
+                //
+                // 曾经给这一页加过一条「指向右上角 ⋮」的引导，实测体验很糟：
+                // 这是用户**主动点进来、目标明确**的管理页，进门先被蒙版罩住
+                // 属于「突袭」；而「导入 / 导出在这里」这件事，
+                // 首页引导的第 4 步（指向书签图标）已经讲过了。
+                //
+                // 结论：引导只保留首页那一套，不再做页面级引导。
                 val presetsViewModel: PresetsViewModel = viewModel()
                 PresetsScreen(
                     viewModel = presetsViewModel,
@@ -263,13 +266,8 @@ fun WatermarkBoxNavHost(
                     },
                     onImport = {
                         onImportPresetFile { uri -> presetsViewModel.importFrom(uri) }
-                    },
-                    // 控件会把自身在窗口中的位置上报给它，引导层据此挖孔。
-                    onboardingRegistry = onboardingViewModel.registry
+                    }
                 )
-
-                // 引导遮罩层。只有当前引导属于本页时才渲染（见下方 OnboardingHost 注释）。
-                OnboardingHost(onboardingViewModel, OnboardingTour.PRESETS)
             }
 
             // ---------------- 预设参数编辑（无图片）----------------

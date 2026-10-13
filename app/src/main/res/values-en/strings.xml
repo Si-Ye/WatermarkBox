@@ -37,8 +37,6 @@
     <string name="onboarding_p4_body">Save a tuning combo as a preset and apply it in one tap — no more re-tuning.</string>
     <string name="onboarding_p5_title">More lives here</string>
     <string name="onboarding_p5_body">Language, export defaults, the tutorial, update checks — all in Settings.</string>
-    <string name="onboarding_presets_title">Import / export lives here</string>
-    <string name="onboarding_presets_body">This menu exports your presets to a file (for a new phone, or to share) and imports them back.</string>
     <string name="common_whats_this">View description</string>
     <string name="common_clear">Clear</string>
     <string name="common_current">Current</string>
