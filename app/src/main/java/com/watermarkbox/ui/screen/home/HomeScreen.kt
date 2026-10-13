@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -245,11 +246,20 @@ private fun EntryCard(
     ) {
         Row(
             modifier = Modifier
-                // 用 fillMaxWidth 而不是 fillMaxSize：
-                // 高度交给 Row 自己按内容测量（它内部是垂直居中的图标 + 文字列），
-                // 这样 Card 的 min/max 才真正决定卡片高度。
+                // ⚠️ 这里必须是 fillMaxHeight 而不是 fillMaxSize / fillMaxWidth：
+                //
+                // - fillMaxSize  → 撑满宽高。Card 高度不受限时会把高度顶爆
+                //                  （曾导致首页只剩一个巨卡的 bug）
+                // - fillMaxWidth → 只有内容高。而 Card 被 heightIn(min = 104.dp)
+                //                  撑到了 104dp，Row 却只有约 88dp 且贴顶，
+                //                  于是文字/图标**整体偏上**，下面留一条空白
+                // - fillMaxHeight → 跟着 Card 撑满高度，宽度仍由内容决定 ✓
+                //
+                // 配合 verticalAlignment = CenterVertically，内容就在
+                // 卡片的垂直中线上 —— 这才是「文字居中」的正确解。
+                .fillMaxHeight()
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
