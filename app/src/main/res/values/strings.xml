@@ -242,6 +242,24 @@
     <string name="credit_role_lead">主创</string>
     <string name="credit_role_assist">开发协助</string>
 
+    <!-- ==================== v2.1.0 ==================== -->
+    <string name="release_2_1_0_title">预览所见，就是导出所得</string>
+    <string name="release_2_1_0_c1">修复：预览里调好的水印，导出后大小差出 7 倍以上（渲染基准坐标系没接上）</string>
+    <string name="release_2_1_0_c2">修复：浅色背景图片的隐藏水印写进去了却读不出来（写入算法把改动抹平了）</string>
+    <string name="release_2_1_0_c3">修复：拖动字号 / 角度 / 密度 / 透明度时预览画面频闪</string>
+    <string name="release_2_1_0_c4">修复：批量页预览卡顿、不跟手</string>
+    <string name="release_2_1_0_c5">修复：图片稍大就提示「图片过大」而无法导出</string>
+    <string name="release_2_1_0_c6">修复：描边颜色的选择控件错位、相互重叠</string>
+    <string name="release_2_1_0_c7">新增：批量导出前可先设定本次参数，不影响全局默认值</string>
+    <string name="release_2_1_0_c8">新增：隐藏水印 DC-QIM 失真补偿，画质提升约 4.3 dB，提取率不降</string>
+    <string name="release_2_1_0_c9">新增：检测页「重新检测」，不必回相册重新选图</string>
+    <string name="release_2_1_0_c10">新增：检测不到水印时提示「这张图可能是用旧版本导出的」</string>
+    <string name="release_2_1_0_c11">新增：导出设置区分「全局默认」与「本次参数」，并说明各自的作用范围</string>
+    <string name="release_2_1_0_c12">优化：预览分辨率自适应，内存占用约降一半，拖动更跟手</string>
+    <string name="release_2_1_0_c13">优化：检测设置两两并排，文案精简（完整说明见各项 ⓘ）</string>
+    <string name="release_2_1_0_c14">优化：批量失败结果按原因分类展示，不再只有一个数字</string>
+    <string name="release_2_1_0_c15">说明：旧版本导出的图片可能检测不到水印 —— 那是写入缺陷，用新版本重新导出一次即可</string>
+
     <!-- ==================== 更新日志：1.5.0 ==================== -->
     <string name="release_1_5_0_title">中英双语 · 应用内检查更新</string>
     <string name="release_1_5_0_c1">支持中英文界面切换，可在「设置 → 其他 → 语言」中随时切换</string>

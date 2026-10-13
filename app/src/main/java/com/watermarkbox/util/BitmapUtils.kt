@@ -199,10 +199,66 @@ object BitmapUtils {
             }
             val w = options.outWidth
             val h = options.outHeight
-            if (w > 0 && h > 0) w to h else null
+            if (w <= 0 || h <= 0) return null
+
+            // ⚠️ 必须返回「**旋正后**」的尺寸 —— 与 loadBitmap / loadFullResolution
+            // 的产物保持同一坐标系。
+            //
+            // ## 为什么（真实缺陷，别退回 bounds 原值）
+            //
+            // 预览把本函数的返回值当作 `baseWidth`，而渲染时
+            // `scale = targetWidth / baseWidth`，两者必须在**同一坐标系**。
+            // 但 `bounds.out*` 是**文件里的原始尺寸**，而实际位图经过
+            // `applyExifOrientation` 旋正 —— 90°/270° 时行列是**互换**的：
+            //
+            // ```
+            // 文件 4032×3024，EXIF orientation=ROTATE_90（手机竖拍）
+            //   bounds 尺寸      → 4032×3024（横）
+            //   实际位图（旋正）  → 3024×4032（竖）
+            // ```
+            //
+            // 于是预览侧 baseWidth=4032、导出侧 baseWidth=3024（= 旋正后位图宽），
+            // 水印视觉占比 = fontSize / baseWidth，两者相差 4032/3024 ≈ **1.33 倍**。
+            // 表面上"修好了 7 倍偏差"，但对**绝大多数手机竖拍照片**仍未真正对齐。
+            //
+            // 修复：把尺寸也按 EXIF 方向换算，返回「用户看到的那个尺寸」，
+            // 这正是导出侧 `baseWidth = source.width` 取到的值。
+            val orientation = context.contentResolver.openInputStream(uri)?.use { input ->
+                readExifOrientation(input)
+            } ?: ExifInterface.ORIENTATION_NORMAL
+
+            if (swapsWidthHeight(orientation)) h to w else w to h
         } catch (t: Throwable) {
             null
         }
+    }
+
+    /**
+     * 判断某个 EXIF 方向会不会让「最终显示尺寸」发生**宽高互换**。
+     *
+     * ## 为什么需要它
+     *
+     * [applyExifOrientation] 对 90°/270° 旋转、以及转置 / 反转置做了行列互换，
+     * 于是「文件里的宽高」与「用户看到的宽高」正好相反。
+     * [queryImageSize] 必须与之一致，否则预览的水印缩放基准与导出不同源
+     * （见 [queryImageSize] 的说明）。
+     *
+     * 其余方向（NORMAL / ROTATE_180 / FLIP_*）只做翻转或 180° 旋转，
+     * 不会互换宽高。
+     *
+     * ## 为什么抽成 `internal` 纯函数
+     *
+     * 它不依赖任何 Android API（`ExifInterface.ORIENTATION_*` 是编译期常量，
+     * 会被内联，运行时不加载类），因此可以在**纯 JVM 单测**里
+     * 覆盖全部 8 个方向，无需真机 —— 见 `BitmapUtilsExifOrientationTest`。
+     */
+    internal fun swapsWidthHeight(orientation: Int): Boolean = when (orientation) {
+        ExifInterface.ORIENTATION_ROTATE_90,
+        ExifInterface.ORIENTATION_ROTATE_270,
+        ExifInterface.ORIENTATION_TRANSPOSE,
+        ExifInterface.ORIENTATION_TRANSVERSE -> true
+
+        else -> false
     }
 
     /**

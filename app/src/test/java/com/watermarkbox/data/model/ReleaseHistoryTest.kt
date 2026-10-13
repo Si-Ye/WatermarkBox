@@ -128,9 +128,19 @@ class ReleaseHistoryTest {
  * 不在单元测试的类路径里（它是 `androidTest`/`assemble` 的产物）。
  * 所以这里显式声明当前版本，**改版本号时这里也要改**。
  *
- * 若嫌手动同步麻烦，可改为读 `app/build.gradle.kts` 文本 ——
- * 但那样测试依赖构建脚本的文本格式，改格式就会假失败，得不偿失。
+ * ## ⚠️ 这份「手动同步」已经失败过一次（真实事故，别再重演）
+ *
+ * 本常量曾长期停在 `1.4.1`，而 `versionName` 早已升到 `2.1.0` ——
+ * 于是下面「更新日志覆盖当前版本」那条测试**永远通过**：
+ * 它校验的其实是 1.4.1（列表里确实有），而不是真正的当前版本。
+ * 结果 2.1.0 发布时 `ReleaseHistory` **漏加了条目**，测试完全没能拦住。
+ *
+ * 这与 `docs/multi-session-collaboration.md` §5.9 的教训同一类：
+ * **把「现状」写成断言，会让测试失去发现问题的能力。**
+ *
+ * 若要根治，可改为读 `app/build.gradle.kts` 的文本（正则提取 `versionName`）。
+ * 早期注释担心「改格式就假失败」—— 但相比「防线彻底失效」，那个代价小得多。
  */
 private object BuildConfigForTest {
-    const val VERSION_NAME = "1.4.1"
+    const val VERSION_NAME = "2.1.0"
 }

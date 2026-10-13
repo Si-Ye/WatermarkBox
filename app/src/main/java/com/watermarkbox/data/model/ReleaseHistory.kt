@@ -80,6 +80,35 @@ object ReleaseHistory {
     val releases: List<ReleaseNote> = listOf(
 
         ReleaseNote(
+            version = "2.1.0",
+            date = "2026-10-13",
+            titleRes = R.string.release_2_1_0_title,
+            type = ReleaseType.MAJOR,
+            changes = listOf(
+                // ---- 本版主题：把「预览所见」变成「导出所得」 ----
+                ReleaseNote.Change(R.string.release_2_1_0_c1, ChangeKind.FIXED),
+                // ---- 其它修复 ----
+                ReleaseNote.Change(R.string.release_2_1_0_c2, ChangeKind.FIXED),
+                ReleaseNote.Change(R.string.release_2_1_0_c3, ChangeKind.FIXED),
+                ReleaseNote.Change(R.string.release_2_1_0_c4, ChangeKind.FIXED),
+                ReleaseNote.Change(R.string.release_2_1_0_c5, ChangeKind.FIXED),
+                ReleaseNote.Change(R.string.release_2_1_0_c6, ChangeKind.FIXED),
+                // ---- 新增 ----
+                ReleaseNote.Change(R.string.release_2_1_0_c7, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_1_0_c8, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_1_0_c9, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_1_0_c10, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_1_0_c11, ChangeKind.ADDED),
+                // ---- 优化 ----
+                ReleaseNote.Change(R.string.release_2_1_0_c12, ChangeKind.IMPROVED),
+                ReleaseNote.Change(R.string.release_2_1_0_c13, ChangeKind.IMPROVED),
+                ReleaseNote.Change(R.string.release_2_1_0_c14, ChangeKind.IMPROVED),
+                // ---- 需要说明的变更（旧图可能检测不到，见 v2.1.0.md）----
+                ReleaseNote.Change(R.string.release_2_1_0_c15, ChangeKind.CHANGED)
+            )
+        ),
+
+        ReleaseNote(
             version = "2.0.1",
             date = "2026-10-13",
             titleRes = R.string.release_2_0_1_title,

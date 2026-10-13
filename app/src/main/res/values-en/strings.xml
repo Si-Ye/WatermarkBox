@@ -237,7 +237,25 @@
     <string name="credit_role_lead">Lead developer</string>
     <string name="credit_role_assist">Development assistance</string>
 
-<!-- ==================== Changelog: 1.5.0 ==================== -->
+<!-- ==================== v2.1.0 ==================== -->
+    <string name="release_2_1_0_title">What you preview is what you export</string>
+    <string name="release_2_1_0_c1">Fixed: a watermark tuned in the preview came out over 7× smaller on export (the rendering base coordinate system was not linked up)</string>
+    <string name="release_2_1_0_c2">Fixed: hidden watermarks in light-background images were written but could not be read back (the write algorithm averaged the change away)</string>
+    <string name="release_2_1_0_c3">Fixed: the preview flickered while dragging size, rotation, density or opacity</string>
+    <string name="release_2_1_0_c4">Fixed: the batch preview was laggy and did not keep up with the finger</string>
+    <string name="release_2_1_0_c5">Fixed: slightly large images were rejected as too large and could not be exported</string>
+    <string name="release_2_1_0_c6">Fixed: the outline colour picker was misaligned and overlapping</string>
+    <string name="release_2_1_0_c7">Added: set per-run export parameters before a batch, without touching your global defaults</string>
+    <string name="release_2_1_0_c8">Added: DC-QIM distortion compensation for hidden watermarks — about 4.3 dB better quality at the same read rate</string>
+    <string name="release_2_1_0_c9">Added: re-run detection on the Detect screen without picking the image again</string>
+    <string name="release_2_1_0_c10">Added: when no watermark is found, a hint that the image may have been exported by an older version</string>
+    <string name="release_2_1_0_c11">Added: export settings now distinguish global defaults from per-export parameters, with the scope of each explained</string>
+    <string name="release_2_1_0_c12">Improved: adaptive preview resolution — roughly half the memory, and dragging keeps up</string>
+    <string name="release_2_1_0_c13">Improved: detection options paired two-per-row with tighter wording (full descriptions in the i popovers)</string>
+    <string name="release_2_1_0_c14">Improved: batch failures are grouped by reason instead of just a count</string>
+    <string name="release_2_1_0_c15">Note: images exported by older versions may not be detectable — that was a write-side defect; re-export with the new version and the watermark will be there</string>
+
+    <!-- ==================== Changelog: 1.5.0 ==================== -->
     <string name="release_1_5_0_title">Bilingual · In-app update check</string>
     <string name="release_1_5_0_c1">Chinese and English interface, switchable anytime under Settings → Other → Language</string>
     <string name="release_1_5_0_c2">Added &quot;Check for updates&quot;: detects new versions and links to the download page</string>
