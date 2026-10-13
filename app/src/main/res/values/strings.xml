@@ -57,6 +57,27 @@
     <string name="a11y_panel_expanded">已展开，点击收起</string>
     <string name="a11y_panel_collapsed">已收起，点击展开</string>
     <string name="a11y_page_dot">第 %1$d 张</string>
+    <!-- 九宫格方位（按「从上到下、从左到右」的顺序，与 GravityGrid 的格子一一对应）-->
+    <string name="a11y_gravity_top_left">左上</string>
+    <string name="a11y_gravity_top_center">上方居中</string>
+    <string name="a11y_gravity_top_right">右上</string>
+    <string name="a11y_gravity_center_left">左侧居中</string>
+    <string name="a11y_gravity_center">正中央</string>
+    <string name="a11y_gravity_center_right">右侧居中</string>
+    <string name="a11y_gravity_bottom_left">左下</string>
+    <string name="a11y_gravity_bottom_center">下方居中</string>
+    <string name="a11y_gravity_bottom_right">右下</string>
+    <!-- 调色板颜色名 -->
+    <string name="a11y_color_white">白色</string>
+    <string name="a11y_color_black">黑色</string>
+    <string name="a11y_color_gray">灰色</string>
+    <string name="a11y_color_red">红色</string>
+    <string name="a11y_color_orange">橙色</string>
+    <string name="a11y_color_yellow">黄色</string>
+    <string name="a11y_color_green">绿色</string>
+    <string name="a11y_color_blue">蓝色</string>
+    <string name="a11y_color_purple">紫色</string>
+    <string name="a11y_color_unknown">颜色 %1$d</string>
 
     <!-- ==================== 首页 ==================== -->
     <string name="home_brand_name">水印盒</string>

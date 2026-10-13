@@ -52,6 +52,27 @@
     <string name="a11y_panel_expanded">Expanded, tap to collapse</string>
     <string name="a11y_panel_collapsed">Collapsed, tap to expand</string>
     <string name="a11y_page_dot">Image %1$d</string>
+    <!-- Position grid, ordered top-to-bottom, left-to-right (matches GravityGrid) -->
+    <string name="a11y_gravity_top_left">Top left</string>
+    <string name="a11y_gravity_top_center">Top center</string>
+    <string name="a11y_gravity_top_right">Top right</string>
+    <string name="a11y_gravity_center_left">Middle left</string>
+    <string name="a11y_gravity_center">Center</string>
+    <string name="a11y_gravity_center_right">Middle right</string>
+    <string name="a11y_gravity_bottom_left">Bottom left</string>
+    <string name="a11y_gravity_bottom_center">Bottom center</string>
+    <string name="a11y_gravity_bottom_right">Bottom right</string>
+    <!-- Palette colour names -->
+    <string name="a11y_color_white">White</string>
+    <string name="a11y_color_black">Black</string>
+    <string name="a11y_color_gray">Gray</string>
+    <string name="a11y_color_red">Red</string>
+    <string name="a11y_color_orange">Orange</string>
+    <string name="a11y_color_yellow">Yellow</string>
+    <string name="a11y_color_green">Green</string>
+    <string name="a11y_color_blue">Blue</string>
+    <string name="a11y_color_purple">Purple</string>
+    <string name="a11y_color_unknown">Color %1$d</string>
 
     <!-- ==================== Home ==================== -->
     <string name="home_brand_name">WatermarkBox</string>

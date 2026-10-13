@@ -34,6 +34,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -160,7 +164,10 @@ fun <T> SegmentedControl(
                             if (isSelected) MaterialTheme.colorScheme.primary
                             else Color.Transparent
                         )
-                        .clickable { onSelect(value) },
+                        .clickable(role = Role.RadioButton) { onSelect(value) }
+                        // 无障碍：文字本身会念出来，但**「是否选中」只有颜色在表达** ——
+                        // 色盲用户与读屏用户都看不出。显式补上 selected 状态。
+                        .semantics { this.selected = isSelected },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -191,8 +198,12 @@ fun ColorPalette(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        colors.forEach { color ->
+        colors.forEachIndexed { index, color ->
             val isSelected = color.toArgbSafe() == selected.toArgbSafe()
+            // 无障碍：色块本身**没有任何文字** —— 读屏默认只会念出颜色数值（「#FFFFFF」）
+            // 或干脆沉默。这里自己给出颜色名 + 是否选中，并把颜色报给读屏
+            // （它才知道该用白字还是黑字标注这个圆点）。
+            val label = stringResource(colorNameRes(index))
             Box(
                 modifier = Modifier
                     .size(34.dp)
@@ -204,7 +215,11 @@ fun ColorPalette(
                         else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                         shape = CircleShape
                     )
-                    .clickable { onSelect(color) },
+                    .clickable(role = Role.RadioButton) { onSelect(color) }
+                    .semantics {
+                        contentDescription = label
+                        this.selected = isSelected
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
@@ -242,6 +257,9 @@ fun GravityGrid(
                 for (col in 0 until 3) {
                     val index = row * 3 + col
                     val isSelected = index == selectedIndex
+                    // 无障碍：格子只是个「小圆点」，读屏看不出它代表哪个方位。
+                    // 顺序与 WatermarkPresetColors 的语义一致：从上到下、从左到右。
+                    val positionLabel = stringResource(gravityNameRes(index))
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -250,7 +268,11 @@ fun GravityGrid(
                                 if (isSelected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.surface
                             )
-                            .clickable { onSelect(index) },
+                            .clickable(role = Role.RadioButton) { onSelect(index) }
+                            .semantics {
+                                contentDescription = positionLabel
+                                this.selected = isSelected
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
@@ -375,4 +397,42 @@ fun ItemSpacer() {
 @Composable
 fun HItemSpacer() {
     Spacer(Modifier.width(12.dp))
+}
+
+/**
+ * 色板下标 → 颜色名资源。
+ *
+ * 按**下标**映射而不按颜色值算：颜色是产品逐条挑的（顺序即展示顺序），
+ * 名字跟着顺序走最省事，也避开「浮点颜色值比较」这种坑。
+ * 超出已知数量时退回「颜色 N」，保证读屏总有东西可念。
+ */
+private fun colorNameRes(index: Int): Int = when (index) {
+    0 -> R.string.a11y_color_white
+    1 -> R.string.a11y_color_black
+    2 -> R.string.a11y_color_gray
+    3 -> R.string.a11y_color_red
+    4 -> R.string.a11y_color_orange
+    5 -> R.string.a11y_color_yellow
+    6 -> R.string.a11y_color_green
+    7 -> R.string.a11y_color_blue
+    8 -> R.string.a11y_color_purple
+    else -> R.string.a11y_color_unknown
+}
+
+/**
+ * 九宫格下标 → 方位名资源。
+ *
+ * 顺序与 `GravityPosition` 的枚举顺序一致：从上到下、从左到右
+ * （0 = 左上，4 = 正中央，8 = 右下）。
+ */
+private fun gravityNameRes(index: Int): Int = when (index) {
+    0 -> R.string.a11y_gravity_top_left
+    1 -> R.string.a11y_gravity_top_center
+    2 -> R.string.a11y_gravity_top_right
+    3 -> R.string.a11y_gravity_center_left
+    4 -> R.string.a11y_gravity_center
+    5 -> R.string.a11y_gravity_center_right
+    6 -> R.string.a11y_gravity_bottom_left
+    7 -> R.string.a11y_gravity_bottom_center
+    else -> R.string.a11y_gravity_bottom_right
 }
