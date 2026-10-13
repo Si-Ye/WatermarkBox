@@ -15,12 +15,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,27 +37,49 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.R
 import com.watermarkbox.data.model.GravityPosition
 import com.watermarkbox.data.model.ImageWatermarkStyle
 import com.watermarkbox.data.model.LayoutMode
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkType
+import com.watermarkbox.watermark.PreviewRenderEngine
 import com.watermarkbox.watermark.PreviewRenderer
+import com.watermarkbox.watermark.PreviewRequest
 import com.watermarkbox.watermark.WatermarkRenderer
+
+/**
+ * 预览渲染结果：位图 + 是否还在渲染。
+ *
+ * 把「还在渲染」一并带出来，是为了让 UI 区分「还没算出来」与
+ * 「这张图没有内容」—— 否则首次渲染时会先闪一下「请选择图片」占位。
+ */
+data class RenderedPreview(
+    val bitmap: Bitmap?,
+    val isRendering: Boolean
+)
 
 /**
  * 派生「预览渲染结果」的公共 Composable 帮助函数。
  *
- * ## 为什么必须用 rememberUpdatedState
+ * ## 渲染不再发生在主线程
  *
- * `derivedStateOf` **只追踪 [androidx.compose.runtime.State] 读取**。
- * 函数参数（textConfig / watermarkType / logoBitmap 等）是普通值，
- * 若在 derivedStateOf 内部直接引用，会被闭包捕获并永久停留在首次值
- * —— 结果就是「拖动滑块预览完全不动」这个 Bug。
+ * 早期版本是 `derivedStateOf { PreviewRenderer.render(...) }` ——
+ * `derivedStateOf` 的值在**组合阶段被读取时同步计算**，也就是卡在帧里。
+ * 现在把请求交给 [PreviewRenderEngine]：渲染在后台线程做，
+ * 结果经 `StateFlow` 回到 UI。UI 线程不再承担渲染成本，
+ * 拖滑杆 / 拖水印时不会因为「这一帧要算图」而掉帧。
  *
- * 正确做法：先把每个参数用 [rememberUpdatedState] 包成 State，
- * 再在 derivedStateOf 内部读 `.value`，这样任何参数变化都会让派生值失效并重算。
+ * ## 为什么用 LaunchedEffect 提交请求
+ *
+ * 参数（配置 / 位图）变化就提交一次；引擎侧会合并请求并且只认最新一次，
+ * 所以拖滑块时不会在后台堆一串**已经过时**的渲染任务。
+ *
+ * ## `renderer` 为什么必须 `remember`
+ *
+ * 渲染器内部有 Paint 池与 Typeface 缓存，跨渲染复用才有意义；
+ * 每次重组新建一个等于把缓存全丢掉。
  *
  * 本函数被 [WatermarkPreview] 与自动化测试共同调用，
  * 保证「测试覆盖的代码路径」= 「线上运行的代码路径」。
@@ -70,28 +93,48 @@ fun rememberRenderedPreview(
     logoBitmap: Bitmap?,
     sourceFileName: String?,
     renderer: WatermarkRenderer = remember { WatermarkRenderer() }
-): Bitmap? {
-    val bitmapState = rememberUpdatedState(bitmap)
-    val typeState = rememberUpdatedState(watermarkType)
-    val textConfigState = rememberUpdatedState(textConfig)
-    val imageConfigState = rememberUpdatedState(imageConfig)
-    val logoState = rememberUpdatedState(logoBitmap)
-    val fileNameState = rememberUpdatedState(sourceFileName)
+): RenderedPreview {
+    val scope = rememberCoroutineScope()
+    val engine = remember(scope, renderer) {
+        PreviewRenderEngine<PreviewRequest, Bitmap>(
+            scope = scope,
+            render = { request ->
+                PreviewRenderer.render(
+                    renderer = renderer,
+                    bitmap = request.source,
+                    watermarkType = request.watermarkType,
+                    textConfig = request.textConfig,
+                    imageConfig = request.imageConfig,
+                    logoBitmap = request.logoBitmap,
+                    sourceFileName = request.sourceFileName
+                )
+            }
+        )
+    }
 
-    val rendered by remember(renderer) {
-        derivedStateOf {
-            PreviewRenderer.render(
-                renderer = renderer,
-                bitmap = bitmapState.value,
-                watermarkType = typeState.value,
-                textConfig = textConfigState.value,
-                imageConfig = imageConfigState.value,
-                logoBitmap = logoState.value,
-                sourceFileName = fileNameState.value
+    val rendered by engine.result.collectAsStateWithLifecycle()
+    val rendering by engine.rendering.collectAsStateWithLifecycle()
+
+    LaunchedEffect(bitmap, watermarkType, textConfig, imageConfig, logoBitmap, sourceFileName) {
+        if (bitmap != null && !bitmap.isRecycled) {
+            engine.submit(
+                PreviewRequest(
+                    source = bitmap,
+                    watermarkType = watermarkType,
+                    textConfig = textConfig,
+                    imageConfig = imageConfig,
+                    logoBitmap = logoBitmap,
+                    sourceFileName = sourceFileName
+                )
             )
         }
     }
-    return rendered
+
+    return RenderedPreview(
+        // 没有源图时不显示任何结果（哪怕上一张的结果还在）
+        bitmap = if (bitmap == null) null else rendered,
+        isRendering = rendering
+    )
 }
 
 /**
@@ -167,8 +210,8 @@ fun WatermarkPreview(
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
 
-    // ---- 核心：派生「预览渲染结果」（逻辑集中在公共帮助函数中） ----
-    val renderedBitmap = rememberRenderedPreview(
+    // ---- 核心：预览渲染结果（渲染在后台线程做，见 rememberRenderedPreview）----
+    val preview = rememberRenderedPreview(
         bitmap = bitmap,
         watermarkType = watermarkType,
         textConfig = textConfig,
@@ -176,6 +219,9 @@ fun WatermarkPreview(
         logoBitmap = logoBitmap,
         sourceFileName = sourceFileName
     )
+    // 取出来当局部值：下面的 when 与手势换算都要用，
+    // 也顺带保住了「非空分支里渲染位图必然非空」的智能转换
+    val renderedBitmap = preview.bitmap
 
     // ---- 拖动水印：只在「单个模式」且提供回调时启用 ----
     //
@@ -216,7 +262,15 @@ fun WatermarkPreview(
         contentAlignment = Alignment.Center
     ) {
         when {
+            // 图片解码中 → 加载圈
             isLoading -> {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
+            }
+
+            // 首次渲染还没算出来 → 也是加载圈。
+            // ⚠️ 只有「一张结果都还没有」时才这样：已经有上一帧结果时
+            // 继续显示它（走下面的 else），否则每次重渲染都会闪一下圈
+            renderedBitmap == null && preview.isRendering -> {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
             }
 
