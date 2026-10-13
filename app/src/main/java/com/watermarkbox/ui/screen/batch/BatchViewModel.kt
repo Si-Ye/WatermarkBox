@@ -29,6 +29,7 @@ import com.watermarkbox.data.repository.ImageRepository
 import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.invisible.InvisibleContentResolver
 import com.watermarkbox.ui.screen.editor.WatermarkPanelHost
+import com.watermarkbox.worker.BatchFailureReason
 import com.watermarkbox.worker.BatchWatermarkWorker
 import com.watermarkbox.worker.JsonCodec
 import kotlinx.coroutines.Job
@@ -69,6 +70,13 @@ data class BatchUiState(
     val successCount: Int = 0,
     /** 失败数 */
     val failCount: Int = 0,
+    /**
+     * 失败**按原因分类**的计数（只含非零项）。
+     *
+     * 结果页靠它回答「为什么失败」—— 只说「失败 3 张」用户无从下手：
+     * 是图太大、文件坏了，还是存储空间不够？
+     */
+    val failureReasons: Map<BatchFailureReason, Int> = emptyMap(),
     /** 是否已结束（用于展示统计） */
     val finished: Boolean = false,
     /** 错误提示 */
@@ -323,6 +331,7 @@ class BatchViewModel(application: Application) :
                 total = state.images.size,
                 successCount = 0,
                 failCount = 0,
+                failureReasons = emptyMap(),
                 finished = false
             )
         }
@@ -354,13 +363,37 @@ class BatchViewModel(application: Application) :
                         val fail = info.outputData.getInt(
                             BatchWatermarkWorker.KEY_FAIL_COUNT, 0
                         )
+                        // 失败原因：只收非零项，界面按固定顺序展示
+                        val reasons = buildMap {
+                            fun putIfAny(reason: BatchFailureReason, key: String) {
+                                val n = info.outputData.getInt(key, 0)
+                                if (n > 0) put(reason, n)
+                            }
+                            putIfAny(
+                                BatchFailureReason.SOURCE_TOO_LARGE,
+                                BatchWatermarkWorker.KEY_FAIL_TOO_LARGE
+                            )
+                            putIfAny(
+                                BatchFailureReason.SOURCE_UNREADABLE,
+                                BatchWatermarkWorker.KEY_FAIL_UNREADABLE
+                            )
+                            putIfAny(
+                                BatchFailureReason.SAVE_FAILED,
+                                BatchWatermarkWorker.KEY_FAIL_SAVE
+                            )
+                            putIfAny(
+                                BatchFailureReason.UNKNOWN,
+                                BatchWatermarkWorker.KEY_FAIL_UNKNOWN
+                            )
+                        }
                         _uiState.update {
                             it.copy(
                                 isProcessing = false,
                                 finished = true,
                                 done = it.total,
                                 successCount = success,
-                                failCount = fail
+                                failCount = fail,
+                                failureReasons = reasons
                             )
                         }
                     }

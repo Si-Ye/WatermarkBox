@@ -214,6 +214,11 @@ app/src/main/java/com/watermarkbox/
 
 # Release 包
 ./gradlew assembleRelease
+# ⚠️ 在 arm64/proot 等环境下，这个产物可能**缺 AndroidManifest.xml**（装不上）。
+#    这时改用仓库自带的重新组装脚本（它会从中间产物取资源、按规范重打包并签名）：
+#      python3 tools/build_release_apk.py
+#    发布前务必校验产物完整性：
+#      python3 tools/check_apk_integrity.py --require-signature app/build/outputs/apk/release/app-release.apk
 ```
 
 ### Release 签名

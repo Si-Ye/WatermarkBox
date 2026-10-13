@@ -215,7 +215,7 @@ implemented from scratch.
 ### Commands
 
 ```bash
-# Unit tests (230)
+# Unit tests (356)
 ./gradlew testDebugUnitTest
 
 # Debug build
@@ -224,6 +224,11 @@ implemented from scratch.
 
 # Release build
 ./gradlew assembleRelease
+# ⚠️ In arm64/proot environments this artifact may be missing AndroidManifest.xml
+#    (it will not install). Use the repo's repack script instead:
+#      python3 tools/build_release_apk.py
+#    Always verify the artifact before publishing:
+#      python3 tools/check_apk_integrity.py --require-signature app/build/outputs/apk/release/app-release.apk
 ```
 
 ### Release signing

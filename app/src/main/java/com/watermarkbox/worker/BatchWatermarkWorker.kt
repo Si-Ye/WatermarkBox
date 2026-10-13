@@ -75,12 +75,14 @@ class BatchWatermarkWorker(
 
         var success = 0
         val failed = mutableListOf<String>()
+        // 失败按原因归类：结果页要说清「为什么失败」，不只是一个数字
+        val reasons = mutableMapOf<BatchFailureReason, Int>()
 
         uris.forEachIndexed { index, uriString ->
             // 支持取消：每张开始前检查
             if (isStopped) return@withContext Result.failure()
 
-            val ok = processOne(
+            val reason = processOne(
                 uriString = uriString,
                 index = index + 1,
                 type = watermarkType,
@@ -93,7 +95,12 @@ class BatchWatermarkWorker(
                 invisibleExif = invisibleExif,
                 invisibleDct = invisibleDct
             )
-            if (ok) success++ else failed.add(uriString)
+            if (reason == null) {
+                success++
+            } else {
+                failed.add(uriString)
+                reasons[reason] = (reasons[reason] ?: 0) + 1
+            }
 
             setProgress(
                 workDataOf(
@@ -109,12 +116,22 @@ class BatchWatermarkWorker(
             workDataOf(
                 KEY_SUCCESS_COUNT to success,
                 KEY_FAIL_COUNT to failed.size,
-                KEY_FAILED_URIS to failed.toTypedArray()
+                KEY_FAILED_URIS to failed.toTypedArray(),
+                // 失败原因分类（结果页展示用）
+                KEY_FAIL_TOO_LARGE to (reasons[BatchFailureReason.SOURCE_TOO_LARGE] ?: 0),
+                KEY_FAIL_UNREADABLE to (reasons[BatchFailureReason.SOURCE_UNREADABLE] ?: 0),
+                KEY_FAIL_SAVE to (reasons[BatchFailureReason.SAVE_FAILED] ?: 0),
+                KEY_FAIL_UNKNOWN to (reasons[BatchFailureReason.UNKNOWN] ?: 0)
             )
         )
     }
 
-    /** 处理单张图片：加载全分辨率 → 渲染 → 保存。返回是否成功。 */
+    /**
+     * 处理单张图片：加载全分辨率 → 渲染 → 保存。
+     *
+     * @return `null` 表示成功；非 null 是**失败原因**（见 [BatchFailureReason]）。
+     *   把原因带出来而不是只报 true/false，结果页才能告诉用户下一步该做什么。
+     */
     private suspend fun processOne(
         uriString: String,
         index: Int,
@@ -127,7 +144,7 @@ class BatchWatermarkWorker(
         invisibleStrength: Int,
         invisibleExif: Boolean,
         invisibleDct: Boolean
-    ): Boolean {
+    ): BatchFailureReason? {
         var source: Bitmap? = null
         var rendered: Bitmap? = null
         var stamped: Bitmap? = null
@@ -140,7 +157,12 @@ class BatchWatermarkWorker(
                 uri = uri,
                 copies = BitmapBudget.EXPORT_COPIES
             )
-            source = (outcome as? BitmapLoadOutcome.Ok)?.bitmap ?: return false
+            when (outcome) {
+                is BitmapLoadOutcome.Ok -> source = outcome.bitmap
+                // 「图太大」与「读不出来」要分开：用户该做的事完全不同
+                is BitmapLoadOutcome.TooLarge -> return BatchFailureReason.SOURCE_TOO_LARGE
+                is BitmapLoadOutcome.Failed -> return BatchFailureReason.SOURCE_UNREADABLE
+            }
 
             // 取源文件名用于 {filename} 与命名
             val displayName = queryDisplayName(uri)
@@ -152,7 +174,9 @@ class BatchWatermarkWorker(
                     sourceFileName = displayName
                 )
                 WatermarkType.IMAGE -> {
-                    if (logoBitmap == null || logoBitmap.isRecycled) return false
+                    if (logoBitmap == null || logoBitmap.isRecycled) {
+                        return BatchFailureReason.UNKNOWN
+                    }
                     renderer.renderImage(
                         source = source,
                         logo = logoBitmap,
@@ -176,7 +200,7 @@ class BatchWatermarkWorker(
                 index = index
             )
 
-            exportRepository.saveBitmap(
+            val saved = exportRepository.saveBitmap(
                 bitmap = toWrite,
                 displayName = fileName,
                 format = exportSettings.format,
@@ -187,8 +211,9 @@ class BatchWatermarkWorker(
                 // EXIF 通道独立开关：关掉时传 null，等价于「不写元数据水印」
                 invisibleContent = invisibleContent.takeIf { invisibleExif }
             ) != null
+            if (saved != null) null else BatchFailureReason.SAVE_FAILED
         } catch (t: Throwable) {
-            false
+            BatchFailureReason.UNKNOWN
         } finally {
             stamped?.takeIf { it != rendered && !it.isRecycled }?.recycle()
             rendered?.takeIf { it != source && !it.isRecycled }?.recycle()
@@ -246,6 +271,11 @@ class BatchWatermarkWorker(
         const val KEY_SUCCESS_COUNT = "successCount"
         const val KEY_FAIL_COUNT = "failCount"
         const val KEY_FAILED_URIS = "failedUris"
+        // 失败原因分类计数（与 BatchFailureReason 一一对应）
+        const val KEY_FAIL_TOO_LARGE = "failTooLarge"
+        const val KEY_FAIL_UNREADABLE = "failUnreadable"
+        const val KEY_FAIL_SAVE = "failSave"
+        const val KEY_FAIL_UNKNOWN = "failUnknown"
 
         const val WORK_NAME = "batch_watermark_work"
     }

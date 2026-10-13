@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -385,7 +386,8 @@ private fun TextWatermarkPanelContent(
         listOf("{timestamp}", "{date}", "{filename}").forEach { token ->
             OutlinedButton(
                 onClick = { viewModel.updateText(config.text + token) },
-                modifier = Modifier.height(32.dp),
+                // heightIn：字号调大时按钮能长高，不把占位符文字裁掉
+                modifier = Modifier.heightIn(min = 32.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     horizontal = 10.dp, vertical = 0.dp
                 )
@@ -433,7 +435,8 @@ private fun TextWatermarkPanelContent(
         )
         OutlinedButton(
             onClick = onPickFont,
-            modifier = Modifier.height(32.dp),
+            // 同占位符按钮：用 heightIn 让字号调大时能长高
+            modifier = Modifier.heightIn(min = 32.dp),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 horizontal = 12.dp, vertical = 0.dp
             )

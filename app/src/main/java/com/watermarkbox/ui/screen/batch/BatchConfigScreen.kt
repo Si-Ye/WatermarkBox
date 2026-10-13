@@ -75,6 +75,7 @@ import com.watermarkbox.ui.screen.editor.PresetDialog
 import com.watermarkbox.ui.screen.editor.WatermarkPanel
 import com.watermarkbox.ui.screen.editor.WatermarkPanelState
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.worker.BatchFailureReason
 import kotlinx.coroutines.launch
 
 /**
@@ -314,6 +315,7 @@ fun BatchConfigScreen(
         BatchSummaryDialog(
             success = state.successCount,
             fail = state.failCount,
+            failureReasons = state.failureReasons,
             onDismiss = {
                 showSummary = false
                 viewModel.resetProcessing()
@@ -607,11 +609,30 @@ private fun BatchActionBar(
     }
 }
 
-/** 完成统计对话框。 */
+/** 失败原因 → 文案资源。 */
+private fun BatchFailureReason.labelRes(): Int = when (this) {
+    BatchFailureReason.SOURCE_TOO_LARGE -> R.string.batch_fail_reason_too_large
+    BatchFailureReason.SOURCE_UNREADABLE -> R.string.batch_fail_reason_unreadable
+    BatchFailureReason.SAVE_FAILED -> R.string.batch_fail_reason_save_failed
+    BatchFailureReason.UNKNOWN -> R.string.batch_fail_reason_unknown
+}
+
+/**
+ * 完成统计对话框。
+ *
+ * ## 为什么要把「失败原因」列出来
+ *
+ * 只说「失败 3 张」用户什么都做不了：不知道该缩小图片、换一张图，
+ * 还是清一下存储空间。按原因分组之后，每一行都直接对应一个可采取的动作。
+ *
+ * 原因顺序是固定的（图太大 → 读不出 → 写入失败 → 其它），
+ * 不按数量排序 —— 顺序稳定，用户第二次看不用重新找。
+ */
 @Composable
 private fun BatchSummaryDialog(
     success: Int,
     fail: Int,
+    failureReasons: Map<BatchFailureReason, Int>,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -631,6 +652,27 @@ private fun BatchSummaryDialog(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error
                     )
+                    // 失败明细：按原因分组，每行都对应一个可采取的动作
+                    if (failureReasons.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = stringResource(R.string.batch_fail_reason_title),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        failureReasons.forEach { (reason, count) ->
+                            Text(
+                                text = stringResource(
+                                    R.string.batch_fail_reason_item,
+                                    stringResource(reason.labelRes()),
+                                    count
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(

@@ -552,6 +552,12 @@
     <string name="batch_done_title">批量处理完成</string>
     <string name="batch_success_count">成功 %1$d 张</string>
     <string name="batch_fail_count">失败 %1$d 张</string>
+    <string name="batch_fail_reason_title">失败原因</string>
+    <string name="batch_fail_reason_too_large">图片过大（本机内存放不下）</string>
+    <string name="batch_fail_reason_unreadable">读不出图片（可能已损坏或被删）</string>
+    <string name="batch_fail_reason_save_failed">写入失败（存储空间或目录权限）</string>
+    <string name="batch_fail_reason_unknown">其它原因</string>
+    <string name="batch_fail_reason_item">%1$s：%2$d 张</string>
     <string name="batch_saved_hint">已保存到相册。</string>
     <string name="batch_ok">好</string>
     <string name="batch_error_logo">Logo 加载失败</string>

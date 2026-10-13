@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -230,7 +231,9 @@ private fun EntryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = modifier
             .fillMaxWidth()
-            .height(104.dp)
+            // 用 heightIn 而不是 height：系统字号调大后卡片能长高，
+            // 否则标题 + 副标题会被 104dp 裁掉（无障碍：不只是读屏，字号也算）
+            .heightIn(min = 104.dp)
     ) {
         Row(
             modifier = Modifier
