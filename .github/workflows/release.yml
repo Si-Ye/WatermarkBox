@@ -78,9 +78,17 @@ jobs:
           echo "已写入 keystore.properties"
           # 只打印键名，绝不回显密码值
           cut -d= -f1 keystore.properties
-
       - name: 构建 Release APK
         run: ./gradlew assembleRelease --console=plain
+
+      # 发布前必须确认这个包**真的能装**。
+      #
+      # 历史教训：出现过「构建成功但缺 AndroidManifest.xml / resources.arsc」
+      # 的产物 —— 那种包发出去等于给用户发了块砖头，而且 CI 是绿的。
+      # 这一步在**改名前**校验，并强制要求签名块存在。
+      - name: 校验 Release 包完整性（含签名）
+        run: python3 tools/check_apk_integrity.py --require-signature app/build/outputs/apk/release/app-release.apk
+
 
       - name: 构建 Debug APK
         run: ./gradlew assembleDebug --console=plain
