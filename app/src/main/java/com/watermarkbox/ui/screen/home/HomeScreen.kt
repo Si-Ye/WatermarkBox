@@ -42,6 +42,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.BatchLimits
+import com.watermarkbox.ui.onboarding.OnboardingTarget
+import com.watermarkbox.ui.onboarding.OnboardingTargetRegistry
+import com.watermarkbox.ui.onboarding.onboardingTarget
 import com.watermarkbox.ui.theme.BrandAmber
 import com.watermarkbox.ui.theme.BrandNavy
 import com.watermarkbox.ui.theme.Spacing
@@ -61,7 +64,14 @@ fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenDetect: () -> Unit,
     onOpenPresets: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /**
+     * 引导目标的注册中心。
+     *
+     * 传 null 时**不挂任何上报 Modifier** —— 这样 `@Preview` 用默认值
+     * 就能渲染，不必造一个 registry（预览里那些回调也永远不会触发）。
+     */
+    onboardingRegistry: OnboardingTargetRegistry? = null
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -74,14 +84,20 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onOpenPresets) {
+                IconButton(
+                    onClick = onOpenPresets,
+                    modifier = Modifier.targetIf(OnboardingTarget.ENTRY_PRESETS, onboardingRegistry)
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Bookmarks,
                         contentDescription = stringResource(R.string.a11y_presets),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                IconButton(onClick = onOpenSettings) {
+                IconButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier.targetIf(OnboardingTarget.ENTRY_SETTINGS, onboardingRegistry)
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Settings,
                         contentDescription = stringResource(R.string.a11y_settings),
@@ -127,7 +143,10 @@ fun HomeScreen(
                 subtitle = stringResource(R.string.home_entry_single_subtitle),
                 icon = Icons.Filled.Image,
                 accent = BrandNavy,
-                onClick = onPickSingleImage
+                onClick = onPickSingleImage,
+                modifier = Modifier.targetIf(
+                    OnboardingTarget.ENTRY_PICK_IMAGE, onboardingRegistry
+                )
             )
             Spacer(Modifier.height(Spacing.Item))
             EntryCard(
@@ -138,7 +157,8 @@ fun HomeScreen(
                 ),
                 icon = Icons.Filled.Collections,
                 accent = BrandAmber,
-                onClick = onPickBatchImages
+                onClick = onPickBatchImages,
+                modifier = Modifier.targetIf(OnboardingTarget.ENTRY_BATCH, onboardingRegistry)
             )
             Spacer(Modifier.height(Spacing.Item))
             EntryCard(
@@ -146,7 +166,8 @@ fun HomeScreen(
                 subtitle = stringResource(R.string.home_entry_detect_subtitle),
                 icon = Icons.Filled.VerifiedUser,
                 accent = BrandNavy,
-                onClick = onOpenDetect
+                onClick = onOpenDetect,
+                modifier = Modifier.targetIf(OnboardingTarget.ENTRY_DETECT, onboardingRegistry)
             )
 
             Spacer(Modifier.weight(0.8f))
@@ -197,7 +218,8 @@ private fun EntryCard(
     subtitle: String,
     icon: ImageVector,
     accent: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
         onClick = onClick,
@@ -206,7 +228,7 @@ private fun EntryCard(
             containerColor = MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(104.dp)
     ) {
@@ -250,6 +272,18 @@ private fun EntryCard(
 }
 
 /** Compose 版背景修饰符封装（避免重复 import）。 */
+
+/**
+ * registry 为空时原样返回，避免在 `@Preview` 里挂一堆永远不会触发的回调。
+ *
+ * 这个包装看起来多余，但它让所有调用点都能少写一次 null 判断，
+ * 而 Preview 里也真的不会有任何副作用。
+ */
+private fun Modifier.targetIf(
+    target: OnboardingTarget,
+    registry: OnboardingTargetRegistry?
+): Modifier = if (registry == null) this else this.onboardingTarget(target, registry)
+
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenPreview() {

@@ -13,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -26,8 +28,8 @@ import com.watermarkbox.ui.screen.detect.DetectViewModel
 import com.watermarkbox.ui.screen.editor.EditorScreen
 import com.watermarkbox.ui.screen.editor.EditorViewModel
 import com.watermarkbox.ui.screen.home.HomeScreen
-import com.watermarkbox.ui.screen.home.OnboardingDialog
 import com.watermarkbox.ui.screen.home.OnboardingViewModel
+import com.watermarkbox.ui.onboarding.OnboardingOverlay
 import com.watermarkbox.ui.screen.presets.PresetEditScreen
 import com.watermarkbox.ui.screen.presets.PresetEditViewModel
 import com.watermarkbox.ui.screen.presets.PresetsScreen
@@ -139,6 +141,12 @@ fun WatermarkBoxNavHost(
 
             // ---------------- 首页 ----------------
             composable(Routes.HOME) {
+                // 引导状态放在导航层（原因见下方注释）。
+                // 必须定义在 HomeScreen **之前** —— 它要把 registry 传下去。
+                val onboardingViewModel: OnboardingViewModel = viewModel()
+                val onboardingCurrent by onboardingViewModel.current.collectAsStateWithLifecycle()
+                val onboardingIndex by onboardingViewModel.stepIndex.collectAsStateWithLifecycle()
+
                 HomeScreen(
                     onPickSingleImage = {
                         onPickSingleImage { uri ->
@@ -154,18 +162,41 @@ fun WatermarkBoxNavHost(
                     },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     onOpenDetect = { navController.navigate(Routes.DETECT) },
-                    onOpenPresets = { navController.navigate(Routes.PRESETS) }
+                    onOpenPresets = { navController.navigate(Routes.PRESETS) },
+                    // 控件会把自身在窗口中的位置上报给它，引导层据此挖孔。
+                    // 传下去之后，首页那几个入口就成了「可被聚焦的目标」。
+                    onboardingRegistry = onboardingViewModel.registry
                 )
 
-                // 新手引导：首次（或升级后首次）进首页时弹一次。
+                // 新手引导：首次（或升级后首次）进首页时显示。
                 //
                 // 放在导航层而不是 HomeScreen 里 —— 首页是**纯 UI**（不做 I/O），
                 // 塞个读 DataStore 的 ViewModel 进去会让 @Preview 直接崩。
-                val onboardingViewModel: OnboardingViewModel = viewModel()
-                val showOnboarding by onboardingViewModel.visible.collectAsStateWithLifecycle()
-
-                if (showOnboarding) {
-                    OnboardingDialog(onFinish = onboardingViewModel::complete)
+                onboardingCurrent?.let { (step, anchor) ->
+                    // 用全屏 Dialog 承载遮罩。
+                    //
+                    // 直接叠在 Box 里也能画，但那样只覆盖 Activity 的**内容区**，
+                    // 状态栏与导航栏压不暗，看着像没铺满。
+                    // Dialog 是独立 Window，配合下面三个开关才能真正铺满整屏。
+                    Dialog(
+                        // 点外面不关：引导只有「跳过 / 下一步」两条出路，
+                        // 误触关闭会让用户以为「没看就等于看过了」
+                        onDismissRequest = { },
+                        properties = DialogProperties(
+                            usePlatformDefaultWidth = false,  // 否则 Dialog 只有内容宽
+                            dismissOnClickOutside = false,
+                            decorFitsSystemWindows = false    // 内容延伸到系统栏之下
+                        )
+                    ) {
+                        OnboardingOverlay(
+                            step = step,
+                            stepIndex = onboardingIndex,
+                            stepCount = onboardingViewModel.stepCount,
+                            anchor = anchor,
+                            onSkip = onboardingViewModel::finish,
+                            onNext = onboardingViewModel::next
+                        )
+                    }
                 }
             }
 

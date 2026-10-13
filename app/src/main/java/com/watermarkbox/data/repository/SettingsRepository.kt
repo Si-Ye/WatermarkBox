@@ -287,9 +287,15 @@ class SettingsRepository(private val context: Context) {
      * 是否已经看过新手引导。
      *
      * 默认 `false` —— 新装用户第一次进首页会看到引导。
-     * 老用户升级上来也是 `false`，会多看一次引导：这是**故意的**，
-     * 2.0 加了隐藏水印签名、XMP 通道等新东西，值得再介绍一遍；
-     * 而且引导可一键跳过，成本很低。
+     *
+     * ## 为什么 key 带 `_v2`
+     *
+     * 引导在 2.0 从「居中对话框」重做成了「挖孔聚焦」——
+     * 完全不同的东西。老 key 在新版本里可能是 `true`（用户看过旧引导），
+     * 那新引导就永远不显示了。
+     *
+     * 换个 key 等于「请已经看过旧版的用户再看一次新引导」，
+     * 这在引导形态改变时是合理的：不看一遍就不知道界面上的标点是什么。
      */
     val onboardingDone: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
         prefs[KEY_ONBOARDING_DONE] ?: false
@@ -346,6 +352,6 @@ class SettingsRepository(private val context: Context) {
         val KEY_AUTO_CHECK_UPDATE = booleanPreferencesKey("auto_check_update")
         val KEY_INAPP_DOWNLOAD = booleanPreferencesKey("in_app_download")
         val KEY_LAST_CHECK_TIME = longPreferencesKey("last_check_time")
-        val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
+        val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done_v2")
     }
 }
