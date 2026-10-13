@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -159,37 +160,64 @@ fun DetectScreen(
                     Text(stringResource(R.string.detect_pick))
                 }
             } else {
-                Button(
-                    onClick = viewModel::recheck,
-                    // 检测中禁用：否则连点会叠加多次检测任务，
-                    // 而且并发跑同一个 detector 没有意义
-                    enabled = !state.isDetecting,
-                    modifier = Modifier.fillMaxWidth()
+                // 两个按钮**并排一行**，各占一半宽度。
+                //
+                // 为什么并排而不是上下堆叠：
+                // 它们是**同一层级的两个平行动作**（都作用于当前这张图），
+                // 并排能直观表达这层并列关系，也省一行垂直空间 ——
+                // 下面还有检测设置卡片和结果卡片要放。
+                //
+                // weight 用 1f:1f 而非 1f:1.4f 之类的不等分配：
+                // 中文文案「用当前设置重新检测」（9 字）比
+                // 「换一张检测」（5 字）长，但两者都能在半个屏宽内放下。
+                // 不等分反而会让短文案那个按钮显得突兀地宽。
+                //
+                // 文案过长时（例如英文 "Re-check with current settings"），
+                // Text 会自动换行 —— 按钮高度由 maxIntrinsicHeight 对齐，
+                // 不会出现两个按钮一高一矮。
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.detect_rerun))
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        viewModel.reset()
-                        onPickImage()
-                    },
-                    enabled = !state.isDetecting,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.AddPhotoAlternate,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.detect_recheck))
+                    Button(
+                        onClick = viewModel::recheck,
+                        // 检测中禁用：否则连点会叠加多次检测任务，
+                        // 而且并发跑同一个 detector 没有意义
+                        enabled = !state.isDetecting,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            text = stringResource(R.string.detect_rerun),
+                            maxLines = 2,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.reset()
+                            onPickImage()
+                        },
+                        enabled = !state.isDetecting,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.AddPhotoAlternate,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            text = stringResource(R.string.detect_recheck),
+                            maxLines = 2,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
 
