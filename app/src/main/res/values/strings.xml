@@ -33,7 +33,7 @@
     <string name="onboarding_skip">跳过</string>
     <string name="onboarding_start">开始使用</string>
     <string name="onboarding_p1_title">从这里开始</string>
-    <string name="onboarding_p1_body">点这里选一张图片，加好水印就能导出。\n\n完全本地运行：不联网、不上传、无广告。</string>
+    <string name="onboarding_p1_body">点这里选一张图片，加好水印就能导出。\n\n图片只在本机处理：**只下载、不上传**、无广告。</string>
     <string name="onboarding_p2_title">一次处理多张</string>
     <string name="onboarding_p2_body">批量最多 100 张，参数面板与单张编辑完全一致。</string>
     <string name="onboarding_p3_title">检查水印</string>

@@ -15,13 +15,17 @@ import com.watermarkbox.R
  * @param role   角色说明
  * @param qq     QQ 号（可空；非空时关于页提供复制/跳转）
  * @param avatarRes 头像 drawable 资源 id（可空；非空时关于页显示圆形头像）
+ * @param githubUser GitHub 用户名（可空）。非空时关于页会**运行时**拉取该用户的
+ *        头像与昵称 —— 换了头像/改名，应用不必发版就能跟上；
+ *        [avatarRes] 则作为离线/失败时的兜底。
  */
 data class Credit(
     val name: String,
     val isLead: Boolean = false,
     val role: String = "",
     val qq: String? = null,
-    @get:androidx.annotation.DrawableRes val avatarRes: Int? = null
+    @get:androidx.annotation.DrawableRes val avatarRes: Int? = null,
+    val githubUser: String? = null
 )
 
 /**
@@ -51,7 +55,9 @@ object AppCredits {
             isLead = true,
             role = "主创",
             qq = "3992766503",
-            avatarRes = R.drawable.siye_avatar
+            avatarRes = R.drawable.siye_avatar,
+            // 运行时从 GitHub 拉头像与昵称；内置资源只作兜底
+            githubUser = "Si-Ye"
         ),
         Credit(name = "Operit", isLead = false, role = "开发协助")
     )

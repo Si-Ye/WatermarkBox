@@ -28,7 +28,7 @@
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_start">Get started</string>
     <string name="onboarding_p1_title">Start here</string>
-    <string name="onboarding_p1_body">Pick an image, add a watermark, export it.\n\nFully offline: no network, no uploads, no ads.</string>
+    <string name="onboarding_p1_body">Pick an image, add a watermark, export it.\n\nImages stay on your device: downloads only, never uploads — and no ads.</string>
     <string name="onboarding_p2_title">Process many at once</string>
     <string name="onboarding_p2_body">Up to 100 images per run, with the exact same panel as single-image editing.</string>
     <string name="onboarding_p3_title">Check a watermark</string>

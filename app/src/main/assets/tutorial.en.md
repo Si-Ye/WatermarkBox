@@ -1,7 +1,7 @@
 # WatermarkBox Tutorial
 
 WatermarkBox is a **fully offline** image watermarking tool. Everything runs on
-your phone — no network access, no uploads, no ads.
+your phone — downloads only, never uploads — and no ads.
 
 ---
 
@@ -140,7 +140,8 @@ and right-angle rotation, but **not screenshots, re-photographing, or AI repaint
 
 **Q: Do you upload my images?**
 
-No. The app requests no network permission; all processing is local.
+No. The app only downloads, never uploads: all image processing is local.
+The network is used just for update checks and the author avatar.
 
 **Q: Where are exported images saved?**
 

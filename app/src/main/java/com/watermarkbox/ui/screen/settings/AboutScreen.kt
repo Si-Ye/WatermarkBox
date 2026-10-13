@@ -61,9 +61,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.watermarkbox.BuildConfig
 import com.watermarkbox.R
 import com.watermarkbox.data.model.AppCredits
+import com.watermarkbox.data.repository.CreditsRepository
 import com.watermarkbox.data.model.AppLicense
 import com.watermarkbox.data.model.Credit
 import com.watermarkbox.ui.component.SectionLabel
@@ -93,6 +95,23 @@ fun AboutScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var copiedQq by remember { mutableStateOf<String?>(null) }
     var copiedLabel by remember { mutableStateOf<String?>(null) }
+
+    // ---- 主创资料：运行时从 GitHub 取（头像 + 昵称）----
+    //
+    // 为什么不在打包时写死：换了头像、改了昵称，写死就得等下一个版本才更新。
+    // 失败一律回退到内置资源 —— 离线 / 限流 / 接口变更都不会开天窗。
+    val leadCredit = AppCredits.lead
+    val creditsRepository = remember(leadCredit.githubUser) {
+        leadCredit.githubUser?.let { CreditsRepository(it) }
+    }
+    var onlineLeadName by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(creditsRepository) {
+        onlineLeadName = creditsRepository?.fetchProfile()?.displayName
+    }
+
+    /** 主创显示名：在线取到的优先，取不到用内置的。 */
+    val leadDisplayName = onlineLeadName ?: leadCredit.name
 
     // 预先取好文案：LaunchedEffect 的挂起块里不能调用 @Composable 函数
     val qqCopiedMessage = stringResource(R.string.about_qq_copied, copiedQq.orEmpty())
@@ -158,6 +177,9 @@ fun AboutScreen(
             AppCredits.entries.forEach { credit ->
                 CreditCard(
                     credit = credit,
+                    // 主创的昵称与头像来自在线档案；取不到就是内置的那份
+                    displayName = if (credit.isLead) leadDisplayName else credit.name,
+                    avatarUrl = if (credit.isLead) creditsRepository?.avatarUrl else null,
                     onCopyQq = { qq ->
                         copyToClipboard(context, label = "QQ", text = qq)
                         copiedQq = qq
@@ -218,7 +240,7 @@ fun AboutScreen(
             // ---- 版权 ----
             SectionLabel(stringResource(R.string.about_copyright_title))
             Text(
-                text = stringResource(R.string.about_copyright, AppCredits.lead.name),
+                text = stringResource(R.string.about_copyright, leadDisplayName),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -388,6 +410,8 @@ private fun AppIdentityHeader(onCheckUpdate: () -> Unit = {}) {
 @Composable
 private fun CreditCard(
     credit: Credit,
+    displayName: String,
+    avatarUrl: String?,
     onCopyQq: (String) -> Unit
 ) {
     Card(
@@ -408,7 +432,7 @@ private fun CreditCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // ---- 头像 ----
-            Avatar(credit)
+            Avatar(credit, avatarUrl)
 
             Spacer(Modifier.width(12.dp))
 
@@ -424,7 +448,7 @@ private fun CreditCard(
                         Spacer(Modifier.width(4.dp))
                     }
                     Text(
-                        text = credit.name,
+                        text = displayName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = if (credit.isLead) FontWeight.SemiBold else FontWeight.Normal
                     )
@@ -491,10 +515,17 @@ private fun localizedCreditRole(role: String): String {
  *
  * 现在资源 id 由 [AppCredits] 直接持有：lint 看得见、删不掉，
  * 写错编译期就报。取不到 id 时仍退回 `Person` 占位图标，保证不崩。
+ *
+ * ## 在线头像
+ *
+ * 传入 [avatarUrl]（来自 GitHub）时优先显示在线图，由 Coil 下载并磁盘缓存；
+ * 加载中与失败都显示内置的那张 —— 换了头像不必发版就能跟上，离线也不开天窗。
  */
 @Composable
-private fun Avatar(credit: Credit) {
+private fun Avatar(credit: Credit, avatarUrl: String? = null) {
     val resId = credit.avatarRes
+    // 内置图同时充当「占位」与「兜底」：在线图还没到就先显示它，失败也回退到它
+    val fallback = resId?.let { painterResource(it) }
 
     Box(
         modifier = Modifier
@@ -506,17 +537,31 @@ private fun Avatar(credit: Credit) {
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (resId != null) {
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = resId),
+        when {
+            // 在线头像：Coil 负责下载与磁盘缓存（遵循 GitHub 的缓存头），
+            // 加载中走 placeholder、失败走 error —— 两者都是内置那张图
+            avatarUrl != null -> AsyncImage(
+                model = avatarUrl,
+                contentDescription = stringResource(R.string.a11y_avatar, credit.name),
+                contentScale = ContentScale.Crop,
+                placeholder = fallback,
+                error = fallback,
+                fallback = fallback,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+            )
+
+            fallback != null -> androidx.compose.foundation.Image(
+                painter = fallback,
                 contentDescription = stringResource(R.string.a11y_avatar, credit.name),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
             )
-        } else {
-            Icon(
+
+            else -> Icon(
                 imageVector = Icons.Filled.Person,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
