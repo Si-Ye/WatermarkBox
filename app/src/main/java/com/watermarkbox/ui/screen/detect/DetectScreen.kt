@@ -313,6 +313,21 @@ private fun DetectOptionsCard(
             if (options.checkDct) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
 
+                // 三个加速项**两两并排**，把 3 行压成 2 行。
+                //
+                // ## 为什么第一项单独占一行
+                //
+                // 3 是奇数：若「全部强度」也并排，最后一行会剩一个孤项。
+                // 现在的排法是「1 + 2」，每行都排满，视觉最整齐。
+                //
+                // ## 文案为什么缩短了（重要，别改回去）
+                //
+                // 半屏宽约 180dp，减去 Switch（约 52dp）只剩约 128dp 给标题。
+                // 原文案「尝试全部嵌入强度」（9 字）中文勉强够，但英文
+                // 「Try all embedding strengths」必然换行 —— 一换行，
+                // 并排的两个 Switch 就会一高一矮，很难看。
+                // 所以并排项的文案统一缩到 4~5 字 / 2 个词以内
+                // （见 strings.xml 里 detect_option_strength / _rotation）。
                 ToggleRow(
                     label = stringResource(R.string.detect_option_strength),
                     checked = options.autoStrength,
@@ -324,27 +339,37 @@ private fun DetectOptionsCard(
 
                 Spacer(Modifier.height(10.dp))
 
-                ToggleRow(
-                    label = stringResource(R.string.detect_option_rotation),
-                    checked = options.autoRotation,
-                    onCheckedChange = {
-                        onChange(options.copy(autoRotation = !options.autoRotation))
-                    },
-                    hint = stringResource(R.string.detect_option_rotation_hint)
-                )
-
-                Spacer(Modifier.height(10.dp))
-
-                ToggleRow(
-                    label = stringResource(R.string.detect_option_verify_sig),
-                    checked = options.verifySignatureViaDct,
-                    onCheckedChange = {
-                        onChange(
-                            options.copy(verifySignatureViaDct = !options.verifySignatureViaDct)
+                // 并排的一对：锚点用 Top，让两个 Switch 的顶边对齐。
+                // 用 CenterVertically 的话，一旦某一侧因为字号/换行变高，
+                // 另一侧的 Switch 会被推到中间，看起来像错位。
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        ToggleRow(
+                            label = stringResource(R.string.detect_option_rotation),
+                            checked = options.autoRotation,
+                            onCheckedChange = {
+                                onChange(options.copy(autoRotation = !options.autoRotation))
+                            },
+                            hint = stringResource(R.string.detect_option_rotation_hint)
                         )
-                    },
-                    hint = stringResource(R.string.detect_option_verify_sig_hint)
-                )
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        ToggleRow(
+                            label = stringResource(R.string.detect_option_verify_sig),
+                            checked = options.verifySignatureViaDct,
+                            onCheckedChange = {
+                                onChange(
+                                    options.copy(verifySignatureViaDct = !options.verifySignatureViaDct)
+                                )
+                            },
+                            hint = stringResource(R.string.detect_option_verify_sig_hint)
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))

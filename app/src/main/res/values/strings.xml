@@ -549,7 +549,7 @@
       典型用法：改完下面的检测设置（强度/方向），想在同一张图上
       验证新设置的效果 —— 不必重新去相册选一遍。
     -->
-    <string name="detect_rerun">用当前设置重新检测</string>
+    <string name="detect_rerun">重新检测</string>
     <string name="detect_running">正在检测…</string>
     <string name="detect_found_title">检测到隐藏水印</string>
     <string name="detect_not_found_title">未检测到隐藏水印</string>
@@ -624,15 +624,15 @@
 
     <!-- ==================== 检测设置 ==================== -->
     <string name="detect_options_title">检测设置</string>
-    <string name="detect_option_exif">检查 EXIF 元数据</string>
+    <string name="detect_option_exif">EXIF</string>
     <string name="detect_option_exif_hint">最快。未被处理过的图片靠它就能认出，不用扫描像素。</string>
-    <string name="detect_option_dct">检查 DCT 频域</string>
+    <string name="detect_option_dct">DCT 频域</string>
     <string name="detect_option_dct_hint">能扛压缩。需要逐像素扫描，明显更慢。</string>
-    <string name="detect_option_strength">尝试全部嵌入强度</string>
+    <string name="detect_option_strength">全部强度</string>
     <string name="detect_option_strength_hint">导出时用了几倍强度，这里无从得知，全试更可靠（慢约 4 倍）。</string>
-    <string name="detect_option_rotation">尝试 4 个旋转方向</string>
+    <string name="detect_option_rotation">4 方向</string>
     <string name="detect_option_rotation_hint">关掉可快约 4 倍，但被旋转过的图片会认不出来。</string>
-    <string name="detect_option_verify_sig">用 DCT 验证签名</string>
+    <string name="detect_option_verify_sig">验证签名</string>
     <string name="detect_option_verify_sig_hint">EXIF 是明文、本身不带签名。打开后会用频域复查一遍，才能给出「已验证」。</string>
 
     <string name="detect_error_skipped_dct">已跳过频域检测（设置中关闭），EXIF 里也没有</string>

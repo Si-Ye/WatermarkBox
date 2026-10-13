@@ -545,7 +545,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="detect_image_desc">Image to check</string>
     <string name="detect_pick">Choose a photo</string>
     <string name="detect_recheck">Check another</string>
-    <string name="detect_rerun">Re-check with current settings</string>
+    <string name="detect_rerun">Re-check</string>
     <string name="detect_running">Checking…</string>
     <string name="detect_found_title">Hidden watermark detected</string>
     <string name="detect_not_found_title">No hidden watermark found</string>
@@ -612,15 +612,15 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
 
     <!-- ==================== Detection settings ==================== -->
     <string name="detect_options_title">Detection settings</string>
-    <string name="detect_option_exif">Check EXIF metadata</string>
+    <string name="detect_option_exif">EXIF</string>
     <string name="detect_option_exif_hint">Fastest. Untouched images are recognised here without scanning pixels.</string>
-    <string name="detect_option_dct">Check DCT frequency</string>
+    <string name="detect_option_dct">DCT spectrum</string>
     <string name="detect_option_dct_hint">Survives compression, but requires a full pixel scan — noticeably slower.</string>
-    <string name="detect_option_strength">Try all embedding strengths</string>
+    <string name="detect_option_strength">All strengths</string>
     <string name="detect_option_strength_hint">The strength used at export time is unknown here, so trying them all is more reliable (about 4× slower).</string>
-    <string name="detect_option_rotation">Try 4 rotation directions</string>
+    <string name="detect_option_rotation">4 rotations</string>
     <string name="detect_option_rotation_hint">Turning this off is about 4× faster, but rotated images will no longer be recognised.</string>
-    <string name="detect_option_verify_sig">Verify signature via DCT</string>
+    <string name="detect_option_verify_sig">Verify sign.</string>
     <string name="detect_option_verify_sig_hint">EXIF is plain text and carries no signature. Turn this on to re-check via the frequency channel so it can report "Verified".</string>
 
     <string name="detect_error_skipped_dct">Frequency check is off in settings, and nothing was found in EXIF</string>
