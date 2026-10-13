@@ -3,6 +3,8 @@ package com.watermarkbox.data.repository
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import com.watermarkbox.util.BitmapBudget
+import com.watermarkbox.util.BitmapLoadOutcome
 import com.watermarkbox.util.BitmapUtils
 import com.watermarkbox.util.LruCacheMap
 import kotlinx.coroutines.Dispatchers
@@ -64,12 +66,21 @@ class ImageRepository(private val context: Context) {
     }
 
     /**
-     * 加载全分辨率原图（用于导出）。
-     * maxEdge <= 0 表示不降采样。
+     * 加载**全分辨率**原图（导出用）。
+     *
+     * 带内存预检：放不下时返回 [BitmapLoadOutcome.TooLarge]，
+     * 由 UI 明确告诉用户「图太大」，而不是等渲染阶段的 `source.copy()` 崩掉。
+     *
+     * 导出链路峰值按 3 份同位图估算：原图 + 渲染结果 + 频域副本。
      */
-    suspend fun loadFullResolutionBitmap(uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
-        BitmapUtils.loadBitmap(context, uri, maxEdge = 0)
-    }
+    suspend fun loadFullResolutionBitmap(uri: Uri): BitmapLoadOutcome =
+        withContext(Dispatchers.IO) {
+            BitmapUtils.loadFullResolution(
+                context = context,
+                uri = uri,
+                copies = BitmapBudget.EXPORT_COPIES
+            )
+        }
 
     /**
      * 加载 logo 图片（阶段二）。

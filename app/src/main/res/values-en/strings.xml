@@ -483,6 +483,7 @@ To create one: pick an image → adjust the watermark → tap the bookmark icon 
     <string name="editor_error_logo_load">Could not load the Logo image</string>
     <string name="editor_error_no_image">No image to export</string>
     <string name="editor_error_source_load">Could not load the original image — export aborted</string>
+    <string name="editor_error_image_too_large">Image is too large: about %1$d MB is needed at full resolution, more than this device can spare. Please shrink the image before exporting</string>
     <string name="editor_error_no_logo">Choose a Logo image first</string>
     <string name="editor_error_export_failed">Export failed — please try again</string>
     <string name="editor_error_export_exception">Export error: %1$s</string>

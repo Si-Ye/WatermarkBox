@@ -9,6 +9,37 @@ import androidx.exifinterface.media.ExifInterface
 import java.io.InputStream
 
 /**
+ * 全分辨率加载的结果。
+ *
+ * ## 为什么要区分「放不下」与「加载失败」
+ *
+ * 两者给用户的动作完全不同：
+ * - **放不下** → 这张图太大，本机内存办不到（换设备，或先把图缩小）
+ * - **失败** → 文件损坏 / 读不到（换文件）
+ *
+ * 早先两者都被压成 `null`，UI 只能笼统地说「加载失败」，
+ * 用户无从判断该换什么。预算口径见 [BitmapBudget]。
+ */
+sealed interface BitmapLoadOutcome {
+
+    /** 加载成功。 */
+    data class Ok(val bitmap: Bitmap) : BitmapLoadOutcome
+
+    /** 按全分辨率的峰值超出内存预算 —— 调用方应**告知**用户，而不是重试。 */
+    data class TooLarge(
+        val width: Int,
+        val height: Int,
+        /** 按估算份数算出的峰值字节数。 */
+        val requiredBytes: Long,
+        /** 允许的预算字节数。 */
+        val budgetBytes: Long
+    ) : BitmapLoadOutcome
+
+    /** 文件读不到 / 解码失败 / 其它异常。 */
+    data class Failed(val cause: Throwable?) : BitmapLoadOutcome
+}
+
+/**
  * Bitmap 加载/降采样工具。
  *
  * 关键点：
@@ -63,6 +94,71 @@ object BitmapUtils {
             applyExifOrientation(decoded, orientation)
         } catch (t: Throwable) {
             null
+        }
+    }
+
+    /**
+     * **全分辨率**加载（导出 / 批量 / 频域检测用），带内存预检。
+     *
+     * ## 与 [loadBitmap] 的区别
+     *
+     * [loadBitmap] 用 `null` 表达一切失败 —— 对预览够用了。
+     * 但全分辨率路径必须先回答一个问题：**这张图在本机内存里跑得完吗？**
+     * 因为真正的崩溃点在后面：渲染阶段的 `source.copy()` 没有任何兜底。
+     *
+     * 所以这里**先探尺寸 → 再算预算 → 最后才解码**，
+     * 放不下就返回 [BitmapLoadOutcome.TooLarge]，一步都不多走。
+     *
+     * @param copies 峰值同时存在几份同位图（见 [BitmapBudget] 的说明）
+     * @param maxHeapBytes 进程堆上限；测试可注入
+     */
+    fun loadFullResolution(
+        context: Context,
+        uri: Uri,
+        copies: Int = BitmapBudget.EXPORT_COPIES,
+        maxHeapBytes: Long = Runtime.getRuntime().maxMemory()
+    ): BitmapLoadOutcome {
+        // ---- 第一步：只读头部拿尺寸（几乎不占内存）----
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, bounds)
+            }
+        } catch (t: Throwable) {
+            return BitmapLoadOutcome.Failed(t)
+        }
+        val width = bounds.outWidth
+        val height = bounds.outHeight
+        if (width <= 0 || height <= 0) return BitmapLoadOutcome.Failed(null)
+
+        // ---- 第二步：动手前先算 ----
+        val required = BitmapBudget.bytesOf(width, height, copies)
+        val budget = BitmapBudget.budgetBytes(maxHeapBytes)
+        if (required > budget) {
+            return BitmapLoadOutcome.TooLarge(width, height, required, budget)
+        }
+
+        // ---- 第三步：解码（已预检，OOM 概率很低；仍单独兜一层）----
+        return try {
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = 1
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val decoded = context.contentResolver.openInputStream(uri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            } ?: return BitmapLoadOutcome.Failed(null)
+
+            val orientation = context.contentResolver.openInputStream(uri)?.use { input ->
+                readExifOrientation(input)
+            } ?: ExifInterface.ORIENTATION_NORMAL
+
+            BitmapLoadOutcome.Ok(applyExifOrientation(decoded, orientation))
+        } catch (oom: OutOfMemoryError) {
+            // 估算漏了（比如旋正副本叠加、别处同时占着内存）。
+            // 当作「放不下」上报 —— 总比让它在渲染阶段把进程带走好。
+            BitmapLoadOutcome.TooLarge(width, height, required, budget)
+        } catch (t: Throwable) {
+            BitmapLoadOutcome.Failed(t)
         }
     }
 

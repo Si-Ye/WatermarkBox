@@ -482,6 +482,7 @@
     <string name="editor_error_logo_load">Logo 图片加载失败</string>
     <string name="editor_error_no_image">没有可导出的图片</string>
     <string name="editor_error_source_load">原图加载失败，无法导出</string>
+    <string name="editor_error_image_too_large">图片过大：按原分辨率处理约需 %1$d MB，超出本机可用内存。请先缩小图片再导出</string>
     <string name="editor_error_no_logo">请先选择 Logo 图片</string>
     <string name="editor_error_export_failed">导出失败，请重试</string>
     <string name="editor_error_export_exception">导出异常：%1$s</string>

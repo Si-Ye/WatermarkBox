@@ -10,6 +10,8 @@ import com.watermarkbox.data.model.ExportSettings
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.data.repository.ExportRepository
 import com.watermarkbox.invisible.InvisibleWatermarkEngine
+import com.watermarkbox.util.BitmapBudget
+import com.watermarkbox.util.BitmapLoadOutcome
 import com.watermarkbox.util.BitmapUtils
 import com.watermarkbox.util.FileNameResolver
 import com.watermarkbox.watermark.WatermarkRenderer
@@ -130,7 +132,14 @@ class BatchWatermarkWorker(
         var stamped: Bitmap? = null
         return try {
             val uri = Uri.parse(uriString)
-            source = BitmapUtils.loadBitmap(applicationContext, uri, maxEdge = 0) ?: return false
+            // 全分辨率加载 + 内存预检：放不下就把这一张记为失败，
+            // 而不是让后续的 source.copy() 把整个批量任务带走
+            val outcome = BitmapUtils.loadFullResolution(
+                context = applicationContext,
+                uri = uri,
+                copies = BitmapBudget.EXPORT_COPIES
+            )
+            source = (outcome as? BitmapLoadOutcome.Ok)?.bitmap ?: return false
 
             // 取源文件名用于 {filename} 与命名
             val displayName = queryDisplayName(uri)

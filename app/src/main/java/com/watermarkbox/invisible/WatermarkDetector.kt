@@ -5,6 +5,8 @@ import androidx.annotation.StringRes
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import com.watermarkbox.util.BitmapBudget
+import com.watermarkbox.util.BitmapLoadOutcome
 import com.watermarkbox.util.BitmapUtils
 import com.watermarkbox.util.ExifCopier
 import com.watermarkbox.util.ExifTextCodec
@@ -176,8 +178,22 @@ class WatermarkDetector(private val context: Context) {
         }
 
         // ---- 第二级：频域 ----
-        val bitmap = BitmapUtils.loadBitmap(context, uri, maxEdge = 0)
-            ?: return@withContext DetectResult.Error("图片无法解码")
+        //
+        // 频域检测**必须**用原尺寸：降采样会破坏 8×8 块结构，水印就找不回来了。
+        // 但全分辨率很吃内存，所以先过预检 —— 放不下就明确报错，
+        // 而不是让后面 `FloatArray(w*h)` 的分配把进程带走。
+        val load = BitmapUtils.loadFullResolution(
+            context = context,
+            uri = uri,
+            copies = BitmapBudget.DETECT_COPIES
+        )
+        if (load !is BitmapLoadOutcome.Ok) {
+            return@withContext DetectResult.Error(
+                if (load is BitmapLoadOutcome.TooLarge) ERROR_IMAGE_TOO_LARGE
+                else ERROR_DECODE_FAILED
+            )
+        }
+        val bitmap = load.bitmap
 
         try {
             // 强度：导出时用了几倍，检测端无从得知，只能挨个试。
@@ -247,6 +263,12 @@ class WatermarkDetector(private val context: Context) {
         const val REASON_FOREIGN_EXIF = "图含 EXIF 注释但不属于本应用水印"
         const val REASON_SKIPPED_DCT = "已按设置跳过频域检测，EXIF 中也没有"
         const val REASON_SKIPPED_ALL = "已按设置跳过全部检测通道"
+
+        /** 图片过大：全分辨率的峰值超出内存预算，频域检测做不了。 */
+        const val ERROR_IMAGE_TOO_LARGE = "图片过大，本机内存不足以做频域检测"
+
+        /** 解码失败（文件损坏 / 读不到）。 */
+        const val ERROR_DECODE_FAILED = "图片无法解码"
     }
 }
 

@@ -25,6 +25,8 @@ import com.watermarkbox.data.repository.ImageRepository
 import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.invisible.InvisibleContentResolver
 import com.watermarkbox.invisible.InvisibleWatermarkEngine
+import com.watermarkbox.util.BitmapBudget
+import com.watermarkbox.util.BitmapLoadOutcome
 import com.watermarkbox.util.FileNameResolver
 import com.watermarkbox.util.UiMessage
 import com.watermarkbox.watermark.WatermarkRenderer
@@ -380,12 +382,33 @@ class EditorViewModel(application: Application) :
             var fullBitmap: Bitmap? = null
             var rendered: Bitmap? = null
             try {
-                fullBitmap = imageRepository.loadFullResolutionBitmap(uri)
-                if (fullBitmap == null) {
-                    _uiState.update {
-                        it.copy(isExporting = false, errorMessage = UiMessage(R.string.editor_error_source_load))
+                // 全分辨率加载：先过内存预检 —— 放不下就明确告知，
+                // 不去渲染阶段炸（那里没有任何兜底）
+                when (val outcome = imageRepository.loadFullResolutionBitmap(uri)) {
+                    is BitmapLoadOutcome.TooLarge -> {
+                        _uiState.update {
+                            it.copy(
+                                isExporting = false,
+                                errorMessage = UiMessage(
+                                    R.string.editor_error_image_too_large,
+                                    BitmapBudget.megabytes(outcome.requiredBytes)
+                                )
+                            )
+                        }
+                        return@launch
                     }
-                    return@launch
+
+                    is BitmapLoadOutcome.Failed -> {
+                        _uiState.update {
+                            it.copy(
+                                isExporting = false,
+                                errorMessage = UiMessage(R.string.editor_error_source_load)
+                            )
+                        }
+                        return@launch
+                    }
+
+                    is BitmapLoadOutcome.Ok -> fullBitmap = outcome.bitmap
                 }
 
                 // 用原图坐标系渲染：此时 baseWidth == targetWidth，缩放系数为 1
