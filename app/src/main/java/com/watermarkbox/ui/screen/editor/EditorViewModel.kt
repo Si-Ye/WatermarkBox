@@ -355,8 +355,14 @@ class EditorViewModel(application: Application) :
      * 2. 按当前配置重新渲染（保证与预览视觉一致）
      * 3. 以设置中的格式写入 MediaStore
      * 4. 释放大 Bitmap
+     *
+     * @param settingsOverride **本次导出**使用的参数。
+     *        为空时用全局设置（`state.exportSettings`）；
+     *        非空时只用这一次，**不写回全局** ——
+     *        这是「右下角导出按钮弹参数框」的实现基础：
+     *        用户临时改分辨率/质量，不该污染他设好的默认值。
      */
-    fun export() {
+    fun export(settingsOverride: ExportSettings? = null) {
         val state = _uiState.value
         val uri = state.imageUri
         if (uri == null) {
@@ -404,7 +410,8 @@ class EditorViewModel(application: Application) :
                     }
                 }
 
-                val settings = state.exportSettings
+                // 本次导出用哪套参数：有覆盖用覆盖，否则用全局
+                val settings = settingsOverride ?: state.exportSettings
                 val fileName = FileNameResolver.build(
                     template = settings.fileNameTemplate,
                     sourceName = state.sourceFileName,

@@ -16,6 +16,7 @@
     <string name="common_back">Back</string>
     <string name="common_cancel">Cancel</string>
     <string name="common_confirm">OK</string>
+    <string name="common_save">Save</string>
     <string name="common_whats_this">View description</string>
     <string name="common_clear">Clear</string>
     <string name="common_select">Select</string>
@@ -281,6 +282,7 @@
 
     <!-- ==================== Editor / Export dialog ==================== -->
     <string name="editor_export_title">Export settings</string>
+    <string name="editor_export_global_title">Global export settings</string>
     <string name="editor_export_format">Output format</string>
     <string name="editor_export_naming">File naming</string>
     <string name="editor_export_start">Export</string>

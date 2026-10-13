@@ -278,8 +278,11 @@ fun BatchConfigScreen(
     if (showExportDialog) {
         ExportSettingsDialog(
             settings = state.exportSettings,
-            onSettingsChange = viewModel::updateExportSettings,
-            onConfirm = { showExportDialog = false },
+            // 批量页这个入口的语义是「设全局默认导出参数」（与编辑页右上角一致）
+            onConfirm = {
+                viewModel.updateExportSettings(it)
+                showExportDialog = false
+            },
             onDismiss = { showExportDialog = false }
         )
     }

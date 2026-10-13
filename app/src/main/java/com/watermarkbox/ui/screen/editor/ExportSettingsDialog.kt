@@ -33,17 +33,42 @@ import com.watermarkbox.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 /**
- * 导出设置对话框。
+ * 导出设置对话框（**纯受控**）。
  *
- * 展示当前导出配置，并允许临时调整（会持久化到 DataStore）。
+ * ## 设计要点：它自己不碰全局设置
+ *
+ * 所有改动只写进内部的 `draft`，点确认时才把 `draft` 交给调用方 ——
+ * 由调用方决定这份设置是**持久化为全局默认值**，还是**只用于本次导出**。
+ *
+ * 于是同一个对话框能服务两种语义：
+ *
+ * | 调用方 | 确认时做什么 |
+ * |---|---|
+ * | 编辑页右上角 / 批量页 | 写入全局（下次打开还是这套）|
+ * | 编辑页右下角 | 用这份设置导出，**不动全局** |
+ *
+ * 早期版本是「改一下就回写全局」—— 那时只有一种用法所以没暴露问题；
+ * 一旦要支持「本次覆盖」就必须改成受控的，否则用户「临时改一下」
+ * 会静默改掉他所有的导出默认值。
+ *
+ * @param title       对话框标题（两种语义用不同标题区分）
+ * @param confirmText 确认按钮文案（全局模式是「保存」，本次模式是「开始导出」）
  */
 @Composable
 fun ExportSettingsDialog(
     settings: com.watermarkbox.data.model.ExportSettings,
-    onSettingsChange: (com.watermarkbox.data.model.ExportSettings) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onConfirm: (com.watermarkbox.data.model.ExportSettings) -> Unit,
+    onDismiss: () -> Unit,
+    title: String = stringResource(R.string.editor_export_title),
+    confirmText: String = stringResource(R.string.common_save)
 ) {
+    // 完整草稿：所有改动只动它，绝不外泄
+    var draft by remember(settings) { mutableStateOf(settings) }
+
+    // 两个文本框另用独立的本地状态。
+    //
+    // 原因：`draft` 是 remember(settings) 的，外部 settings 一变就会重置；
+    // 而输入过程中「刚清空还没打完」这种中间态不该被打断光标。
     var fileName by remember(settings.fileNameTemplate) {
         mutableStateOf(settings.fileNameTemplate)
     }
@@ -54,7 +79,7 @@ fun ExportSettingsDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(stringResource(R.string.editor_export_title), fontWeight = FontWeight.SemiBold)
+            Text(title, fontWeight = FontWeight.SemiBold)
         },
         text = {
             Column(
@@ -69,20 +94,20 @@ fun ExportSettingsDialog(
                         ExportFormat.PNG to stringResource(R.string.editor_export_png),
                         ExportFormat.JPEG to stringResource(R.string.editor_export_jpeg)
                     ),
-                    selected = settings.format,
-                    onSelect = { onSettingsChange(settings.copy(format = it)) }
+                    selected = draft.format,
+                    onSelect = { draft = draft.copy(format = it) }
                 )
 
-                if (settings.format == ExportFormat.JPEG) {
+                if (draft.format == ExportFormat.JPEG) {
                     Spacer(Modifier.height(Spacing.Item))
                     LabeledSlider(
                         label = stringResource(R.string.settings_export_jpeg_quality),
-                        value = settings.jpegQuality.toFloat(),
+                        value = draft.jpegQuality.toFloat(),
                         onValueChange = {
-                            onSettingsChange(settings.copy(jpegQuality = it.roundToInt()))
+                            draft = draft.copy(jpegQuality = it.roundToInt())
                         },
                         valueRange = 60f..100f,
-                        valueText = "${settings.jpegQuality}"
+                        valueText = "${draft.jpegQuality}"
                     )
                 }
 
@@ -95,7 +120,7 @@ fun ExportSettingsDialog(
                     value = fileName,
                     onValueChange = {
                         fileName = it
-                        onSettingsChange(settings.copy(fileNameTemplate = it))
+                        draft = draft.copy(fileNameTemplate = it)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -113,9 +138,7 @@ fun ExportSettingsDialog(
                     value = outputDir,
                     onValueChange = {
                         outputDir = it
-                        onSettingsChange(
-                            settings.copy(customOutputDir = it.ifBlank { null })
-                        )
+                        draft = draft.copy(customOutputDir = it.ifBlank { null })
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -135,16 +158,14 @@ fun ExportSettingsDialog(
                 Spacer(Modifier.height(Spacing.Item))
                 ToggleRow(
                     label = stringResource(R.string.settings_keep_exif),
-                    checked = settings.preserveExif,
-                    onCheckedChange = {
-                        onSettingsChange(settings.copy(preserveExif = it))
-                    }
+                    checked = draft.preserveExif,
+                    onCheckedChange = { draft = draft.copy(preserveExif = it) }
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.editor_export_start))
+            TextButton(onClick = { onConfirm(draft) }) {
+                Text(confirmText)
             }
         },
         dismissButton = {

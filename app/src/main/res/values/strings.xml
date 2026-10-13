@@ -21,6 +21,7 @@
     <string name="common_back">返回</string>
     <string name="common_cancel">取消</string>
     <string name="common_confirm">确定</string>
+    <string name="common_save">保存</string>
     <string name="common_whats_this">查看说明</string>
     <string name="common_clear">清除</string>
     <string name="common_select">选择</string>
@@ -286,6 +287,7 @@
 
     <!-- ==================== 编辑器 / 导出对话框 ==================== -->
     <string name="editor_export_title">导出设置</string>
+    <string name="editor_export_global_title">全局导出设置</string>
     <string name="editor_export_format">输出格式</string>
     <string name="editor_export_naming">文件命名</string>
     <string name="editor_export_start">开始导出</string>

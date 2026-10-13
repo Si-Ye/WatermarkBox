@@ -85,6 +85,9 @@ fun EditorScreen(
 
     // 对话框显示状态
     var showExportDialog by remember { mutableStateOf(false) }
+    // 右下角「导出」键的参数框：与上面那个（全局设置）**刻意分开**，
+    // 因为两者语义相反 —— 上面写全局，这个只管这一次
+    var showExportParams by remember { mutableStateOf(false) }
     var showPresetDialog by remember { mutableStateOf(false) }
 
     // 错误 / 提示消息
@@ -143,7 +146,9 @@ fun EditorScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { viewModel.export() },
+                // 先弹参数框，确认后才真正导出 ——
+                // 框里改的东西只对这一次生效，不污染全局默认值
+                onClick = { showExportParams = true },
                 containerColor = MaterialTheme.colorScheme.secondary,
                 contentColor = MaterialTheme.colorScheme.onSecondary,
                 icon = {
@@ -221,16 +226,37 @@ fun EditorScreen(
         }
     }
 
-    // ---- 导出设置对话框 ----
+    // ---- 全局导出设置（右上角 Tune）----
+    //
+    // 这里改的是**默认值**：确认后写入全局，之后每次导出都用它。
+    // 刻意**不触发导出** —— 「调设置」和「现在就导」是两回事，
+    // 混在一起会让用户想在导出前改一下参数时，被迫先导一次。
     if (showExportDialog) {
         ExportSettingsDialog(
             settings = state.exportSettings,
-            onSettingsChange = viewModel::updateExportSettings,
+            title = stringResource(R.string.editor_export_global_title),
             onConfirm = {
+                viewModel.updateExportSettings(it)
                 showExportDialog = false
-                viewModel.export()
             },
             onDismiss = { showExportDialog = false }
+        )
+    }
+
+    // ---- 本次导出参数（右下角导出键）----
+    //
+    // 与上面相反：确认后**只用于这一次导出**，不动全局默认值。
+    // 初始值仍是全局设置 —— 用户想微调一下就直接改，不想改就直接确认。
+    if (showExportParams) {
+        ExportSettingsDialog(
+            settings = state.exportSettings,
+            title = stringResource(R.string.editor_export_title),
+            confirmText = stringResource(R.string.editor_export_start),
+            onConfirm = { temp ->
+                showExportParams = false
+                viewModel.export(temp)
+            },
+            onDismiss = { showExportParams = false }
         )
     }
 
