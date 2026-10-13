@@ -100,7 +100,10 @@
 
     <!-- 其他分类 -->
     <string name="settings_presets_title">水印预设</string>
-    <string name="settings_presets_desc">已保存 %1$d 个预设。\n在首页右上角「书签」图标中管理。</string>
+    <plurals name="settings_presets_desc">
+        <!-- 中文只有一种形式，按 Android 惯例只写 other -->
+        <item quantity="other">已保存 %1$d 个预设。\n在首页右上角「书签」图标中管理。</item>
+    </plurals>
     <string name="settings_app_info_title">应用信息</string>
     <string name="settings_language_title">语言</string>
     <string name="settings_language_desc">选择应用界面语言</string>

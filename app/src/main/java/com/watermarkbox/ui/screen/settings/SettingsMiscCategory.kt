@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.BuildConfig
@@ -35,7 +36,7 @@ internal fun MiscCategory(
 ) {
     SectionLabel(stringResource(R.string.settings_presets_title))
     Text(
-        text = stringResource(R.string.settings_presets_desc, presetCount),
+        text = pluralStringResource(R.plurals.settings_presets_desc, presetCount, presetCount),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )

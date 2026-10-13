@@ -129,8 +129,8 @@ fun BatchConfigScreen(
     viewModel: BatchViewModel,
     onBack: () -> Unit,
     onPickLogo: () -> Unit,
-    onAddMore: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAddMore: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showExportDialog by remember { mutableStateOf(false) }

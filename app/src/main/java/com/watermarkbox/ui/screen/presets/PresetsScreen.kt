@@ -90,11 +90,11 @@ import java.util.Locale
 fun PresetsScreen(
     viewModel: PresetsViewModel,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     onEditPreset: (WatermarkPreset) -> Unit = {},
     onExportAll: () -> Unit = {},
     onExportOne: (WatermarkPreset) -> Unit = {},
-    onImport: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onImport: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }

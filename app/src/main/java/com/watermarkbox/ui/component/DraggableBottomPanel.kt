@@ -214,8 +214,8 @@ fun DraggableBottomPanel(
 @Composable
 fun ShrinkablePreviewArea(
     fraction: Float,
-    behavior: PanelDragBehavior = PanelDragBehavior(),
     modifier: Modifier = Modifier,
+    behavior: PanelDragBehavior = PanelDragBehavior(),
     content: @Composable (Modifier) -> Unit
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {

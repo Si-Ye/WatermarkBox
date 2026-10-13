@@ -118,11 +118,11 @@ fun SettingsScreen(
     viewModel: SettingsViewModel,
     updateViewModel: UpdateViewModel,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     onOpenAbout: () -> Unit = {},
     onOpenChangelog: () -> Unit = {},
     onOpenTutorial: () -> Unit = {},
-    onPickLogo: (onResult: (Uri) -> Unit) -> Unit = {},
-    modifier: Modifier = Modifier
+    onPickLogo: (onResult: (Uri) -> Unit) -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val updateState by updateViewModel.uiState.collectAsStateWithLifecycle()

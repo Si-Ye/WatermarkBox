@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.withRotation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.R
 import com.watermarkbox.ui.component.InfoDot
@@ -344,10 +345,10 @@ private fun TextPreview(config: com.watermarkbox.data.model.TextWatermarkStyle) 
             }
             this.alpha = (alpha * 255).toInt()
         }
-
         val native = drawContext.canvas.nativeCanvas
-        native.save()
-        native.rotate(rotation, size.width / 2f, size.height / 2f)
+        // KTX 包装：不再手写 save/rotate/restore（异常路径也不会漏 restore）
+        native.withRotation(rotation, size.width / 2f, size.height / 2f) {
+
 
         if (tiled) {
             // 平铺：按 tileCount 铺满，示意效果
@@ -389,7 +390,7 @@ private fun TextPreview(config: com.watermarkbox.data.model.TextWatermarkStyle) 
             }
             native.drawText(text, x, y, drawPaint)
         }
-        native.restore()
+        }
 
         // 画布边框（轻微，提示这是示意）
         drawRect(

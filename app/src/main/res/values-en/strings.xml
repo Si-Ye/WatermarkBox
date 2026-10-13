@@ -56,7 +56,7 @@
     <string name="home_entry_single_title">Choose a photo</string>
     <string name="home_entry_single_subtitle">Edit one image with live preview</string>
     <string name="home_entry_batch_title">Batch processing</string>
-    <string name="home_entry_batch_subtitle">Up to %1$d images at a time</string>
+    <string name="home_entry_batch_subtitle">Per run: up to %1$d</string>
     <string name="home_entry_detect_title">Detect hidden watermark</string>
     <string name="home_entry_detect_subtitle">Check whether an image carries a watermark written by this app</string>
     <string name="home_footer">Exports PNG / JPEG · Renders from the original, losslessly</string>
@@ -95,7 +95,10 @@
 
     <!-- Other -->
     <string name="settings_presets_title">Watermark presets</string>
-    <string name="settings_presets_desc">%1$d preset(s) saved.\nManage them from the bookmark icon on the home screen.</string>
+    <plurals name="settings_presets_desc">
+        <item quantity="one">%1$d preset saved.\nManage it from the bookmark icon on the home screen.</item>
+        <item quantity="other">%1$d presets saved.\nManage them from the bookmark icon on the home screen.</item>
+    </plurals>
     <string name="settings_app_info_title">App info</string>
     <string name="settings_language_title">Language</string>
     <string name="settings_language_desc">Choose the app interface language</string>
@@ -194,7 +197,7 @@
     <!-- ==================== Changelog ==================== -->
     <string name="changelog_title">Changelog</string>
     <string name="changelog_current_version">Current version %1$s</string>
-    <string name="changelog_summary">%1$d releases · %2$d changes</string>
+    <string name="changelog_summary">Releases: %1$d · changes: %2$d</string>
 
     <!-- Change kind badges -->
     <string name="changelog_kind_added">Added</string>
@@ -535,12 +538,12 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="batch_export_settings">Export settings</string>
     <string name="batch_remove_one">Remove this one</string>
     <string name="batch_add_more">Add more images</string>
-    <string name="batch_add_more_limit">You can add up to %1$d more</string>
+    <string name="batch_add_more_limit">Slots left: %1$d</string>
     <string name="batch_jump_add_more">Jump to Add more</string>
     <string name="batch_start">Start processing (%1$d)</string>
     <string name="batch_done_title">Batch processing finished</string>
-    <string name="batch_success_count">%1$d succeeded</string>
-    <string name="batch_fail_count">%1$d failed</string>
+    <string name="batch_success_count">Succeeded: %1$d</string>
+    <string name="batch_fail_count">Failed: %1$d</string>
     <string name="batch_saved_hint">Saved to the gallery.</string>
     <string name="batch_ok">OK</string>
     <string name="batch_error_logo">Could not load the Logo</string>

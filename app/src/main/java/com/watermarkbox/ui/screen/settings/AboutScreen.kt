@@ -86,8 +86,8 @@ import androidx.core.net.toUri
 @Composable
 fun AboutScreen(
     onBack: () -> Unit,
-    onCheckUpdate: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCheckUpdate: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }

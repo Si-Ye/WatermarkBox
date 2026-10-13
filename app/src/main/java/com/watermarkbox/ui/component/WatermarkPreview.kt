@@ -345,10 +345,10 @@ fun WatermarkPreview(
                                     // 拖动水印：**放在图片平移之后**，
                                     // 这样只有在 scale≈1（没有平移缩放）时才会真正响应
                                     // —— 那时用户显然是在拖水印，不是在拖图片。
-                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback))
+                                    .watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback)
                             } else {
                                 Modifier
-                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback))
+                                    .watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback)
                             }
                         )
                 )
@@ -410,20 +410,20 @@ fun WatermarkPreview(
  *
  * 所以：key 只由**尺寸**决定（拖动中不变），回调经 State 取最新值。
  */
-private fun watermarkDragModifier(
+private fun Modifier.watermarkDragModifier(
     enabled: Boolean,
     bitmap: Bitmap?,
     containerSize: IntSize,
     onDrag: State<((Float, Float) -> Unit)?>
 ): Modifier {
-    if (!enabled || bitmap == null) return Modifier
-    if (containerSize.width <= 0 || containerSize.height <= 0) return Modifier
+    if (!enabled || bitmap == null) return this
+    if (containerSize.width <= 0 || containerSize.height <= 0) return this
 
     val bw = bitmap.width.toFloat()
     val bh = bitmap.height.toFloat()
-    if (bw <= 0f || bh <= 0f) return Modifier
+    if (bw <= 0f || bh <= 0f) return this
 
-    return Modifier.pointerInput(containerSize, bw, bh) {
+    return this.pointerInput(containerSize, bw, bh) {
         detectDragGestures { change, _ ->
             change.consume()
             val normalized = normalizeToImageSpace(

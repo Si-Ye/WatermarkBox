@@ -2,6 +2,7 @@ package com.watermarkbox.watermark
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import androidx.core.graphics.withRotation
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
@@ -231,16 +232,16 @@ class WatermarkRenderer {
         // 都是「原地打转」，位置不会被旋转带跑偏。
         val blockCenterX = baseLineX + blockWidth / 2f
         val blockCenterY = topY + blockHeight / 2f
-        canvas.save()
-        if (config.rotationDegrees != 0f) {
-            canvas.rotate(config.rotationDegrees, blockCenterX, blockCenterY)
-        }
+        // 用 KTX 的 withRotation 代替手写 save/rotate/restore：
+        // 它内部就是 save → rotate → block → restore，而且**异常时也会 restore**
+        // —— 手写版本一旦中间抛异常，save 就永远回不来了。
         var y = baseLineY
-        for (line in lines) {
-            drawTextLine(canvas, line, baseLineX, y, paint, config, ctx.scale)
-            y += lineHeight
+        canvas.withRotation(config.rotationDegrees, blockCenterX, blockCenterY) {
+            for (line in lines) {
+                drawTextLine(canvas, line, baseLineX, y, paint, config, ctx.scale)
+                y += lineHeight
+            }
         }
-        canvas.restore()
 
         return output
     }
@@ -305,10 +306,10 @@ class WatermarkRenderer {
                 val y = row * cellHeight + lineHeight
 
                 if (rotateEach != 0f) {
-                    canvas.save()
-                    canvas.rotate(rotateEach, x, y)
-                    drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
-                    canvas.restore()
+                    // KTX 包装：不再手写 save/restore（异常路径也不会漏 restore）
+                    canvas.withRotation(rotateEach, x, y) {
+                        drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
+                    }
                 } else {
                     drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
                 }
@@ -386,18 +387,16 @@ class WatermarkRenderer {
         val cols = ceil((bounds.width + cellWidth * 2) / cellWidth).toInt() + 1
         val rows = ceil((bounds.height + cellHeight * 2) / cellHeight).toInt() + 1
 
-        canvas.save()
-        canvas.rotate(angle, originX, originY)
-
-        for (row in 0..rows) {
-            for (col in 0..cols) {
-                val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
-                val x = startX + col * cellWidth + offsetX
-                val y = startY + row * cellHeight
-                drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
+        canvas.withRotation(angle, originX, originY) {
+            for (row in 0..rows) {
+                for (col in 0..cols) {
+                    val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
+                    val x = startX + col * cellWidth + offsetX
+                    val y = startY + row * cellHeight
+                    drawTextLine(canvas, text, x - textWidth / 2f, y, paint, config, ctx.scale)
+                }
             }
         }
-        canvas.restore()
 
         return output
     }
@@ -606,12 +605,9 @@ class WatermarkRenderer {
 
         // 绕 logo 自身中心旋转（不是画布中心）。
         // 绕画布中心转会把边角的 logo 甩出画面，详见 renderSingle 的踩坑记录。
-        canvas.save()
-        if (config.rotationDegrees != 0f) {
-            canvas.rotate(config.rotationDegrees, left + w / 2f, top + h / 2f)
+        canvas.withRotation(config.rotationDegrees, left + w / 2f, top + h / 2f) {
+            canvas.drawBitmap(logo, null, dst, paint)
         }
-        canvas.drawBitmap(logo, null, dst, paint)
-        canvas.restore()
         return output
     }
 
@@ -642,15 +638,14 @@ class WatermarkRenderer {
                 val x = col * cellWidth + offsetX
                 val y = row * cellHeight
                 if (rotateEach != 0f) {
-                    canvas.save()
-                    // 绕 logo 中心旋转
-                    canvas.rotate(rotateEach, x + w / 2f, y + h / 2f)
-                    canvas.drawBitmap(
-                        logo, null,
-                        Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
-                        paint
-                    )
-                    canvas.restore()
+                    // KTX 包装：不再手写 save/restore（异常路径也不会漏 restore）
+                    canvas.withRotation(rotateEach, x + w / 2f, y + h / 2f) {
+                        canvas.drawBitmap(
+                            logo, null,
+                            Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
+                            paint
+                        )
+                    }
                 } else {
                     canvas.drawBitmap(
                         logo, null,
@@ -697,22 +692,20 @@ class WatermarkRenderer {
         val cols = ceil((bounds.width + cellWidth * 2) / cellWidth).toInt() + 1
         val rows = ceil((bounds.height + cellHeight * 2) / cellHeight).toInt() + 1
 
-        canvas.save()
-        canvas.rotate(angle, originX, originY)
-
-        for (row in 0..rows) {
-            for (col in 0..cols) {
-                val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
-                val x = startX + col * cellWidth + offsetX
-                val y = startY + row * cellHeight
-                canvas.drawBitmap(
-                    logo, null,
-                    Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
-                    paint
-                )
+        canvas.withRotation(angle, originX, originY) {
+            for (row in 0..rows) {
+                for (col in 0..cols) {
+                    val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
+                    val x = startX + col * cellWidth + offsetX
+                    val y = startY + row * cellHeight
+                    canvas.drawBitmap(
+                        logo, null,
+                        Rect(x.toInt(), y.toInt(), (x + w).toInt(), (y + h).toInt()),
+                        paint
+                    )
+                }
             }
         }
-        canvas.restore()
         return output
     }
 
