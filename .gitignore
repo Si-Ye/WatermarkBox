@@ -72,6 +72,15 @@ tools/.*
 tools/*.tmp
 tools/*.bak
 
+# ===== 本机专用脚本（不随仓库分发）=====
+# ensure_nomedia.sh 是「本机环境维护」脚本：它管的不只是本项目目录，
+# 还包括 /sdcard 上其他位置（如 Operit 的 skill 缓存）。
+# 那属于使用者本机的环境问题，与仓库内容无关，因此不入库。
+#
+# 文件本身保留在工作区，照常可用：
+#   sh tools/ensure_nomedia.sh --fix --rescan
+tools/ensure_nomedia.sh
+
 # ===== 媒体扫描忽略标记（.nomedia）=====
 #
 # 仓库根目录的 .nomedia **必须保留在版本控制里**，不要加进本文件！

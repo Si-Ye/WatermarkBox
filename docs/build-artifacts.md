@@ -55,22 +55,28 @@
 
 本目录里有大量图片（截图、诊断图）。若不处理，它们会全部出现在相册里。
 
-**项目已放置 `.nomedia`**（Android 媒体扫描器会跳过含该文件的目录树）。
+**做法**：在本目录放一个 `.nomedia` —— Android 媒体扫描器会跳过
+含有该文件的目录及其所有子目录。
 
 但由于本目录在 git 外，那份 `.nomedia` **可能随目录被删而丢失**。
-用这个脚本兜底：
+发现相册里又冒出本项目的图时，重新放一个即可：
 
 ```sh
-sh tools/ensure_nomedia.sh                 # 只检查
-sh tools/ensure_nomedia.sh --fix           # 缺了就补
-sh tools/ensure_nomedia.sh --fix --rescan  # 补完并触发媒体重扫
+touch /storage/emulated/0/OperitAI/builds/WatermarkBox/.nomedia
 ```
 
-> ⚠️ `--rescan` 需要 Android 的 `content` 命令（Shizuku / adb / root shell）。
-> 在 Ubuntu 终端里没有它，脚本会检测并提示，不会当成失败。
+**要让已索引的记录立即消失**，还需触发一次媒体重扫
+（仅加文件不会清除 MediaStore 里的旧条目）：
+
+```sh
+content call --uri content://media --method scan_volume --arg external_primary
+```
+
+> ⚠️ `content` 是 Android 系统命令，只在 Shizuku / adb / root shell 里可用；
+> 在 Ubuntu proot 终端里会报 `content: not found`。
 >
 > **补充**：`am broadcast -a MEDIA_MOUNTED` 在本机 ROM 上会崩（exit 255），
-> 可靠的做法是 `content call --uri content://media --method scan_volume --arg external_primary`。
+> 上面那条 `content call` 才是可靠的重扫方式。
 
 ---
 
