@@ -92,6 +92,19 @@ object MarkdownParser {
     fun unorderedContent(line: String): String =
         line.trimStart().removePrefix("- ").removePrefix("* ").trim()
 
+    /**
+     * 列表项的缩进层数（每 2 个空格算一层）。
+     *
+     * ## 为什么要单独算这个
+     *
+     * 教程里有**嵌套列表**（父项下面挂子项）。渲染时若忽略缩进，
+     * 父子会并排显示 —— 层级信息直接丢失，读者会误以为它们是同级。
+     *
+     * 解析层只负责算出「第几层」，一层换算多少像素交给渲染层决定
+     * （那是纯展示决策）。
+     */
+    fun listIndent(line: String): Int = line.takeWhile { it == ' ' }.length / 2
+
     /** 有序列表：返回 `编号 to 内容`；非有序列表返回 null。 */
     fun orderedParts(line: String): Pair<String, String>? {
         if (!isOrderedListItem(line)) return null

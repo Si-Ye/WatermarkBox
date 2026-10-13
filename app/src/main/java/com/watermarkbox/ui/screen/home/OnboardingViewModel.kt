@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.ui.onboarding.OnboardingSteps
 import com.watermarkbox.ui.onboarding.OnboardingTargetRegistry
+import com.watermarkbox.ui.onboarding.OnboardingTour
 import com.watermarkbox.ui.onboarding.SpotlightStep
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,54 +36,67 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     /** 各控件上报的窗口坐标。 */
     val registry = OnboardingTargetRegistry()
 
-    /** 引导脚本。目前只有首页一套。 */
-    private val steps: List<SpotlightStep> = OnboardingSteps.HOME
-
-    private val _active = MutableStateFlow(false)
-
-    /** 是否正在显示引导。 */
-    val visible: StateFlow<Boolean> = _active.asStateFlow()
-
+    private val _tour = MutableStateFlow<OnboardingTour?>(null)
     private val _index = MutableStateFlow(0)
 
-    /** 当前步骤序号。 */
-    val stepIndex: StateFlow<Int> = _index.asStateFlow()
+    /**
+     * 引导的全部对外状态，**聚合在一个值里**。
+     *
+     * 分开暴露「步骤 / 序号 / 坐标 / 总数」四个 Flow 也能用，但 UI 每次都要
+     * 自己判断它们是否配对（比如"步骤换了但坐标还是上一个目标的"）。
+     * 合成一个快照后，UI 拿到的要么是完整的一组、要么是 null。
+     */
+    data class Snapshot(
+        val tour: OnboardingTour,
+        val step: SpotlightStep,
+        val stepIndex: Int,
+        val stepCount: Int,
+        /** 目标控件的窗口坐标；首帧或目标未组合时为 null。 */
+        val anchor: Rect?
+    )
 
-    /** 总步数（气泡上的进度点要用）。 */
-    val stepCount: Int get() = steps.size
+    val current: StateFlow<Snapshot?> = combine(
+        _tour, _index, registry.bounds
+    ) { tour, index, bounds ->
+        if (tour == null) return@combine null
+        val steps = OnboardingSteps.of(tour)
+        val step = steps.getOrNull(index) ?: return@combine null
+        Snapshot(
+            tour = tour,
+            step = step,
+            stepIndex = index,
+            stepCount = steps.size,
+            anchor = bounds[step.target]
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null
+    )
 
     /**
-     * 当前步骤 + 它对应控件的坐标，**合成一个值**给 UI。
+     * 页面进入时调用：该套引导若没看过就开始。
      *
-     * 分开给两个 Flow 也能用，但 UI 每次都要自己判「步骤和坐标是否配对」；
-     * 合成后，UI 拿到的要么是完整的一对、要么是 null，少一类边界情况。
+     * ## 为什么要判「当前没有别的引导在跑」
      *
-     * 坐标可能暂时为 null：首帧、或目标控件还没组合出来。
-     * 此时遮罩照常显示，只是还没有高亮孔 —— 这比「整层不显示」
-     * 或者「指向 (0,0)」都更合理。
+     * 用户可能从首页一路点到预设页（首页引导还没走完），
+     * 这时若直接切换，首页那套就被无声中断、且**不会被标记为已看过** ——
+     * 下次回首页又从头来一遍，很烦。
      */
-    val current: StateFlow<Pair<SpotlightStep, Rect?>?> =
-        combine(_active, _index, registry.bounds) { active, index, bounds ->
-            if (!active) return@combine null
-            val step = steps.getOrNull(index) ?: return@combine null
-            step to bounds[step.target]
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = null
-        )
-
-    init {
+    fun startIfNeeded(tour: OnboardingTour) {
         viewModelScope.launch {
-            // 只在初始化时读一次：本次会话内不再变，
-            // 用户完成后由 finish() 直接改状态，不必再查库
-            _active.value = !repository.isOnboardingDone()
+            if (repository.isOnboardingDone(tour.name)) return@launch
+            if (_tour.value != null) return@launch
+            _index.value = 0
+            _tour.value = tour
         }
     }
 
     /** 下一步；已在最后一步时等同完成。 */
     fun next() {
-        if (_index.value >= steps.lastIndex) {
+        val tour = _tour.value ?: return
+        val count = OnboardingSteps.of(tour).size
+        if (_index.value >= count - 1) {
             finish()
         } else {
             _index.value += 1
@@ -91,25 +105,26 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
 
     /** 跳过 / 完成 —— 记下来，下次不再显示。 */
     fun finish() {
-        _active.value = false
+        val tour = _tour.value ?: return
+        _tour.value = null
         registry.clear()
-        viewModelScope.launch { repository.setOnboardingDone() }
+        viewModelScope.launch { repository.setOnboardingDone(tour.name) }
     }
 
     /**
-     * 重新看一遍引导。
+     * 重新看一遍某套引导。
      *
      * 供「设置 → 其他 → 使用教程」页里的按钮调用。
      *
      * ## 为什么要清掉持久化的标记
      *
-     * 只把 `_active` 设回 true 的话，这次会话能看到引导，
-     * 但**下次冷启动又没了** —— 用户会以为"按钮只有一次有效"。
-     * 所以这里把「已看过」标记也一并重置，行为才和第一次安装一致。
+     * 只把状态设回去的话，这次会话能看到引导，
+     * 但**下次冷启动又没了** —— 用户会以为「这个按钮只有一次有效」。
+     * 所以把「已看过」标记也一并重置，行为才和第一次安装一致。
      */
-    fun restart() {
-        viewModelScope.launch { repository.setOnboardingDone(done = false) }
+    fun restart(tour: OnboardingTour) {
+        viewModelScope.launch { repository.setOnboardingDone(tour.name, done = false) }
         _index.value = 0
-        _active.value = true
+        _tour.value = tour
     }
 }

@@ -40,6 +40,8 @@
     <string name="onboarding_p3_body">想确认某张图是不是你导出的？选图后自动检测，还能验证签名。</string>
     <string name="onboarding_p4_title">更多在这里</string>
     <string name="onboarding_p4_body">语言、导出默认值、使用教程、检查更新……都在设置里。</string>
+    <string name="onboarding_presets_title">导入 / 导出在这里</string>
+    <string name="onboarding_presets_body">右上角这个菜单能把预设导出成文件（换手机、分享给别人），也能从文件导入。</string>
     <string name="common_whats_this">查看说明</string>
     <string name="common_clear">清除</string>
     <string name="common_select">选择</string>

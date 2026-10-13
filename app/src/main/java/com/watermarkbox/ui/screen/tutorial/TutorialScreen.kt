@@ -56,6 +56,8 @@ import com.watermarkbox.ui.theme.Spacing
 @Composable
 fun TutorialScreen(
     onBack: () -> Unit,
+    /** 允许调用方（含 Preview）覆盖根布局，故排在其它可选参数之前。 */
+    modifier: Modifier = Modifier,
     /**
      * 重新过一遍新手引导。
      *
@@ -63,8 +65,7 @@ fun TutorialScreen(
      * 由导航层决定是否顺带退到首页 —— 那样用户点完就能立刻看到引导，
      * 不必自己再找回去。
      */
-    onRestartOnboarding: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onRestartOnboarding: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current

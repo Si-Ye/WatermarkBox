@@ -136,8 +136,7 @@ directory, whether to keep the original EXIF.
 **Q: Can the watermark be removed?**
 
 A visible watermark can be cropped away. An invisible one survives compression
-and right-angle rotation, but **not screenshots, re-photographing, or
-AI repainting** — it is meant for provenance, not for making copying impossible.
+and right-angle rotation, but **not screenshots, re-photographing, or AI repainting** — it is meant for provenance, not for making copying impossible.
 
 **Q: Do you upload my images?**
 

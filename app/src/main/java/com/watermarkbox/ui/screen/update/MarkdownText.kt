@@ -131,7 +131,12 @@ fun MarkdownText(
 
                 LineKind.UNORDERED_LIST -> {
                     val content = MarkdownParser.unorderedContent(line)
-                    Row(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            // 嵌套列表按层缩进 —— 否则父项与子项并排，层级直接丢失
+                            .padding(start = (MarkdownParser.listIndent(line) * 16).dp)
+                    ) {
                         Text(
                             text = "•",
                             style = MaterialTheme.typography.bodyMedium,
@@ -148,7 +153,12 @@ fun MarkdownText(
                 LineKind.ORDERED_LIST -> {
                     val parts = MarkdownParser.orderedParts(line)
                     if (parts != null) {
-                        Row(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                // 同无序列表：保留原文的缩进层级
+                                .padding(start = (MarkdownParser.listIndent(line) * 16).dp)
+                        ) {
                             Text(
                                 text = "${parts.first}.",
                                 style = MaterialTheme.typography.bodyMedium,

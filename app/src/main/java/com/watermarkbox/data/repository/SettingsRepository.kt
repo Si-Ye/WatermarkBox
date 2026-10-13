@@ -284,32 +284,43 @@ class SettingsRepository(private val context: Context) {
     }
 
     /**
-     * 是否已经看过新手引导。
+     * 某套引导是否已经看过。
      *
-     * 默认 `false` —— 新装用户第一次进首页会看到引导。
+     * ## 为什么按「套」分别记（而不是一个全局标记）
      *
-     * ## 为什么 key 带 `_v2`
+     * 一套引导只能在**同一个页面**里跑 —— 高亮孔要指向真实控件，
+     * 而其它页面的控件此刻还没组合出来，坐标无从获取。
      *
-     * 引导在 2.0 从「居中对话框」重做成了「挖孔聚焦」——
-     * 完全不同的东西。老 key 在新版本里可能是 `true`（用户看过旧引导），
-     * 那新引导就永远不显示了。
+     * 所以用户完全可能「看过首页引导、但还没进过预设页」。
+     * 用一个全局标记的话，看完首页那套之后预设页的引导就永远出不来了。
      *
-     * 换个 key 等于「请已经看过旧版的用户再看一次新引导」，
-     * 这在引导形态改变时是合理的：不看一遍就不知道界面上的标点是什么。
+     * ## 为什么参数是 String 而不是枚举
+     *
+     * 引导是 UI 层的概念（`OnboardingTour` 在 `ui.onboarding` 包里）。
+     * 数据层不该反向依赖 UI 层，所以这里只收一个字符串标识，
+     * 由调用方传 `tour.name`。
      */
-    val onboardingDone: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
-        prefs[KEY_ONBOARDING_DONE] ?: false
-    }
+    fun onboardingDone(tourKey: String): Flow<Boolean> =
+        context.settingsDataStore.data.map { prefs -> prefs[keyFor(tourKey)] ?: false }
 
     /** 一次性读取（供启动时判断用，不必订阅）。 */
-    suspend fun isOnboardingDone(): Boolean = onboardingDone.first()
+    suspend fun isOnboardingDone(tourKey: String): Boolean = onboardingDone(tourKey).first()
 
-    /** 标记引导已完成 / 重置（重置仅供调试）。 */
-    suspend fun setOnboardingDone(done: Boolean = true) {
+    /** 标记某套引导已完成 / 重置。 */
+    suspend fun setOnboardingDone(tourKey: String, done: Boolean = true) {
         context.settingsDataStore.edit { prefs ->
-            prefs[KEY_ONBOARDING_DONE] = done
+            prefs[keyFor(tourKey)] = done
         }
     }
+
+    /**
+     * 按引导套名取对应的存储键。
+     *
+     * 键名带 `v2`：引导在 2.0 从「居中对话框」重做成了「挖孔聚焦」，
+     * 完全换了个东西 —— 沿用旧键的话，看过旧引导的用户永远看不到新的。
+     */
+    private fun keyFor(tourKey: String): Preferences.Key<Boolean> =
+        booleanPreferencesKey("onboarding_done_v2_${tourKey.lowercase()}")
 
     /**
      * 是否启用应用内下载更新（默认关闭，实验性）。
@@ -352,6 +363,5 @@ class SettingsRepository(private val context: Context) {
         val KEY_AUTO_CHECK_UPDATE = booleanPreferencesKey("auto_check_update")
         val KEY_INAPP_DOWNLOAD = booleanPreferencesKey("in_app_download")
         val KEY_LAST_CHECK_TIME = longPreferencesKey("last_check_time")
-        val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done_v2")
     }
 }

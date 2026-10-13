@@ -79,3 +79,14 @@ fun Modifier.onboardingTarget(
 ): Modifier = this.onGloballyPositioned { coordinates ->
     registry.report(target, coordinates.boundsInWindow())
 }
+
+/**
+ * registry 为空时原样返回，避免在 `@Preview` 里挂一堆永远不会触发的回调。
+ *
+ * 这个包装看起来多余，但它让所有调用点都能少写一次 null 判断，
+ * 而 Preview 里也真的不会有任何副作用。
+ */
+fun Modifier.targetIf(
+    target: OnboardingTarget,
+    registry: OnboardingTargetRegistry?
+): Modifier = if (registry == null) this else this.onboardingTarget(target, registry)

@@ -14,7 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
+import androidx.core.graphics.drawable.toDrawable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.Dialog
@@ -35,6 +35,7 @@ import com.watermarkbox.ui.screen.editor.EditorViewModel
 import com.watermarkbox.ui.screen.home.HomeScreen
 import com.watermarkbox.ui.screen.home.OnboardingViewModel
 import com.watermarkbox.ui.onboarding.OnboardingOverlay
+import com.watermarkbox.ui.onboarding.OnboardingTour
 import com.watermarkbox.ui.screen.presets.PresetEditScreen
 import com.watermarkbox.ui.screen.presets.PresetEditViewModel
 import com.watermarkbox.ui.screen.presets.PresetsScreen
@@ -154,8 +155,10 @@ fun WatermarkBoxNavHost(
 
             // ---------------- 首页 ----------------
             composable(Routes.HOME) {
-                val onboardingCurrent by onboardingViewModel.current.collectAsStateWithLifecycle()
-                val onboardingIndex by onboardingViewModel.stepIndex.collectAsStateWithLifecycle()
+                // 进首页时尝试开始首页引导（没看过的才开）
+                LaunchedEffect(Unit) {
+                    onboardingViewModel.startIfNeeded(OnboardingTour.HOME)
+                }
 
                 HomeScreen(
                     onPickSingleImage = {
@@ -178,54 +181,18 @@ fun WatermarkBoxNavHost(
                     onboardingRegistry = onboardingViewModel.registry
                 )
 
-                // 新手引导：首次（或升级后首次）进首页时显示。
-                //
-                // 放在导航层而不是 HomeScreen 里 —— 首页是**纯 UI**（不做 I/O），
-                // 塞个读 DataStore 的 ViewModel 进去会让 @Preview 直接崩。
-                onboardingCurrent?.let { (step, anchor) ->
-                    // 用全屏 Dialog 承载遮罩。
-                    //
-                    // 直接叠在 Box 里也能画，但那样只覆盖 Activity 的**内容区**，
-                    // 状态栏与导航栏压不暗，看着像没铺满。
-                    // Dialog 是独立 Window，配合下面三个开关才能真正铺满整屏。
-                    Dialog(
-                        // 点外面不关：引导只有「跳过 / 下一步」两条出路，
-                        // 误触关闭会让用户以为「没看就等于看过了」
-                        onDismissRequest = { },
-                        properties = DialogProperties(
-                            usePlatformDefaultWidth = false,  // 否则 Dialog 只有内容宽
-                            dismissOnClickOutside = false,
-                            decorFitsSystemWindows = false    // 内容延伸到系统栏之下
-                        )
-                    ) {
-                        // ⚠️ 关键：把 Dialog 的 window 背景设成**透明**。
-                        //
-                        // 否则 `BlendMode.Clear` 擦掉遮罩之后，露出来的是
-                        // Dialog 自己 window 的不透明背景，而不是下面的 Activity ——
-                        // 表现就是「高亮孔里依然是一片暗色」，整个聚焦效果失效。
-                        //
-                        // 光靠 `decorFitsSystemWindows = false` 解决不了这个问题：
-                        // 那只管尺寸与系统栏，不管 window 背景。
-                        val view = LocalView.current
-                        SideEffect {
-                            (view.parent as? DialogWindowProvider)?.window
-                                ?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                        }
-
-                        OnboardingOverlay(
-                            step = step,
-                            stepIndex = onboardingIndex,
-                            stepCount = onboardingViewModel.stepCount,
-                            anchor = anchor,
-                            onSkip = onboardingViewModel::finish,
-                            onNext = onboardingViewModel::next
-                        )
-                    }
-                }
+                // 引导遮罩层。只有当前引导属于本页时才渲染 ——
+                // 否则切到别的页面时遮罩会跟着飘过去，指向一个根本不在屏幕上的控件。
+                OnboardingHost(onboardingViewModel, OnboardingTour.HOME)
             }
 
             // ---------------- 首页的预设管理 ----------------
             composable(Routes.PRESETS) {
+                // 进本页时尝试开始预设页引导（没看过的才开）
+                LaunchedEffect(Unit) {
+                    onboardingViewModel.startIfNeeded(OnboardingTour.PRESETS)
+                }
+
                 val presetsViewModel: PresetsViewModel = viewModel()
                 PresetsScreen(
                     viewModel = presetsViewModel,
@@ -254,8 +221,13 @@ fun WatermarkBoxNavHost(
                     },
                     onImport = {
                         onImportPresetFile { uri -> presetsViewModel.importFrom(uri) }
-                    }
+                    },
+                    // 控件会把自身在窗口中的位置上报给它，引导层据此挖孔。
+                    onboardingRegistry = onboardingViewModel.registry
                 )
+
+                // 引导遮罩层。只有当前引导属于本页时才渲染（见下方 OnboardingHost 注释）。
+                OnboardingHost(onboardingViewModel, OnboardingTour.PRESETS)
             }
 
             // ---------------- 预设参数编辑（无图片）----------------
@@ -323,9 +295,9 @@ fun WatermarkBoxNavHost(
                 TutorialScreen(
                     onBack = { navController.popBackStack() },
                     onRestartOnboarding = {
-                        // 先重置引导状态，再退回首页 ——
+                        // 重置引导状态（清掉「已看过」标记），再退回首页 ——
                         // 首页一组合出来就会弹出引导，用户不必自己再找回去
-                        onboardingViewModel.restart()
+                        onboardingViewModel.restart(OnboardingTour.HOME)
                         navController.popBackStack(Routes.HOME, inclusive = false)
                     }
                 )
@@ -412,5 +384,80 @@ fun WatermarkBoxNavHost(
                 )
             }
         }
+    }
+}
+
+/**
+ * 渲染某一套新手引导的遮罩层。
+ *
+ * ## 为什么用 Dialog，而不是在页面里套一个 Box
+ *
+ * 引导要盖住**状态栏与导航栏**。直接放在页面的 Composable 里的话，
+ * 它只活在内容区内 —— 系统栏那两条仍然是亮的，看起来"没铺满"。
+ * Dialog 自带独立窗口，才能做到真正的全屏遮罩。
+ *
+ * ## 为什么必须把 window 背景设成透明（关键坑）
+ *
+ * [OnboardingOverlay] 用 `BlendMode.Clear` 把遮罩擦出一个洞，
+ * 期待孔里透出**底下的真实界面**。但 `Clear` 擦掉的只是 Dialog
+ * 这一层自己画的东西 —— 露出来的是 Dialog window 的**背景**，
+ * 而它默认是不透明的，于是孔里依旧一片暗色，聚焦效果完全失效。
+ *
+ * 所以要把 window 的背景置成透明。（`decorFitsSystemWindows = false`
+ * 解决的是"铺满系统栏"，解决不了"孔里透不透" —— 两件事得分别设置。）
+ *
+ * ## 为什么只在「本页的这一套」才渲染
+ *
+ * 一套引导只属于一个页面。若在 NavHost 外层统一渲染，切页时遮罩会
+ * "飘过去"指向一个根本不在屏幕上的控件 —— registry 里还留着旧页面的坐标。
+ * 让每个页面渲染自己那套，天然就没有这个问题。
+ *
+ * ## 为什么 onDismissRequest 是 finish 而不是空实现
+ *
+ * 遮罩本身就是"窗"：点哪里都会被 Overlay 的 pointerInput 接住并分流
+ * （孔内 = 下一步，孔外 = 跳过）。所以这里只兜底**返回键** ——
+ * 用户按返回时按"跳过"处理，否则引导会锁住返回键，体验很像卡死。
+ *
+ * @param tour 本页负责的那一套引导
+ */
+@Composable
+private fun OnboardingHost(
+    viewModel: OnboardingViewModel,
+    tour: OnboardingTour
+) {
+    val snapshot by viewModel.current.collectAsStateWithLifecycle()
+    val current = snapshot ?: return
+
+    // 不是本页的引导就不渲染（见上方注释）
+    if (current.tour != tour) return
+
+    // 把 Dialog window 的背景擦成透明，否则挖出来的孔还是暗的
+    val view = LocalView.current
+    SideEffect {
+        (view.parent as? DialogWindowProvider)
+            ?.window
+            ?.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+    }
+
+    Dialog(
+        onDismissRequest = { viewModel.finish() },
+        properties = DialogProperties(
+            // 关掉默认宽度限制 —— 否则遮罩只占中间一小块
+            usePlatformDefaultWidth = false,
+            // 点窗外不关闭：遮罩铺满全屏，"窗外"根本不存在，
+            // 所有点击都交给 Overlay 自己分流
+            dismissOnClickOutside = false,
+            // 让 Dialog 窗口延伸到系统栏区域
+            decorFitsSystemWindows = false
+        )
+    ) {
+        OnboardingOverlay(
+            step = current.step,
+            stepIndex = current.stepIndex,
+            stepCount = current.stepCount,
+            anchor = current.anchor,
+            onSkip = viewModel::finish,
+            onNext = viewModel::next
+        )
     }
 }

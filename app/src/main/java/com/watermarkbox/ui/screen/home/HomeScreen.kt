@@ -44,7 +44,7 @@ import com.watermarkbox.R
 import com.watermarkbox.data.model.BatchLimits
 import com.watermarkbox.ui.onboarding.OnboardingTarget
 import com.watermarkbox.ui.onboarding.OnboardingTargetRegistry
-import com.watermarkbox.ui.onboarding.onboardingTarget
+import com.watermarkbox.ui.onboarding.targetIf
 import com.watermarkbox.ui.theme.BrandAmber
 import com.watermarkbox.ui.theme.BrandNavy
 import com.watermarkbox.ui.theme.Spacing
@@ -272,18 +272,6 @@ private fun EntryCard(
 }
 
 /** Compose 版背景修饰符封装（避免重复 import）。 */
-
-/**
- * registry 为空时原样返回，避免在 `@Preview` 里挂一堆永远不会触发的回调。
- *
- * 这个包装看起来多余，但它让所有调用点都能少写一次 null 判断，
- * 而 Preview 里也真的不会有任何副作用。
- */
-private fun Modifier.targetIf(
-    target: OnboardingTarget,
-    registry: OnboardingTargetRegistry?
-): Modifier = if (registry == null) this else this.onboardingTarget(target, registry)
-
 @Preview(showBackground = true)
 @Composable
 private fun HomeScreenPreview() {
