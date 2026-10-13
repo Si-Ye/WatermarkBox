@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -135,6 +137,22 @@ fun HomeScreen(
                 textAlign = TextAlign.Center
             )
 
+            // ============ 弹性间隔（上下各一）============
+            //
+            // 用 weight 而不是固定高度：把内容推向视觉中线，
+            // 且在不同屏高上自适应。
+            //
+            // ⚠️ 这里有个**连锁反应**要注意：
+            // weight 吃的是「剩余空间」，而剩余空间 = 屏高 − 其它子项高度之和。
+            // 所以下面三张卡片的**高度上限**必须收敛：
+            // 一旦某张卡片能长到很高（比如上限给到 200dp+），
+            // 剩余空间会被挤到负数，第三张卡片就会被顶出屏幕。
+            //
+            // 这正是之前的 bug：卡片高度失控 + 这里的 weight 一起作用，
+            // 首页只剩下一个巨大的入口。
+            //
+            // 现在卡片是 heightIn(104..132)，即使三张全撑到上限
+            // 也只比常态多占 84dp，屏高 869dp 完全吃得下。
             Spacer(Modifier.weight(0.6f))
 
             // ---- 两个主入口 ----
@@ -230,11 +248,40 @@ private fun EntryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = modifier
             .fillMaxWidth()
-            .height(104.dp)
+            // 高度：**下限 104dp + 上限 132dp**
+            //
+            // ## 为什么不是固定值 height(104.dp)
+            //
+            // 固定值在「系统字号放大」「副标题换行」「长文案语言」这三种情况下
+            // 会把文字裁掉。min/max 组合能自适应长高。
+            //
+            // ## 为什么上限只给 132dp（而不是 2 倍）
+            //
+            // 上限的作用是「兜底」而不是「给足空间」：
+            // 104 → 132 正好容纳「标题 + 副标题各多占一行」的最坏情况，
+            // 又不会因为某处约束算错而让卡片膨胀。
+            // ⚠️ 上限一旦给大（比如 208dp），配合外层的 weight 间隔
+            // 会把后面的卡片挤出屏幕 —— 这是踩过的坑。
+            //
+            // ## 为什么下面的 Row 用 fillMaxHeight
+            //
+            // `height(固定值)` 与 `fillMaxSize()` 是一对：高度被钉死时，
+            // Row 撑满 = 撑到那个固定值，两者语义自洽。
+            //
+            // 一旦高度变成「可变区间」，`fillMaxSize()` 就变成了
+            // 「撑到父容器允许的最大高度」—— 也就是 max（132dp）。
+            // 于是普通字号下卡片也会被撑到 132dp，比设计值高 28dp。
+            //
+            // 换成 `fillMaxHeight()` 后：Row 撑满 Card **实际**的高度
+            // （由内容决定，落在 104~132 之间），图文依旧垂直居中。
+            .heightIn(min = 104.dp, max = 132.dp)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
+                // fillMaxHeight + fillMaxWidth 的组合：
+                // 高度跟着 Card 的实际高度走；宽度占满以便 padding 生效。
+                .fillMaxHeight()
+                .fillMaxWidth()
                 .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
