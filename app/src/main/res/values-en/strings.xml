@@ -225,6 +225,21 @@
     <string name="release_1_6_0_c5">Fixed: in single mode, rotating a watermark placed at a corner threw it off-screen</string>
 
     <!-- ==================== v1.6.1 ==================== -->
+    <string name="release_2_0_0_title">A big invisible-watermark upgrade — and a smoother app all round</string>
+    <string name="release_2_0_0_c1">Invisible watermark gains an XMP channel (a second metadata container beside EXIF)</string>
+    <string name="release_2_0_0_c2">Invisible watermark is now signed — detection can tell whether the app wrote it</string>
+    <string name="release_2_0_0_c3">The two invisible channels can be switched on and off independently</string>
+    <string name="release_2_0_0_c4">Right-angle rotation is handled: still detected after 90/180/270 degrees</string>
+    <string name="release_2_0_0_c5">Detection options: go fast or go thorough, your call</string>
+    <string name="release_2_0_0_c6">New in-app tutorial (Settings → More → Tutorial)</string>
+    <string name="release_2_0_0_c7">New home-screen onboarding that can be replayed any time</string>
+    <string name="release_2_0_0_c8">Block-adaptive strength: same compression resistance, better image quality</string>
+    <string name="release_2_0_0_c9">Large-image guard: a clear message instead of freezing when memory is short</string>
+    <string name="release_2_0_0_c10">Long explanations moved into the i icon — cleaner panels</string>
+    <string name="release_2_0_0_c11">Smoother everywhere: dragging, paging, image switching, screen transitions</string>
+    <string name="release_2_0_0_c12">Export settings split into global defaults and per-export parameters</string>
+    <string name="release_2_0_0_c13">Fixed Markdown rendering errors in the tutorial</string>
+    <string name="release_2_0_0_c14">Fixed stutter when dragging the watermark and the parameter panel</string>
     <string name="release_1_6_1_title">Presets as files: export &amp; import</string>
     <string name="release_1_6_1_c1">New menu on the Presets screen: export all presets to a single file, or import presets from a file</string>
     <string name="release_1_6_1_c2">Every preset card has an export button, so a single preset can be shared on its own</string>

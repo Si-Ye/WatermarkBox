@@ -80,6 +80,35 @@ object ReleaseHistory {
     val releases: List<ReleaseNote> = listOf(
 
         ReleaseNote(
+            version = "2.0.0",
+            date = "2026-10-13",
+            titleRes = R.string.release_2_0_0_title,
+            type = ReleaseType.MAJOR,
+            changes = listOf(
+                // ---- 隐藏水印：通道与可信度 ----
+                ReleaseNote.Change(R.string.release_2_0_0_c1, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_0_0_c2, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_0_0_c3, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_0_0_c4, ChangeKind.ADDED),
+                // ---- 检测 ----
+                ReleaseNote.Change(R.string.release_2_0_0_c5, ChangeKind.ADDED),
+                // ---- 上手体验 ----
+                ReleaseNote.Change(R.string.release_2_0_0_c6, ChangeKind.ADDED),
+                ReleaseNote.Change(R.string.release_2_0_0_c7, ChangeKind.ADDED),
+                // ---- 画质与稳健 ----
+                ReleaseNote.Change(R.string.release_2_0_0_c8, ChangeKind.IMPROVED),
+                ReleaseNote.Change(R.string.release_2_0_0_c9, ChangeKind.IMPROVED),
+                // ---- 界面与流畅度 ----
+                ReleaseNote.Change(R.string.release_2_0_0_c10, ChangeKind.IMPROVED),
+                ReleaseNote.Change(R.string.release_2_0_0_c11, ChangeKind.IMPROVED),
+                ReleaseNote.Change(R.string.release_2_0_0_c12, ChangeKind.CHANGED),
+                // ---- 修复 ----
+                ReleaseNote.Change(R.string.release_2_0_0_c13, ChangeKind.FIXED),
+                ReleaseNote.Change(R.string.release_2_0_0_c14, ChangeKind.FIXED)
+            )
+        ),
+
+        ReleaseNote(
             version = "1.6.1",
             date = "2026-10-13",
             titleRes = R.string.release_1_6_1_title,
