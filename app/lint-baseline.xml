@@ -7,6 +7,54 @@
         <location
             file="src/main/res/mipmap-anydpi-v26"/>
     </issue>
+<!--
+  下面的 IconDuplicates 是**有意为之**：
+  ic_launcher_round.webp 与 ic_launcher.webp 内容完全相同 —— 同一张图的两种用途。
+  曾经把它们删掉（想让 lint 干净），结果**圆形启动器（MIUI 等）退回用方形那套资产，
+  前景缩放不同，看起来就是「图标错位」**。清单里 android:roundIcon 必须指向它。
+  要真正消除这条，需要一套独立的圆形前景美术，而不是删资源。
+-->
+    <issue
+        id="IconDuplicates"
+        message='The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp'>
+        <location
+            file="app/src/main/res/mipmap-hdpi/ic_launcher_round.webp"/>
+        <location
+            file="app/src/main/res/mipmap-hdpi/ic_launcher.webp"/>
+    </issue>
+    <issue
+        id="IconDuplicates"
+        message='The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp'>
+        <location
+            file="app/src/main/res/mipmap-mdpi/ic_launcher_round.webp"/>
+        <location
+            file="app/src/main/res/mipmap-mdpi/ic_launcher.webp"/>
+    </issue>
+    <issue
+        id="IconDuplicates"
+        message='The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp'>
+        <location
+            file="app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp"/>
+        <location
+            file="app/src/main/res/mipmap-xhdpi/ic_launcher.webp"/>
+    </issue>
+    <issue
+        id="IconDuplicates"
+        message='The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp'>
+        <location
+            file="app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp"/>
+        <location
+            file="app/src/main/res/mipmap-xxhdpi/ic_launcher.webp"/>
+    </issue>
+    <issue
+        id="IconDuplicates"
+        message='The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp'>
+        <location
+            file="app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp"/>
+        <location
+            file="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp"/>
+    </issue>
+
 
 
 </issues>

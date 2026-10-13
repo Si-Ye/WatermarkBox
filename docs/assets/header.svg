@@ -54,7 +54,11 @@
   <!-- ============ 左侧图标（56..188）============ -->
   <g transform="translate(56, 84) scale(0.129)">
     <rect x="-512" y="-512" width="1024" height="1024" rx="200" fill="#0D1454"/>
-    <g transform="translate(512, 512)">
+    <!-- ⚠️ 这里**不能**再加 translate：背景方框是 -512..+512（中心 0,0），
+         下面所有图形坐标也都是相对中心的。早先多写了一层
+         transform="translate(512, 512)"，结果整个图形被推到方框的右下角 —— 看着就是「图标错位」。
+         对应的矢量资源是 res/drawable/ic_app_logo.xml（它已被展开为 0..1024 绝对坐标，是对的）。 -->
+    <g>
       <rect x="-240" y="-216" width="480" height="84" rx="26"
             fill="#FFFFFF" opacity="0.95"/>
       <path d="M -220 -100 L -220 180 Q -220 228 -172 228
