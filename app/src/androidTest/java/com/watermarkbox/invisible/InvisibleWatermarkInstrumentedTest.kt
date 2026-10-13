@@ -125,6 +125,11 @@ class InvisibleWatermarkInstrumentedTest {
         // 「该频点 JPEG 量化步长 × 6 × QIM系数」的量级 —— 实测约 40。
         // 但这个峰值只出现在极少数像素上（平均改动 < 5），
         // 视觉上不可辨（相对 255 只有约 16% 的局部扰动，且在纹理区）。
+        // 打印出来才能对比「感知优化」前后的差异
+        println(
+            "DIAG pixels maxDiff=$maxDiff avgDiff=$avgDiff changedRatio=$changedRatio"
+        )
+
         assertTrue("单通道最大改动应 <= 45，实际 $maxDiff", maxDiff <= 45)
         assertTrue("平均改动应 < 5，实际 $avgDiff", avgDiff < 5.0)
         // 关键是「大面积不可辨」：峰值远大于均值，说明只有少数像素被推到极值

@@ -82,6 +82,48 @@ class InvisibleWatermarkEngine(
          */
         private val ORTHOGONAL_ROTATIONS = listOf(90f, 180f, 270f)
 
+        /** 活动度分档阈值。
+         *
+         * ## 数值依据
+         *
+         * 低频交流系数（u+v=1）在 8×8 DCT 后的量级大致是：
+         * - 纯色 / 平坦：`|C| < 10`
+         * - 轻微渐变：`10 ~ 40`
+         * - 普通照片纹理：`40 ~ 150`
+         * - 强边缘 / 细节：`> 150`
+         *
+         * 取 30 / 100 把「几乎纯色」「普通纹理」「强纹理」分开。
+         */
+        private const val FLAT_ACTIVITY = 30f
+        private const val TEXTURED_ACTIVITY = 100f
+
+        /** 平坦区强度折扣：改动在这种地方最扎眼。 */
+        private const val FLAT_FACTOR = 0.6f
+
+        /** 中等纹理区强度折扣。 */
+        private const val MID_FACTOR = 0.8f
+
+        /**
+         * 块「活动度」：衡量这个块有多"花"。
+         *
+         * ## 为什么只取 (0,1) 与 (1,0)
+         *
+         * 这两个频率的 `u+v = 1`，**永远不在** [MID_BAND] 覆盖的
+         * `u+v ∈ [2,6]` 里 —— 也就是说嵌入**从不改动它们**。
+         *
+         * 这一点至关重要：判据必须建立在「嵌入不碰的量」上，
+         * 否则嵌入端与提取端会算出不同的活动度，直接对不上。
+         * （`DC` 亮度能当判据是同一个道理。）
+         *
+         * ## 它代表什么
+         *
+         * 低频交流能量 ≈ 这一块有没有"内容"：
+         * - 纯色天空 / 墙面 → 接近 0
+         * - 有边缘、有纹理 → 明显大于 0
+         */
+        private fun blockActivity(coeffs: FloatArray): Float =
+            abs(coeffs[1]) + abs(coeffs[8])
+
         /** 块大小的常量。 */
         const val BLOCK = 8
 
@@ -555,23 +597,24 @@ class InvisibleWatermarkEngine(
     /**
      * 计算某个块在指定频点上使用的**自适应量化步长**。
      *
-     * ## 依据：该频点的 JPEG 量化步长
+     * ## 依据
      *
-     * 这是本算法的核心洞察：**嵌入幅度必须与 JPEG 在该频点的
-     * 量化步长挂钩**，否则压缩时会被抹平。
+     * 1. **该频点的 JPEG 量化步长** —— 核心洞察：嵌入幅度必须与
+     *    JPEG 在该频点的量化步长挂钩，否则压缩时会被抹平。
+     * 2. **DC 亮度** —— 中灰区人眼最敏感，压低；暗部/亮部可给足。
+     * 3. **块活动度** —— 平坦区（天空、墙面）的扰动最扎眼，
+     *    纹理区（草地、毛发）的扰动会被纹理本身掩盖。
      *
-     * 步骤：
-     * 1. 取该频点的标准 JPEG 量化步长 `Q`
-     * 2. 乘 [STRENGTH_OVER_QUANT]（当前为 6）→ 保证质量 90 仍有裕量
-     * 3. 乘亮度因子（中灰区人眼敏感，适当降低；暗/亮部可提高）
+     * ## 为什么两端一定一致（关键）
      *
-     * ## 为什么两端一定一致
+     * 三个依据都必须建立在「**嵌入不碰的量**」上：
+     * - `(u, v)`：由块索引决定，与像素无关 ✓
+     * - `DC`（下标 0）：QIM 只改交流系数，DC 不动 ✓
+     * - 活动度：只取 `u+v=1` 的 (0,1)/(1,0)，
+     *   而 [MID_BAND] 覆盖的是 `u+v ∈ [2,6]` —— 交集为空 ✓
      *
-     * 依据只有 `(u, v)` 与 `DC`：
-     * - `(u, v)` 由块索引决定，与像素无关 → 一定一致
-     * - `DC` 不参与嵌入 → 嵌入前后几乎不变
-     *
-     * 因此提取端算出的步长与嵌入端相同（有测试钉住）。
+     * 任何一条换成「会被水印改动的量」，嵌入端与提取端就会
+     * 算出不同的步长，判决边界错位 → 直接提取失败。
      */
     private fun adaptiveStrength(coeffs: FloatArray, u: Int, v: Int): Float {
         val jpegQuant = JPEG_LUMA_QUANT[v][u].toFloat()
@@ -582,10 +625,17 @@ class InvisibleWatermarkEngine(
             dc > 215f -> 1.0f
             else -> 0.7f
         }
+        // 活动度分档：越平坦越收着
+        val activity = blockActivity(coeffs)
+        val activityFactor = when {
+            activity < FLAT_ACTIVITY -> FLAT_FACTOR
+            activity < TEXTURED_ACTIVITY -> MID_FACTOR
+            else -> 1f
+        }
         // **硬上限 MAX_STEP**：步长过大会让大量像素被 clamp 到 0/255，
         // 从而破坏嵌入（实测 q > 100 时提取率骤降）。这是"更顽固
         // 反而更差"的原因。
-        return (jpegQuant * STRENGTH_OVER_QUANT * luminanceFactor * strengthScale)
+        return (jpegQuant * STRENGTH_OVER_QUANT * luminanceFactor * activityFactor * strengthScale)
             .coerceIn(4f, MAX_STEP)
     }
 
