@@ -128,10 +128,10 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 | 项 | 值 |
 |---|---|
-| 本地 HEAD | `d43eaf0` |
-| 远端 | `origin/main`（落后 20 个提交）|
-| **ahead** | **20（未推送）** |
-| 单测基线 | **391 个用例，全绿** |
+| 本地 HEAD | `afd79b6` |
+| 远端 | `origin/main`（落后 22 个提交）|
+| **ahead** | **22（未推送）** |
+| 单测基线 | **397 个用例，全绿** |
 | lint | 0 错误（6 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
 | 版本 | 2.0.1 (versionCode 11) |
@@ -243,6 +243,46 @@ Worker 层 `uris.forEachIndexed { processOne(...) }` **本来就是顺序的**�
 为了「两两并排」，主文案被大幅缩短（如「检查 EXIF 元数据」→「EXIF」）。
 **完整说明保留在各项的 ⓘ 弹窗里**。改文案前先看 `docs/` 里的记录。
 
+### 5.6 预览「不实时」：降采样在非正方形图上曾完全失效
+
+$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{\texttt{calculateInSampleSize} 的 \&\& 写法会让非正方形图\textbf{一点不降}}}}}}$$
+
+```kotlin
+// ❌ 旧：要求两条边都能折半才降
+while (w / 2 >= target && h / 2 >= target)
+// ✅ 新：只要最长边还超就降
+while (maxOf(w / 2, h / 2) >= target)
+```
+
+**实测影响**（target = 1024）：
+
+| 原尺寸 | 旧 | 新 |
+|---|---|---|
+| **2048×1536** | **2048×1536（没降！）** | 1024×768 |
+| 5760×3840 | 2880×1920 | 1440×960 |
+| 5000×1500 | 5000×1500（没降！） | 1250×375 |
+
+2048×1536 不降 = 每帧 `copy()` **12 MB** → 渲染一帧约 600ms
+→ 拖滑块（60fps 每帧发请求）永远追不上 → **预览不实时**。
+
+**不变量**：降采样后最长边 ∈ `[target, 2*target)`。
+
+> ⚠️ **教训**：旧测试曾把 bug 写成断言
+> （`assertEquals(1, calculateInSampleSize(5000, 1500, 1024))`）。
+> **把 bug 固化成断言的测试比没有测试更危险** —— 它会阻止后来者修复。
+
+### 5.7 批量页：只有当前页该参与渲染
+
+`HorizontalPager` 会短暂组合相邻页。若每个 `WatermarkPreview`
+都建缓冲池 + 引擎并提交渲染，会：
+- 每实例一套三缓冲（大图各占数 MB）
+- 拖参数时全部触发渲染，但相邻页 `bitmap == null`，结果用不到
+- 实测 `submit` 579 次 vs `result` 143 次 —— 大量无效渲染抢资源
+
+**修法**：`WatermarkPreview(enabled = isCurrent)`。
+`enabled=false` 时不提交渲染、直接回显源图；
+`enabled` 进 `LaunchedEffect` key，滑到该页时立即补渲染。
+
 ---
 
 ## 6. 资源共享与冲突预案
@@ -323,6 +363,15 @@ git log --oneline --since='2 hours ago'
 > 格式：时间 + 会话干了什么 + 留下什么未决。
 
 ```
+[2026-10-13 23:2x] 批量页预览不实时（两个独立原因）
+  - 提交 afd79b6，ahead 22，单测 397
+  - ① 主因：calculateInSampleSize 用 && → 非正方形图完全不降采样
+        （2048×1536 没降 → 每帧 12MB → 600ms/帧，滑块追不上）
+        修法：改 maxOf(w/2, h/2) >= target
+  - ② 相邻页也在跑渲染（pager 预加载）→ 新增 enabled 参数
+  - ⚠️ 重写 BitmapUtilsSampleSizeTest：旧测试把 bug 写成了断言
+  - ⏳ 等人类验证批量页拖参数是否跟手
+
 [2026-10-13 23:3x] 建立多会话协作机制
   - 提交 d43eaf0，ahead 20
   - 新增 docs/multi-session-collaboration.md（本文档）
@@ -336,7 +385,7 @@ git log --oneline --since='2 hours ago'
   - 顺带：reuseTarget 加 try/finally、新增 onRendered 回调
   - ⏳ 等人类验证四个滑块是否还闪
   - ⏳ 批量失败：logcat 已清空，代码已加诊断日志，等人类复现
-  - 遗留：ahead 20 个提交待人类明示后推送
+  - 遗留：ahead 22 个提交待人类明示后推送
 ```
 
 ---
