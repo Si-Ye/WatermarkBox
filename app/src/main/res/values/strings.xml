@@ -43,6 +43,8 @@
     <string name="onboarding_p5_title">更多在这里</string>
     <string name="onboarding_p5_body">语言、导出默认值、使用教程、检查更新……都在设置里。</string>
     <string name="common_whats_this">查看说明</string>
+    <string name="about_build_debug">Debug 版</string>
+    <string name="about_build_release">Release 版</string>
     <string name="common_clear">清除</string>
     <string name="common_current">当前</string>
 

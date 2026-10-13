@@ -17,6 +17,7 @@ import com.watermarkbox.util.FileNameResolver
 import com.watermarkbox.watermark.WatermarkRenderer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.core.net.toUri
 
 /**
  * 批量水印处理 Worker。
@@ -60,7 +61,7 @@ class BatchWatermarkWorker(
         val exportSettings = JsonCodec.decodeExportSettings(
             inputData.getString(KEY_EXPORT_SETTINGS)
         )
-        val logoUri = inputData.getString(KEY_LOGO_URI)?.let { Uri.parse(it) }
+        val logoUri = inputData.getString(KEY_LOGO_URI)?.let { it.toUri() }
         val logoBitmap = logoUri?.let { loadLogo(it) }
 
         // 隐藏水印：内容在入队前已解析好（避免 Worker 内再算一次设备/时间，
@@ -131,7 +132,7 @@ class BatchWatermarkWorker(
         var rendered: Bitmap? = null
         var stamped: Bitmap? = null
         return try {
-            val uri = Uri.parse(uriString)
+            val uri = uriString.toUri()
             // 全分辨率加载 + 内存预检：放不下就把这一张记为失败，
             // 而不是让后续的 source.copy() 把整个批量任务带走
             val outcome = BitmapUtils.loadFullResolution(

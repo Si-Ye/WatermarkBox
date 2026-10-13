@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 /**
  * 编辑页 UI 状态。
@@ -208,7 +209,7 @@ class EditorViewModel(application: Application) :
             // 若用户已手动选过 logo（logoBitmap 非空）则不覆盖。
             val defaultLogo = defaults.defaultLogoUri
             if (defaultLogo != null && _uiState.value.logoBitmap == null) {
-                runCatching { Uri.parse(defaultLogo) }
+                runCatching { defaultLogo.toUri() }
                     .getOrNull()
                     ?.let { loadLogo(it) }
             }
@@ -706,7 +707,7 @@ class EditorViewModel(application: Application) :
         val logoUri = preset.imageStyle.logoUri
         if (logoUri != null && _uiState.value.logoBitmap == null) {
             viewModelScope.launch {
-                runCatching { Uri.parse(logoUri) }
+                runCatching { logoUri.toUri() }
                     .getOrNull()
                     ?.let { loadLogo(it) }
             }

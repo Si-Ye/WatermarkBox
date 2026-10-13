@@ -81,6 +81,7 @@ import com.watermarkbox.util.AppLanguage
 import com.watermarkbox.util.ApkInstaller
 import com.watermarkbox.util.UpdateChecker
 import kotlin.math.roundToInt
+import androidx.core.net.toUri
 
 /**
  * 设置页的分类。
@@ -363,7 +364,7 @@ private fun UpdateChecker.ErrorKind.messageRes(): Int = when (this) {
 private fun openUrl(context: Context, url: String) {
     runCatching {
         context.startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            Intent(Intent.ACTION_VIEW, url.toUri())
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }

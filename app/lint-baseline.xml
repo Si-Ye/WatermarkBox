@@ -2,50 +2,6 @@
 <issues format="6" by="lint 9.0.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.0.0)" variant="all" version="9.0.0">
 
     <issue
-        id="UnusedAttribute"
-        message="Attribute `localeConfig` is only used in API level 33 and higher (current min is 31)"
-        errorLine1="        android:localeConfig=&quot;@xml/locales_config&quot;"
-        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/AndroidManifest.xml"
-            line="37"
-            column="9"/>
-    </issue>
-
-    <issue
-        id="RedundantLabel"
-        message="Redundant label can be removed"
-        errorLine1="            android:label=&quot;@string/app_name&quot;"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/AndroidManifest.xml"
-            line="45"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="VectorRaster"
-        message="Limit vector icons sizes to 200×200 to keep icon drawing fast; see https://developer.android.com/studio/write/vector-asset-studio#when for more"
-        errorLine1="    android:width=&quot;1024dp&quot;"
-        errorLine2="                   ~~~~~~">
-        <location
-            file="src/main/res/drawable/ic_app_logo.xml"
-            line="13"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="LocalContextResourcesRead"
-        message="Reading Resources using LocalContext.current.resources"
-        errorLine1="            context.resources.getIdentifier("
-        errorLine2="            ~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/screen/settings/AboutScreen.kt"
-            line="422"
-            column="13"/>
-    </issue>
-
-    <issue
         id="ModifierFactoryExtensionFunction"
         message="Modifier factory functions should be extensions on Modifier"
         errorLine1="private fun watermarkDragModifier("
@@ -109,17 +65,6 @@
             file="src/main/java/com/watermarkbox/ui/screen/settings/SettingsScreen.kt"
             line="123"
             column="5"/>
-    </issue>
-
-    <issue
-        id="DiscouragedApi"
-        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
-        errorLine1="            context.resources.getIdentifier("
-        errorLine2="                              ~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/screen/settings/AboutScreen.kt"
-            line="422"
-            column="31"/>
     </issue>
 
     <issue
@@ -189,183 +134,6 @@
     </issue>
 
     <issue
-        id="HardwareIds"
-        message="Using `getString` to get device identifiers is not recommended"
-        errorLine1="            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)"
-        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/invisible/InvisibleContentResolver.kt"
-            line="74"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="IconDuplicates"
-        message="The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp">
-        <location
-            file="src/main/res/mipmap-hdpi/ic_launcher_round.webp"/>
-        <location
-            file="src/main/res/mipmap-hdpi/ic_launcher.webp"/>
-    </issue>
-
-    <issue
-        id="IconDuplicates"
-        message="The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp">
-        <location
-            file="src/main/res/mipmap-mdpi/ic_launcher_round.webp"/>
-        <location
-            file="src/main/res/mipmap-mdpi/ic_launcher.webp"/>
-    </issue>
-
-    <issue
-        id="IconDuplicates"
-        message="The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp">
-        <location
-            file="src/main/res/mipmap-xhdpi/ic_launcher_round.webp"/>
-        <location
-            file="src/main/res/mipmap-xhdpi/ic_launcher.webp"/>
-    </issue>
-
-    <issue
-        id="IconDuplicates"
-        message="The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp">
-        <location
-            file="src/main/res/mipmap-xxhdpi/ic_launcher_round.webp"/>
-        <location
-            file="src/main/res/mipmap-xxhdpi/ic_launcher.webp"/>
-    </issue>
-
-    <issue
-        id="IconDuplicates"
-        message="The following unrelated icon files have identical contents: ic_launcher.webp, ic_launcher_round.webp">
-        <location
-            file="src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp"/>
-        <location
-            file="src/main/res/mipmap-xxxhdpi/ic_launcher.webp"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="            Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {"
-        errorLine2="                                       ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/screen/settings/AboutScreen.kt"
-            line="629"
-            column="40"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="            data = Uri.parse(&quot;package:${context.packageName}&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/util/ApkInstaller.kt"
-            line="81"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="            data = Uri.parse(&quot;package:${context.packageName}&quot;)"
-        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/util/ApkInstaller.kt"
-            line="81"
-            column="20"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                val uri = encoded.takeIf { it.isNotEmpty() }?.let { Uri.parse(it) }"
-        errorLine2="                                                                    ~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/navigation/AppNavigation.kt"
-            line="228"
-            column="69"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                    .mapNotNull { runCatching { Uri.parse(Uri.decode(it)) }.getOrNull() }"
-        errorLine2="                                                ~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/navigation/AppNavigation.kt"
-            line="268"
-            column="49"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="            runCatching { Uri.parse(logoUri) }.getOrNull()?.let { loadLogo(it) }"
-        errorLine2="                          ~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/screen/batch/BatchViewModel.kt"
-            line="528"
-            column="27"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="        val logoUri = inputData.getString(KEY_LOGO_URI)?.let { Uri.parse(it) }"
-        errorLine2="                                                               ~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/worker/BatchWatermarkWorker.kt"
-            line="61"
-            column="64"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="            val uri = Uri.parse(uriString)"
-        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/worker/BatchWatermarkWorker.kt"
-            line="124"
-            column="23"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `Bitmap.scale` instead?"
-        errorLine1="        return Bitmap.createScaledBitmap(source, w, h, true)"
-        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/util/BitmapUtils.kt"
-            line="138"
-            column="16"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                runCatching { Uri.parse(defaultLogo) }"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/screen/editor/EditorViewModel.kt"
-            line="176"
-            column="31"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="                runCatching { Uri.parse(logoUri) }"
-        errorLine2="                              ~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/screen/editor/EditorViewModel.kt"
-            line="629"
-            column="31"/>
-    </issue>
-
-    <issue
         id="UseKtx"
         message="Use the KTX extension function `Canvas.withRotation` instead?"
         errorLine1="        native.save()"
@@ -374,17 +142,6 @@
             file="src/main/java/com/watermarkbox/ui/screen/presets/PresetEditScreen.kt"
             line="348"
             column="9"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `String.toUri` instead?"
-        errorLine1="            Intent(Intent.ACTION_VIEW, Uri.parse(url))"
-        errorLine2="                                       ~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/watermarkbox/ui/screen/settings/SettingsScreen.kt"
-            line="364"
-            column="40"/>
     </issue>
 
     <issue
@@ -452,5 +209,18 @@
             line="658"
             column="9"/>
     </issue>
+<!--
+  mipmap-anydpi-v26 保留 v26 限定符是有意的：
+  实测把自适应图标 XML 放到纯 mipmap-anydpi 后，AAPT 解析不到
+  @mipmap/ic_launcher（minSdk=26 下 lint 认为版本限定多余，但去掉就构建失败）。
+  验证方式：去掉 -v26 → ./gradlew :app:assembleDebug 报 "resource mipmap/ic_launcher not found"。
+-->
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 26. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
 
 </issues>

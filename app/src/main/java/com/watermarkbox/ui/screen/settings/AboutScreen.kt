@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -67,6 +68,7 @@ import com.watermarkbox.data.model.AppLicense
 import com.watermarkbox.data.model.Credit
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.theme.Spacing
+import androidx.core.net.toUri
 
 /**
  * 关于页。
@@ -230,8 +232,76 @@ fun AboutScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            Spacer(Modifier.height(Spacing.Item))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            Spacer(Modifier.height(Spacing.Item))
+
+            // ---- 构建信息（页脚）----
+            BuildInfoFooter()
+
             Spacer(Modifier.height(32.dp))
         }
+    }
+}
+
+/**
+ * 页脚：**构建类型 + 实际安装包名**。
+ *
+ * ## 为什么值得显示
+ *
+ * 同一个应用常有多个可安装产物：debug（便于抓日志）与 release（正式）。
+ * 两者图标一样、界面几乎一样 —— 反馈问题时第一句往往是
+ * 「你装的是哪个包」。与其来回问，不如直接写在关于页最底部。
+ *
+ * 顺带显示 **实际安装包名**（`BuildConfig.APPLICATION_ID`）：
+ * 它比版本号更能定位到具体产物（不同后缀 = 不同包，可以并存安装）。
+ *
+ * ## 为什么放在整页最底部
+ *
+ * 这是「需要时才查」的信息，不该挤在显眼处抢注意力；
+ * 放在版权之后，翻到底就能看到。
+ */
+@Composable
+private fun BuildInfoFooter() {
+    val isDebug = BuildConfig.DEBUG
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(
+                    if (isDebug) {
+                        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                    }
+                )
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = stringResource(
+                    if (isDebug) R.string.about_build_debug else R.string.about_build_release
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = if (isDebug) {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            text = BuildConfig.APPLICATION_ID,
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -308,10 +378,12 @@ private fun AppIdentityHeader(onCheckUpdate: () -> Unit = {}) {
 /**
  * 单个制作人卡片：头像 + 名字 + 角色 + QQ。
  *
- * 头像用资源**名称**解析（`AppCredits.LEAD_AVATAR_NAME`），解析不到时
- * 退回一个占位图标 —— 这样即使资源没打包进来也不会崩，
- * 只是少张图。相比把 `R.drawable.xxx` 写死在 model 层，
- * 这种方式让 `AppCredits` 保持为纯数据、可单测。
+ * 头像资源 id 由 [AppCredits] 直接持有（`R.drawable.siye_avatar`）；
+ * 取不到时退回一个占位图标 —— 即使资源没打包进来也不会崩，只是少张图。
+ *
+ * 早先这里用的是「按名字反射查表」（`AppCredits.LEAD_AVATAR_NAME`）。
+ * 那种做法让 lint 看不见资源被引用，清理未使用资源时被误删过 ——
+ * 详见 [Avatar] 的注释。
  */
 @Composable
 private fun CreditCard(
@@ -411,23 +483,18 @@ private fun localizedCreditRole(role: String): String {
 /**
  * 圆形头像。
  *
- * 资源按名称解析：`siye_avatar` → `R.drawable.siye_avatar`。
- * 解析不到就用 `Person` 占位图标。
+ * ## 为什么改成直接读 [Credit.avatarRes]（曾经按名字反射）
+ *
+ * 早先用 `resources.getIdentifier("siye_avatar", …)` 按名称查表 ——
+ * 代价很实在：lint 看不见这条引用，清理「未使用资源」时把头像文件删了，
+ * 头像悄悄变成占位图标；而且反射查表在构建期无法校验。
+ *
+ * 现在资源 id 由 [AppCredits] 直接持有：lint 看得见、删不掉，
+ * 写错编译期就报。取不到 id 时仍退回 `Person` 占位图标，保证不崩。
  */
 @Composable
 private fun Avatar(credit: Credit) {
-    val context = LocalContext.current
-    val resId = if (credit.isLead) {
-        remember(context) {
-            context.resources.getIdentifier(
-                AppCredits.LEAD_AVATAR_NAME,
-                "drawable",
-                context.packageName
-            ).takeIf { it != 0 }
-        }
-    } else {
-        null
-    }
+    val resId = credit.avatarRes
 
     Box(
         modifier = Modifier
@@ -626,7 +693,7 @@ private fun copyToClipboard(context: Context, label: String, text: String) {
 private fun openUrl(context: Context, url: String): Boolean {
     return try {
         context.startActivity(
-            Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            Intent(Intent.ACTION_VIEW, url.toUri()).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
         )

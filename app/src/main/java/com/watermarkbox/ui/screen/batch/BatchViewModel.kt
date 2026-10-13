@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 /**
  * 批量处理页 UI 状态。
@@ -597,7 +598,7 @@ class BatchViewModel(application: Application) :
         }
         val logoUri = preset.imageStyle.logoUri
         if (logoUri != null && _uiState.value.logoBitmap == null) {
-            runCatching { Uri.parse(logoUri) }.getOrNull()?.let { loadLogo(it) }
+            runCatching { logoUri.toUri() }.getOrNull()?.let { loadLogo(it) }
         }
     }
 

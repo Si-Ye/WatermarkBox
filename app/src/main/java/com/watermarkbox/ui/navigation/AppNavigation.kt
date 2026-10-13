@@ -52,6 +52,7 @@ import com.watermarkbox.ui.screen.tutorial.TutorialScreen
 import com.watermarkbox.ui.screen.settings.SettingsViewModel
 import com.watermarkbox.ui.screen.update.UpdateViewModel
 import com.watermarkbox.util.PresetFileCodec
+import androidx.core.net.toUri
 
 /**
  * 页面切换动效时长（毫秒）。
@@ -355,7 +356,7 @@ fun WatermarkBoxNavHost(
                 )
             ) { backStackEntry ->
                 val encoded = backStackEntry.arguments?.getString("uri").orEmpty()
-                val uri = encoded.takeIf { it.isNotEmpty() }?.let { Uri.parse(it) }
+                val uri = encoded.takeIf { it.isNotEmpty() }?.let { it.toUri() }
 
                 val editorViewModel: EditorViewModel = viewModel()
 
@@ -395,7 +396,7 @@ fun WatermarkBoxNavHost(
                 val raw = backStackEntry.arguments?.getString("uris").orEmpty()
                 val uris = raw.split(",")
                     .filter { it.isNotBlank() }
-                    .mapNotNull { runCatching { Uri.parse(Uri.decode(it)) }.getOrNull() }
+                    .mapNotNull { runCatching { Uri.decode(it).toUri() }.getOrNull() }
 
                 val batchViewModel: BatchViewModel = viewModel()
 

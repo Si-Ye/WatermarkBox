@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import java.io.InputStream
+import androidx.core.graphics.scale
 
 /**
  * 全分辨率加载的结果。
@@ -231,6 +232,6 @@ object BitmapUtils {
         val scale = maxEdge.toFloat() / maxSide
         val w = (source.width * scale).toInt().coerceAtLeast(1)
         val h = (source.height * scale).toInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(source, w, h, true)
+        return source.scale(w, h)
     }
 }

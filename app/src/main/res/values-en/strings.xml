@@ -38,6 +38,8 @@
     <string name="onboarding_p5_title">More lives here</string>
     <string name="onboarding_p5_body">Language, export defaults, the tutorial, update checks — all in Settings.</string>
     <string name="common_whats_this">View description</string>
+    <string name="about_build_debug">Debug build</string>
+    <string name="about_build_release">Release build</string>
     <string name="common_clear">Clear</string>
     <string name="common_current">Current</string>
 

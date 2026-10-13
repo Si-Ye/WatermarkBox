@@ -1,5 +1,6 @@
 package com.watermarkbox.invisible
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
@@ -64,12 +65,23 @@ object InvisibleContentResolver {
     }
 
     /**
-     * 取设备短 ID（8 位十六进制）。
-     *
-     * 失败时回退到 Build 指纹的哈希 —— 保证**永远有值**，
-     * 因为隐藏水印的可用性比 ID 的绝对唯一性更重要。
-     */
-    fun deviceShortId(context: Context): String {
+ * 取设备短 ID（8 位十六进制）。
+ *
+ * 失败时回退到 Build 指纹的哈希 —— 保证**永远有值**，
+ * 因为隐藏水印的可用性比 ID 的绝对唯一性更重要。
+ *
+ * ## 关于 lint 的 `HardwareIds`
+ *
+ * lint 不建议读取设备标识符（担心被拿去追踪用户）。
+ * 这里**刻意**这么做，理由是用途不同：
+ * 这串 ID 会被嵌进**图片文件本身**，用于回答「这张图是哪台设备导出的」——
+ * 用户导出图片时的预期就是「带上我的设备标识」。
+ *
+ * 而且它只取 `ANDROID_ID`（可重置、非硬件序列号），再经稳定哈希压到 8 位，
+ * 不落库、不上传（应用根本没有网络权限）。
+ */
+@SuppressLint("HardwareIds")
+fun deviceShortId(context: Context): String {
         val androidId = runCatching {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
         }.getOrNull()

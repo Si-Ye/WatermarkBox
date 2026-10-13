@@ -13,6 +13,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
 import java.net.URL
+import androidx.core.net.toUri
 
 /**
  * 应用内下载与安装新版本 APK（实验性功能）。
@@ -75,7 +76,7 @@ object ApkInstaller {
     fun openInstallPermissionSettings(context: Context) {
         // 同上：minSdk=26，ACTION_MANAGE_UNKNOWN_APP_SOURCES 一定可用
         val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-            data = Uri.parse("package:${context.packageName}")
+            data = "package:${context.packageName}".toUri()
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         runCatching { context.startActivity(intent) }

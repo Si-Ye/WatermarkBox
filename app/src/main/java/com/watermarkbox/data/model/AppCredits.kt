@@ -1,5 +1,8 @@
 package com.watermarkbox.data.model
 
+import androidx.annotation.DrawableRes
+import com.watermarkbox.R
+
 /**
  * 制作人名单。
  *
@@ -25,14 +28,31 @@ data class Credit(
  * 应用制作人。
  *
  * **顺序即展示顺序，第 1 位是主创。**
+ *
+ * ## 为什么头像改用 `R.drawable.*` 直接引用（曾经按名字反射）
+ *
+ * 早先这里只存一个名字常量（`LEAD_AVATAR_NAME = "siye_avatar"`），
+ * 由界面层用 `resources.getIdentifier()` 反射查表 —— 初衷是
+ * 「让数据层不依赖 R」。代价有三条，后来都真的咬到人了：
+ *
+ * 1. **资源会被误删**：lint 看不见反射引用，把 `siye_avatar.png`
+ *    判成「未使用资源」，清理时删掉 → 头像悄悄变成占位图标
+ * 2. 改名 / 挪目录在构建期无法校验，只能等运行时才发现
+ * 3. lint 为此报 `DiscouragedApi` 与 `LocalContextResourcesRead`
+ *
+ * 直接引用 id 后这三条同时消失。数据层引用 `R` 在本项目已有先例
+ * （`ReleaseHistory` 引用 `R.string.*`），不算破例。
  */
 object AppCredits {
 
-    /** 主创肆叶的头像 drawable 名称（用于按名称解析资源，避免在 model 层依赖 R）。 */
-    const val LEAD_AVATAR_NAME: String = "siye_avatar"
-
     val entries: List<Credit> = listOf(
-        Credit(name = "肆叶🍃", isLead = true, role = "主创", qq = "3992766503"),
+        Credit(
+            name = "肆叶🍃",
+            isLead = true,
+            role = "主创",
+            qq = "3992766503",
+            avatarRes = R.drawable.siye_avatar
+        ),
         Credit(name = "Operit", isLead = false, role = "开发协助")
     )
 
