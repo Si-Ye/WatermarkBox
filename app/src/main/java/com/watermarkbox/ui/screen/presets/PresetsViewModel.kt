@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.ContentResolver
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.watermarkbox.R
@@ -56,6 +58,7 @@ sealed interface PresetImportOutcome {
 /**
  * 首页「水印预设」页的 UI 状态。
  */
+@Immutable
 data class PresetsUiState(
     val presets: List<WatermarkPreset> = emptyList(),
     /** 是否已从磁盘加载完成（避免闪一下空状态） */
@@ -86,6 +89,7 @@ data class PresetsUiState(
  * 编辑页的 ViewModel 与图片加载强绑定，从首页跨越过去
  * 需要把 presetId 通过路由传递，由编辑页自己应用。
  */
+@Stable
 class PresetsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsRepository = SettingsRepository(application)

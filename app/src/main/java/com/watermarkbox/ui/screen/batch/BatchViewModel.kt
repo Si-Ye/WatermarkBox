@@ -3,6 +3,8 @@ package com.watermarkbox.ui.screen.batch
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.Data
@@ -38,6 +40,7 @@ import kotlinx.coroutines.launch
 /**
  * 批量处理页 UI 状态。
  */
+@Immutable
 data class BatchUiState(
     /** 待处理的图片 Uri 列表 */
     val images: List<Uri> = emptyList(),
@@ -116,6 +119,7 @@ data class BatchUiState(
  * - 通过 WorkManager 启动 [BatchWatermarkWorker]
  * - 观察 WorkInfo 上报进度与最终统计
  */
+@Stable
 class BatchViewModel(application: Application) :
     AndroidViewModel(application),
     WatermarkPanelHost {

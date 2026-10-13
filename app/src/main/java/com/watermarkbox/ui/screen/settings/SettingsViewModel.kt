@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.screen.settings
 
 import android.app.Application
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.watermarkbox.data.model.ExportFormat
@@ -31,6 +32,7 @@ data class SettingsUiState(
  *
  * 注：更新流程不在这里，见 [com.watermarkbox.ui.screen.update.UpdateViewModel]
  */
+@Stable
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepository = SettingsRepository(application)
     private val _uiState = MutableStateFlow(SettingsUiState())

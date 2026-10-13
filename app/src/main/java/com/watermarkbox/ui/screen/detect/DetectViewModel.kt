@@ -2,6 +2,8 @@ package com.watermarkbox.ui.screen.detect
 
 import android.app.Application
 import android.net.Uri
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.watermarkbox.invisible.DetectOptions
@@ -16,6 +18,7 @@ import kotlinx.coroutines.launch
 /**
  * 隐藏水印检测页 UI 状态。
  */
+@Immutable
 data class DetectUiState(
     /** 选中的图片 */
     val imageUri: Uri? = null,
@@ -32,6 +35,7 @@ data class DetectUiState(
  *
  * 流程：选图 → 后台检测（按 [DetectOptions] 决定查哪些通道）→ 展示结果。
  */
+@Stable
 class DetectViewModel(application: Application) : AndroidViewModel(application) {
 
     private val detector = WatermarkDetector(application)

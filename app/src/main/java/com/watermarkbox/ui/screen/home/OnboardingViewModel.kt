@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.screen.home
 
 import android.app.Application
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
  * 放在这里、由导航层持有，职责也更清楚：
  * 「该不该显示引导」是**应用级**状态，不属于首页本身。
  */
+@Stable
 class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = SettingsRepository(application)

@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.screen.editor
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.Immutable
 import com.watermarkbox.data.model.ImageWatermarkStyle
 import com.watermarkbox.data.model.InvisibleWatermarkConfig
 import com.watermarkbox.data.model.TextWatermarkStyle
@@ -38,6 +39,17 @@ import com.watermarkbox.data.model.WatermarkType
  *   用标志位而非「传 null 就是不支持」，是为了让 UI 语义显式：
  *   "这里不该出现这个分区" 和 "这个分区暂时没有数据" 是两回事。
  */
+/**
+ * ## 为什么标 `@Immutable`
+ *
+ * 类里有 `logoBitmap: Bitmap?`，而 `Bitmap` 是外部类型、编译器无法证明其稳定性 ——
+ * 一颗位图就把整个类拖成 unstable，于是 [WatermarkPanel] 不可跳过
+ * （每次重组都要重建整个面板，拖动时每帧一次）。
+ *
+ * `@Immutable` 在本类是成立的：这是**只读快照**，
+ * 位图变更时调用方会换一个新实例进来，不会原地修改。
+ */
+@Immutable
 data class WatermarkPanelState(
     val watermarkType: WatermarkType = WatermarkType.TEXT,
     val config: TextWatermarkStyle = TextWatermarkStyle.Default,

@@ -1,5 +1,6 @@
 package com.watermarkbox.ui.screen.editor
 
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.Color
 import com.watermarkbox.data.model.FontFamilyOption
 import com.watermarkbox.data.model.GravityPosition
@@ -31,6 +32,20 @@ import com.watermarkbox.data.model.WatermarkType
  * @see WatermarkPanel
  * @see com.watermarkbox.ui.screen.presets.PresetEditViewModel
  */
+/**
+ * ## 为什么标 `@Stable`
+ *
+ * 这是个**只有回调方法的接口**。Compose 编译器分析不了接口的实现，
+ * 默认按 unstable 处理 —— 后果是所有把本接口当参数的 Composable
+ * （首当其冲的是 [WatermarkPanel]）都**不可跳过**，每次重组都要重跑整个面板。
+ *
+ * 面板里有几十个控件，而拖动面板高度时每帧都会重组 ——
+ * 于是每帧全量重建一次面板，手感就是「拖起来发涩」。
+ *
+ * 标注 `@Stable` 是安全的：实现只有 ViewModel 一个，实例恒定、
+ * `equals` 就是引用相等；真正的状态变化走 StateFlow 通知，不靠这儿。
+ */
+@Stable
 interface WatermarkPanelHost {
 
     // ---------------- 水印类型 ----------------

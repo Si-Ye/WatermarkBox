@@ -1,5 +1,6 @@
 package com.watermarkbox.ui.onboarding
 
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.update
  * Compose 需要知道「变了」才能重绘遮罩。用 `MutableStateFlow`
  * 让这层变化自动传播。
  */
+@Stable
 class OnboardingTargetRegistry {
 
     private val _bounds = MutableStateFlow<Map<OnboardingTarget, Rect>>(emptyMap())

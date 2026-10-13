@@ -1,6 +1,8 @@
 package com.watermarkbox.ui.screen.presets
 
 import android.app.Application
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,6 +34,7 @@ import kotlinx.coroutines.launch
  * 没有图片相关的字段（`imageUri` / `previewBitmap` / 尺寸…），因为预设
  * 描述的是「水印长什么样」，与具体图片无关。
  */
+@Immutable
 data class PresetEditUiState(
     /** 是否已从磁盘读入原预设（false 时 UI 显示加载中，避免闪一下默认值） */
     val loaded: Boolean = false,
@@ -99,6 +102,7 @@ fun PresetEditUiState.toPanelState(): WatermarkPanelState = WatermarkPanelState(
  * 内嵌），不是路径。本页没有选图入口，所以只能编辑 logo 的**样式**
  * （大小 / 位置 / 透明度…），不能换 logo 本身。UI 会给出说明。
  */
+@Stable
 class PresetEditViewModel(application: Application) : AndroidViewModel(application), WatermarkPanelHost {
 
     private val settingsRepository = SettingsRepository(application)

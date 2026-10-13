@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.screen.update
 
 import android.app.Application
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.watermarkbox.BuildConfig
@@ -86,6 +87,7 @@ sealed interface UpdateUiState {
  * 「自动检查」「应用内下载」两个开关属于设置数据，仍由
  * [SettingsRepository] 持久化；这里只负责流程编排。
  */
+@Stable
 class UpdateViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsRepository = SettingsRepository(application)

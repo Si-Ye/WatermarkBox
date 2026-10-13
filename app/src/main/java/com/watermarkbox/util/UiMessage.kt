@@ -3,6 +3,7 @@ package com.watermarkbox.util
 import androidx.annotation.AnyRes
 import androidx.annotation.PluralsRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
@@ -48,6 +49,7 @@ import androidx.compose.ui.res.stringResource
  * @param pluralCount 非 null 时表示 [resId] 指向 **plurals** 资源，
  *                    此值即用于选择单复数形式的数量
  */
+@Immutable
 data class UiMessage(
     @param:AnyRes val resId: Int,
     val args: List<Any> = emptyList(),

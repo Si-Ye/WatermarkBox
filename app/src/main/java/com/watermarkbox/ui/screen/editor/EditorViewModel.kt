@@ -3,6 +3,8 @@ package com.watermarkbox.ui.screen.editor
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.watermarkbox.R
@@ -35,6 +37,7 @@ import kotlinx.coroutines.launch
 /**
  * 编辑页 UI 状态。
  */
+@Immutable
 data class EditorUiState(
     /** 选中的图片 Uri */
     val imageUri: Uri? = null,
@@ -90,6 +93,7 @@ data class EditorUiState(
  * - 导出：用全分辨率原图重新渲染并写入 MediaStore
  * - 预设：保存/应用/删除（持久化在 DataStore）
  */
+@Stable
 class EditorViewModel(application: Application) :
     AndroidViewModel(application),
     WatermarkPanelHost {
