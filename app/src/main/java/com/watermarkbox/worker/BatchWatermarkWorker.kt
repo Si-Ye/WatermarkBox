@@ -156,7 +156,12 @@ class BatchWatermarkWorker(
             val outcome = BitmapUtils.loadFullResolution(
                 context = applicationContext,
                 uri = uri,
-                copies = BitmapBudget.EXPORT_COPIES
+                // 按**本次实际**需要几份位图来算预算。
+                //
+                // 链路峰值：原图 + 渲染结果 + （开了 DCT 才有）频域副本。
+                // 早期固定传 3，导致「只写 EXIF、不开 DCT」的用户
+                // 也被按 3 份扣预算 —— 白白砍掉 1/3，大图直接判"太大"。
+                copies = BitmapBudget.exportCopies(withDct = invisibleDct)
             )
             when (outcome) {
                 is BitmapLoadOutcome.Ok -> source = outcome.bitmap

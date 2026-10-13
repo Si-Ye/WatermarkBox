@@ -27,6 +27,26 @@
     -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+        largeHeap：把进程堆上限从 heapgrowthlimit(256MB) 提到 heapsize(512MB)。
+
+        ## 为什么这个应用需要它
+
+        导出/批量/频域检测都要按**原分辨率**处理位图：
+        一张 1200 万像素的 ARGB_8888 就是 48 MB，
+        而链路峰值会同时存在 2~3 份（原图 + 渲染结果 + 频域副本）。
+
+        不开 largeHeap 时，`BitmapBudget` 按 256MB × 0.5 ÷ 3 算出的
+        上限只有 **42.7 MB/张** —— 也就是**超过约 1120 万像素的图
+        会被直接判为「太大」而失败**。而绝大多数手机随手一拍
+        就是 1200 万像素以上，于是表现为「图片稍微大一点就导出失败」。
+
+        ## 代价与取舍
+
+        `largeHeap` 让系统在内存紧张时**更早**回收本进程，
+        但本应用是前台交互型（用户导出完就走），
+        且导出期间本来就需要这份内存 —— 比「导出直接失败」划算得多。
+    -->
     <application
         android:name=".WatermarkBoxApp"
         android:allowBackup="true"
@@ -34,6 +54,7 @@
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:largeHeap="true"
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"

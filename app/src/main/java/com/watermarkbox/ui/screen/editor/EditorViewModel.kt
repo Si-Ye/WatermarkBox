@@ -420,7 +420,16 @@ class EditorViewModel(application: Application) :
             try {
                 // 全分辨率加载：先过内存预检 —— 放不下就明确告知，
                 // 不去渲染阶段炸（那里没有任何兜底）
-                when (val outcome = imageRepository.loadFullResolutionBitmap(uri)) {
+                //
+                // 按本次**实际**需要的份数算预算：只有开了 DCT 隐藏水印
+                // 才会有第三份「频域副本」。早期固定按 3 份扣，
+                // 导致大图在没开 DCT 时也被判"太大"。
+                when (
+                    val outcome = imageRepository.loadFullResolutionBitmap(
+                        uri = uri,
+                        withDct = _uiState.value.invisibleConfig.dctEnabled
+                    )
+                ) {
                     is BitmapLoadOutcome.TooLarge -> {
                         _uiState.update {
                             it.copy(

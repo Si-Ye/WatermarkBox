@@ -71,14 +71,24 @@ class ImageRepository(private val context: Context) {
      * 带内存预检：放不下时返回 [BitmapLoadOutcome.TooLarge]，
      * 由 UI 明确告诉用户「图太大」，而不是等渲染阶段的 `source.copy()` 崩掉。
      *
-     * 导出链路峰值按 3 份同位图估算：原图 + 渲染结果 + 频域副本。
+     * @param withDct 本次导出是否会走 DCT 嵌入。
+     *                会 → 峰值 3 份（原图 + 渲染结果 + 频域副本）；
+     *                不会 → 只需 2 份。
+     *
+     *                **为什么必须区分**：早期固定按 3 份扣预算，
+     *                导致"只写 EXIF"的用户也被多扣 1/3，
+     *                大图直接判 TooLarge（实测 256MB 堆下上限仅
+     *                约 1120 万像素，随手拍的照片就超了）。
      */
-    suspend fun loadFullResolutionBitmap(uri: Uri): BitmapLoadOutcome =
+    suspend fun loadFullResolutionBitmap(
+        uri: Uri,
+        withDct: Boolean = true
+    ): BitmapLoadOutcome =
         withContext(Dispatchers.IO) {
             BitmapUtils.loadFullResolution(
                 context = context,
                 uri = uri,
-                copies = BitmapBudget.EXPORT_COPIES
+                copies = BitmapBudget.exportCopies(withDct = withDct)
             )
         }
 

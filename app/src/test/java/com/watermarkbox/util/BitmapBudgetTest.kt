@@ -11,10 +11,14 @@ import org.junit.Test
  * 全部用「显式注入堆上限」的方式测 —— 不依赖跑测试那台机器的内存，
  * 断言才是确定的。
  *
- * 判错方向的后果不对称：
- * - 判「放得下」而其实放不下 → 崩
- * - 判「放不下」而其实勉强可以 → 用户少导一张图
- * 所以宁可保守。
+ * ## 判错方向的后果（不对称）
+ *
+ * - 判「放得下」而其实放不下 → **崩溃**
+ * - 判「放不下」而其实可以 → 用户少导一张图（但会明确告知"图太大"）
+ *
+ * 所以宁可保守。但**过度保守也是 bug**：早期按 `0.5` 系数 + 固定 3 份，
+ * 256MB 堆下上限只有 42.7MB（约 1120 万像素），
+ * 导致随手拍的照片就"导出失败" —— 这正是老大实测到的现象。
  */
 class BitmapBudgetTest {
 
@@ -27,47 +31,128 @@ class BitmapBudgetTest {
         assertEquals(6_000_000L, BitmapBudget.bytesOf(1000, 500, copies = 3))
     }
 
+    /**
+     * 预算是堆上限的 60%。
+     *
+     * 历史：早期是 50%。下调到 60% 是因为
+     * API 26+ 位图内存走 NativeAllocationRegistry、不计入 Java 堆，
+     * "留一半给 Java 堆"的前提不成立。
+     */
     @Test
-    fun `预算是堆上限的一半`() {
-        assertEquals(128 * mb, BitmapBudget.budgetBytes(256 * mb))
-        assertEquals(256 * mb, BitmapBudget.budgetBytes(512 * mb))
+    fun `预算是堆上限的六成`() {
+        assertEquals((256 * mb * 0.6).toLong(), BitmapBudget.budgetBytes(256 * mb))
+        assertEquals((512 * mb * 0.6).toLong(), BitmapBudget.budgetBytes(512 * mb))
     }
 
-    /** 常见机型：512 MB 堆 + 1200 万像素（4032×3024）→ 导出三份约 146 MB，放得下。 */
+    // ------------------------------------------------------------------
+    // exportCopies：按实际通道数取份数
+    // ------------------------------------------------------------------
+
     @Test
-    fun `一千二百万像素在中端机上放得下`() {
+    fun `开 DCT 时导出需要三份`() {
+        assertEquals(3, BitmapBudget.exportCopies(withDct = true))
+    }
+
+    /** 只写 EXIF 时没有频域副本，只需 2 份 —— 别多扣 1/3 预算。 */
+    @Test
+    fun `不开 DCT 时导出只需两份`() {
+        assertEquals(2, BitmapBudget.exportCopies(withDct = false))
+    }
+
+    // ------------------------------------------------------------------
+    // 回归：这次修复的核心场景
+    // ------------------------------------------------------------------
+
+    /**
+     * **回归防护**：1200 万像素（手机随手拍）在 256MB 堆下必须能导出。
+     *
+     * 4032×3024 = 1219 万像素，一份 46.5 MB。
+     * - 不开 DCT：2 份 = 93 MB ≤ 256×0.6 = 153.6 MB ✅
+     * - 开 DCT：  3 份 = 139.5 MB ≤ 153.6 MB ✅
+     *
+     * 而旧实现（0.5 系数 + 固定 3 份）预算只有 128 MB，
+     * 3 份 139.5 MB > 128 MB → **判为太大而失败**。
+     */
+    @Test
+    fun `一千二百万像素在256MB堆下应能导出`() {
+        val w = 4032
+        val h = 3024
+        val heap = 256 * mb
+
         assertTrue(
+            "不开 DCT 时必须放得下（旧实现这里会失败）",
             BitmapBudget.fitsFullResolution(
-                width = 4032, height = 3024,
-                copies = BitmapBudget.EXPORT_COPIES,
-                maxHeapBytes = 512 * mb
+                w, h, BitmapBudget.exportCopies(withDct = false), heap
+            )
+        )
+        assertTrue(
+            "开 DCT 时也必须放得下",
+            BitmapBudget.fitsFullResolution(
+                w, h, BitmapBudget.exportCopies(withDct = true), heap
             )
         )
     }
 
-    /** 5000 万像素（8160×6120）导出三份约 598 MB → 512 MB 堆上限下必然放不下。 */
+    /** 512MB 堆（largeHeap 生效）下，2000 万像素也该能过。 */
     @Test
-    fun `五千万像素在中端机上放不下`() {
-        assertFalse(
+    fun `两千万像素在largeHeap下能导出`() {
+        // 5472×3648 = 1996 万像素，一份 76.4 MB；3 份 229 MB ≤ 307 MB ✅
+        assertTrue(
             BitmapBudget.fitsFullResolution(
-                width = 8160, height = 6120,
-                copies = BitmapBudget.EXPORT_COPIES,
-                maxHeapBytes = 512 * mb
+                5472, 3648, BitmapBudget.exportCopies(withDct = true), 512 * mb
             )
         )
     }
 
     /**
-     * 同一张图，「导出三份」放不下、「检测两份」可能放得下 ——
-     * 这正是份数必须区分的原因。
+     * 加 `largeHeap` 后上限翻倍：同一张图可能从"放不下"变"放得下"。
+     *
+     * 用 6000×4500（2700 万像素，一份 103 MB）验证 —— 注意这里**不开 DCT**
+     * （2 份），否则 3 份 = 309 MB 在 512MB 堆下也差一点点（预算 307 MB）。
+     * 正好说明"按实际份数算"的价值：开关 DCT 会改变可行性判断。
      */
     @Test
+    fun `largeHeap 让原本超限的图变可行`() {
+        val copies = BitmapBudget.exportCopies(withDct = false)   // 2 份 = 206 MB
+
+        assertFalse(
+            "256MB 堆预算 153.6MB < 需要的 206MB → 应判放不下",
+            BitmapBudget.fitsFullResolution(6000, 4500, copies, 256 * mb)
+        )
+        assertTrue(
+            "512MB 堆预算 307.2MB ≥ 206MB → 应判放得下",
+            BitmapBudget.fitsFullResolution(6000, 4500, copies, 512 * mb)
+        )
+    }
+
+    // ------------------------------------------------------------------
+    // 边界
+    // ------------------------------------------------------------------
+
+    /** 5000 万像素（8160×6120）三份约 598 MB → 512 MB 堆下必然放不下。 */
+    @Test
+    fun `五千万像素放不下`() {
+        assertFalse(
+            BitmapBudget.fitsFullResolution(
+                width = 8160, height = 6120,
+                copies = BitmapBudget.exportCopies(withDct = true),
+                maxHeapBytes = 512 * mb
+            )
+        )
+    }
+
+    /** 同一张图，「导出三份」放不下、「检测两份」可能放得下。 */
+    @Test
     fun `份数不同结论可以不同`() {
-        val w = 6000
-        val h = 4000          // 2400 万像素：一份 91.5 MB
-        val heap = 512 * mb   // 预算 256 MB
+        val w = 7000
+        val h = 5000          // 3500 万像素：一份 133.5 MB
+        val heap = 512 * mb   // 预算 307 MB
         assertTrue(BitmapBudget.fitsFullResolution(w, h, BitmapBudget.DETECT_COPIES, heap))
-        assertFalse(BitmapBudget.fitsFullResolution(w, h, BitmapBudget.EXPORT_COPIES, heap))
+        assertFalse(
+            BitmapBudget.fitsFullResolution(
+                w, h, BitmapBudget.exportCopies(withDct = true), heap
+            )
+        )
     }
 
     /** 尺寸非法（探测失败）时不能判成「放得下」。 */
@@ -77,11 +162,13 @@ class BitmapBudgetTest {
         assertFalse(BitmapBudget.fitsFullResolution(100, -1, maxHeapBytes = 4L * 1024 * mb))
     }
 
-    /** 1 亿像素即便堆给到 2 GB 也不该通过（3 份 = 1.2 GB）。 */
+    /** 一亿像素即便堆给到 2 GB 也不该通过（3 份 = 1.2 GB）。 */
     @Test
     fun `一亿像素即使大堆也放不下`() {
         assertFalse(
-            BitmapBudget.fitsFullResolution(12000, 9000, BitmapBudget.EXPORT_COPIES, 2048 * mb)
+            BitmapBudget.fitsFullResolution(
+                12000, 9000, BitmapBudget.exportCopies(withDct = true), 2048 * mb
+            )
         )
     }
 
