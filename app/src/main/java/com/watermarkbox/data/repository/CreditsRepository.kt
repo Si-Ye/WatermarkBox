@@ -67,8 +67,8 @@ class CreditsRepository(private val githubUser: String) {
     suspend fun fetchProfile(force: Boolean = false): GitHubProfile? =
         withContext(Dispatchers.IO) {
             val now = System.currentTimeMillis()
-            if (!force) {
-                cached?.let { if (now - cachedAtMs < CACHE_TTL_MS) return@withContext it }
+            if (!force && RepositoryPureLogic.isCacheableProfile(cachedAtMs, now)) {
+                cached?.let { return@withContext it }
             }
             val fetched = runCatching { requestProfile() }.getOrNull()
             if (fetched != null) {
@@ -96,9 +96,10 @@ class CreditsRepository(private val githubUser: String) {
     }
 
     private companion object {
-        /** 缓存时长：6 小时。改头像/昵称后最多半天内跟上，够用又不打扰接口。 */
-        const val CACHE_TTL_MS = 6 * 60 * 60 * 1000L
-
+        /**
+         * 缓存时长：6 小时 —— 定义在 [RepositoryPureLogic] 里，
+         * 那里是「缓存是否有效」这一判断的**唯一实现**（可单测）。
+         */
         const val TIMEOUT_MS = 8_000
 
         /** 带上应用名 + 仓库地址，方便对方在日志里认出调用方。 */

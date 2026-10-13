@@ -1,7 +1,23 @@
 package com.watermarkbox.ui.screen.editor
 
+/**
+ * 水印参数面板（页面 2 的面板主体）。
+ *
+ * ## 文件拆分说明
+ *
+ * 面板内容原本挤在一个 894 行的文件里。拆成三份，划分依据是
+ * **「谁跟谁一起改」** —— 而不是按行数平均切：
+ *
+ * | 文件 | 内容 | 什么时候动它 |
+ * |---|---|---|
+ * | `WatermarkPanel.kt`（本文件） | 类型切换入口 + 面板级小件 + 九宫格映射 | 改面板骨架 / 通用小件 |
+ * | `WatermarkPanelContent.kt` | 文字 / 图片两套参数区 | 改某个可见水印参数 |
+ * | `WatermarkPanelInvisible.kt` | 隐藏水印配置区 | 改隐藏水印（EXIF / DCT） |
+ *
+ * 这样改「字体颜色」只会在 `…Content.kt` 产生 diff，
+ * 不会把隐藏水印那部分的代码也卷进代码评审。
+ */
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,60 +26,25 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.FontFamilyOption
 import com.watermarkbox.data.model.GravityPosition
-import com.watermarkbox.data.model.InvisibleSource
-import com.watermarkbox.data.model.LayoutMode
 import com.watermarkbox.data.model.WatermarkType
-import com.watermarkbox.ui.component.ColorPalette
-import com.watermarkbox.ui.component.GravityGrid
-import com.watermarkbox.ui.component.LabeledSlider
-import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
-import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
-import com.watermarkbox.ui.theme.WatermarkPresetColors
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import java.util.Locale
-import kotlin.math.roundToInt
 
 /**
  * 水印参数面板内容（页面 2 的面板主体）。
@@ -140,684 +121,18 @@ fun WatermarkPanel(
     }
 }
 
-/**
- * 隐藏水印配置区。
- *
- * 隐藏水印与「可见水印」互不影响：它不会改变画面外观，
- * 而是把内容编码后同时写进 EXIF 元数据与像素频域，
- * 用于日后溯源。详见 [com.watermarkbox.invisible.InvisibleWatermarkEngine]。
- */
-@Composable
-private fun InvisibleWatermarkSection(
-    state: WatermarkPanelState,
-    viewModel: WatermarkPanelHost
-) {
-    val config = state.invisibleConfig
-
-    SectionLabel(stringResource(R.string.editor_invisible_title))
-
-    ToggleRow(
-        label = stringResource(R.string.editor_invisible_enable),
-        checked = config.enabled,
-        hint = stringResource(R.string.editor_invisible_disabled_hint),
-        onCheckedChange = { viewModel.toggleInvisibleWatermark() }
-    )
-
-    if (!config.enabled) return
-
-    Spacer(Modifier.height(Spacing.Item))
-
-    // ---- 内容来源 ----
-    SegmentedControl(
-        options = listOf(
-            InvisibleSource.CUSTOM_TEXT to stringResource(R.string.editor_invisible_source_custom),
-            InvisibleSource.DEVICE_AND_TIME to stringResource(R.string.editor_invisible_source_device)
-        ),
-        selected = config.source,
-        onSelect = viewModel::updateInvisibleSource,
-        hintTitle = stringResource(R.string.editor_invisible_source),
-        // 说明只在「自动生成」模式下有意义 —— 自定义模式下点了也白点
-        hint = if (config.source == InvisibleSource.DEVICE_AND_TIME) {
-            stringResource(R.string.editor_invisible_auto_hint)
-        } else null
-    )
-
-    // ---- 自定义文字输入 ----
-    if (config.source == InvisibleSource.CUSTOM_TEXT) {
-        Spacer(Modifier.height(Spacing.Item))
-        OutlinedTextField(
-            value = config.content,
-            onValueChange = viewModel::updateInvisibleContent,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text(stringResource(R.string.editor_invisible_content)) },
-            placeholder = { Text(stringResource(R.string.editor_invisible_content_placeholder)) },
-            supportingText = {
-                Text(
-                    stringResource(R.string.editor_invisible_content_limit),
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        )
-    } else {
-        // 自动模式的说明已移到上面的 ⓘ 里，这里不再重复铺开
-    }
-
-    // ---- 强度 ----
-    Spacer(Modifier.height(Spacing.Item))
-    LabeledSlider(
-        label = stringResource(R.string.editor_invisible_strength),
-        value = config.strength.toFloat(),
-        onValueChange = { viewModel.updateInvisibleStrength(it.roundToInt()) },
-        valueRange = 1f..4f,
-        valueText = stringResource(R.string.editor_invisible_strength_value, config.strength),
-        hint = stringResource(R.string.editor_invisible_strength_hint)
-    )
-
-    // ---- 两条写入通道（各自独立开关）----
-    Spacer(Modifier.height(Spacing.Item))
-    InvisibleChannels(config = config, viewModel = viewModel)
-}
+// =====================================================================
+// 面板级通用小件
+// =====================================================================
 
 /**
- * 隐藏水印的两条**写入通道**。
+ * 字体族横向选择器（系统内置族）。
  *
- * ## 为什么把两条都摆出来
- *
- * 两条通道的取舍是正交互补的，只露一条容易让人误以为
- * 「开了隐藏水印就万事大吉」：
- *
- * | 通道 | 画质 | 抗压缩 | 暴露程度 |
- * |---|---|---|---|
- * | EXIF 元数据 | 完全无损 | ❌ 一压就没 | 明文，工具一看就见 |
- * | DCT 频域 | ±3/255 | ✅ 能扛 JPEG | 藏在像素里，不易察觉 |
- *
- * 并列展示后，用户能一眼看清「这条给你什么、要你付什么」，
- * 不必靠猜，也不用翻文档。
+ * [FontFamilyOption.CUSTOM] 不出现在这里 —— 它的入口是「导入字体」那一行，
+ * 两个入口混在一起会让人以为要在这里选自定义字体。
  */
 @Composable
-private fun InvisibleChannels(
-    config: com.watermarkbox.data.model.InvisibleWatermarkConfig,
-    viewModel: WatermarkPanelHost
-) {
-    Text(
-        text = stringResource(R.string.editor_invisible_channels),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-
-    Spacer(Modifier.height(Spacing.Item))
-
-    // ---- 通道 1：EXIF（零代价，但脆弱）----
-    ChannelToggle(
-        label = stringResource(R.string.editor_invisible_exif),
-        checked = config.exifEnabled,
-        onCheckedChange = { viewModel.toggleInvisibleExif() },
-        pro = stringResource(R.string.editor_invisible_exif_pro),
-        con = stringResource(R.string.editor_invisible_exif_con),
-        hasQualityCost = false
-    )
-
-    Spacer(Modifier.height(Spacing.Item))
-
-    // ---- 通道 2：DCT（有代价，但顽固）----
-    ChannelToggle(
-        label = stringResource(R.string.editor_invisible_dct),
-        checked = config.dctEnabled,
-        onCheckedChange = { viewModel.toggleInvisibleDct() },
-        pro = stringResource(R.string.editor_invisible_dct_pro),
-        con = stringResource(R.string.editor_invisible_dct_con),
-        hasQualityCost = true
-    )
-
-    // ---- 两条都关：这不是「更隐蔽」，而是「没写」----
-    if (!config.exifEnabled && !config.dctEnabled) {
-        Spacer(Modifier.height(Spacing.Item))
-        Card(
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = stringResource(R.string.editor_invisible_no_channel),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.padding(12.dp)
-            )
-        }
-    }
-}
-
-/**
- * 单条通道的开关 + 取舍说明卡。
- *
- * 卡片**无论开关都显示同样两条信息**（能得到什么 / 要付什么代价），
- * 只用颜色区分当前是否启用 —— 这样用户不必「先打开再后悔」。
- *
- * @param hasQualityCost 开启后是否有画质代价，决定警示配色与符号
- */
-@Composable
-private fun ChannelToggle(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: () -> Unit,
-    pro: String,
-    con: String,
-    hasQualityCost: Boolean
-) {
-    ToggleRow(
-        label = label,
-        checked = checked,
-        onCheckedChange = { onCheckedChange() }
-    )
-
-    Spacer(Modifier.height(6.dp))
-
-    val (container, content) = when {
-        // 未启用：中性灰，不抢视觉
-        !checked -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) to
-            MaterialTheme.colorScheme.onSurfaceVariant
-        // 启用且有画质代价：橙黄警示
-        hasQualityCost -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f) to
-            MaterialTheme.colorScheme.onTertiaryContainer
-        // 启用且零代价：平和的绿系
-        else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f) to
-            MaterialTheme.colorScheme.onSecondaryContainer
-    }
-
-    Card(
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(containerColor = container),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = "✓ $pro",
-                style = MaterialTheme.typography.bodySmall,
-                color = content
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = "${if (hasQualityCost) "⚠" else "✗"} $con",
-                style = MaterialTheme.typography.bodySmall,
-                color = content
-            )
-        }
-    }
-}
-
-// =====================================================================
-// 文字水印参数区
-// =====================================================================
-
-@Composable
-private fun TextWatermarkPanelContent(
-    state: WatermarkPanelState,
-    viewModel: WatermarkPanelHost,
-    onPickFont: () -> Unit
-) {
-    val config = state.config
-
-    // ---- 1. 水印文字 ----
-    SectionLabel(stringResource(R.string.editor_text_section))
-    OutlinedTextField(
-        value = config.text,
-        onValueChange = viewModel::updateText,
-        modifier = Modifier.fillMaxWidth(),
-        minLines = 2,
-        maxLines = 4,
-        placeholder = { Text(stringResource(R.string.editor_text_placeholder)) },
-        supportingText = {
-            Text(
-                stringResource(R.string.editor_text_placeholders),
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-    )
-    // 快捷插入占位符
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        listOf("{timestamp}", "{date}", "{filename}").forEach { token ->
-            OutlinedButton(
-                onClick = { viewModel.updateText(config.text + token) },
-                // heightIn：字号调大时按钮能长高，不把占位符文字裁掉
-                modifier = Modifier.heightIn(min = 32.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    horizontal = 10.dp, vertical = 0.dp
-                )
-            ) {
-                Text(token, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-
-    Spacer(Modifier.height(Spacing.Item))
-
-    // ---- 2. 字体设置 ----
-    SectionLabel(stringResource(R.string.editor_font_section))
-    LabeledSlider(
-        label = stringResource(R.string.editor_font_size),
-        value = config.fontSize,
-        onValueChange = viewModel::updateFontSize,
-        valueRange = 6f..300f,
-        valueText = "${config.fontSize.roundToInt()} sp"
-    )
-
-    Spacer(Modifier.height(8.dp))
-    Text(
-        text = stringResource(R.string.editor_font_family),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    Spacer(Modifier.height(6.dp))
-    FontFamilySelector(
-        selected = config.fontFamily,
-        onSelect = viewModel::updateFontFamily
-    )
-
-    // ---- 自定义字体（阶段四）----
-    Spacer(Modifier.height(Spacing.Item))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(R.string.editor_font_custom),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        OutlinedButton(
-            onClick = onPickFont,
-            // 同占位符按钮：用 heightIn 让字号调大时能长高
-            modifier = Modifier.heightIn(min = 32.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = 12.dp, vertical = 0.dp
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Filled.FileOpen,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(Modifier.size(4.dp))
-            Text(stringResource(R.string.editor_font_import), style = MaterialTheme.typography.labelSmall)
-        }
-    }
-
-    if (state.customFonts.isEmpty()) {
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.editor_font_import_hint),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    } else {
-        Spacer(Modifier.height(6.dp))
-        // 已导入字体列表（横向 chip）
-        state.customFonts.forEach { fontName ->
-            val isSelected = config.fontFamily == FontFamilyOption.CUSTOM &&
-                config.customFontName == fontName
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    .clickable { viewModel.selectCustomFont(fontName) }
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(
-                            if (isSelected) MaterialTheme.colorScheme.secondary
-                            else MaterialTheme.colorScheme.outline
-                        )
-                )
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    text = fontName,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = { viewModel.deleteCustomFont(fontName) },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.editor_font_delete),
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-        }
-    }
-
-    Spacer(Modifier.height(Spacing.Item))
-    Text(
-        text = stringResource(R.string.editor_font_color),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    Spacer(Modifier.height(6.dp))
-    ColorPalette(
-        colors = WatermarkPresetColors,
-        selected = config.color.color,
-        onSelect = viewModel::updateColor
-    )
-
-    Spacer(Modifier.height(Spacing.Item))
-    ToggleRow(stringResource(R.string.editor_font_bold), config.bold) { viewModel.toggleBold() }
-    ToggleRow(stringResource(R.string.editor_font_italic), config.italic) { viewModel.toggleItalic() }
-
-    PanelDivider()
-
-    // ---- 3. 布局与密度 ----
-    SectionLabel(stringResource(R.string.editor_layout_section))
-    Text(
-        text = stringResource(R.string.editor_layout_mode),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    Spacer(Modifier.height(6.dp))
-    SegmentedControl(
-        options = listOf(
-            LayoutMode.SINGLE to stringResource(R.string.editor_layout_single),
-            LayoutMode.TILED to stringResource(R.string.editor_layout_tiled),
-            LayoutMode.DIAGONAL to stringResource(R.string.editor_layout_diagonal)
-        ),
-        selected = config.layoutMode,
-        onSelect = viewModel::updateLayoutMode
-    )
-
-    if (config.layoutMode != LayoutMode.SINGLE) {
-        Spacer(Modifier.height(Spacing.Item))
-        LabeledSlider(
-            label = stringResource(R.string.editor_layout_density),
-            value = config.tileCount.toFloat(),
-            onValueChange = { viewModel.updateTileCount(it.roundToInt()) },
-            valueRange = 1f..20f,
-            valueText = stringResource(R.string.editor_count_value, config.tileCount)
-        )
-    }
-
-    Spacer(Modifier.height(Spacing.Item))
-    LabeledSlider(
-        label = stringResource(R.string.editor_layout_rotation),
-        value = config.rotationDegrees,
-        onValueChange = viewModel::updateRotation,
-        valueRange = -90f..90f,
-        valueText = "${config.rotationDegrees.roundToInt()}°"
-    )
-    LabeledSlider(
-        label = stringResource(R.string.editor_layout_alpha),
-        value = config.alpha,
-        onValueChange = viewModel::updateAlpha,
-        valueRange = 0.01f..1f,
-        valueText = "${(config.alpha * 100).roundToInt()}%"
-    )
-
-    // ---- 4. 位置与边距（仅单个模式）----
-    if (config.layoutMode == LayoutMode.SINGLE) {
-        PanelDivider()
-        SectionLabel(stringResource(R.string.editor_gravity_section))
-        GravityGrid(
-            selectedIndex = config.gravity.toIndex(),
-            onSelect = { viewModel.updateGravity(gravityFromIndex(it)) }
-        )
-        Spacer(Modifier.height(6.dp))
-        // 拖动提示：CUSTOM 时改成「当前位置由拖动决定」，让用户知道九宫格没选中是正常的
-        Text(
-            text = if (config.gravity == GravityPosition.CUSTOM) {
-                stringResource(R.string.editor_position_custom)
-            } else {
-                stringResource(R.string.editor_drag_hint)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(Spacing.Item))
-        LabeledSlider(
-            label = stringResource(R.string.editor_margin),
-            value = config.margin,
-            onValueChange = viewModel::updateMargin,
-            valueRange = 0f..100f,
-            valueText = "${config.margin.roundToInt()} px"
-        )
-    }
-
-    PanelDivider()
-
-    // ---- 5. 水印增强 ----
-    SectionLabel(stringResource(R.string.editor_enhance_section))
-    ToggleRow(stringResource(R.string.editor_stroke), config.strokeEnabled) { viewModel.toggleStroke() }
-    // 展开/收起用动画：开关一拨内容「瞬移」出现会很生硬。
-    // 只影响这一块自身高度（180ms），不动其它兄弟节点 —— 符合「流畅优先」。
-    AnimatedVisibility(
-        visible = config.strokeEnabled,
-        enter = expandVertically(tween(180)) + fadeIn(tween(180)),
-        exit = shrinkVertically(tween(180)) + fadeOut(tween(120))
-    ) {
-        LabeledSlider(
-            label = stringResource(R.string.editor_stroke_width),
-            value = config.strokeWidth,
-            onValueChange = viewModel::updateStrokeWidth,
-            valueRange = 0.5f..10f,
-            // 显式给 Locale：默认 Locale 下阿拉伯语等区域会把数字格式化成
-            // 阿拉伯-印度数字，与界面其它数字不一致（lint: DefaultLocale）
-            valueText = String.format(Locale.getDefault(), "%.1f px", config.strokeWidth)
-        )
-        Text(
-            text = stringResource(R.string.editor_stroke_color),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(Modifier.height(6.dp))
-        ColorPalette(
-            colors = WatermarkPresetColors,
-            selected = config.strokeColor.color,
-            onSelect = viewModel::updateStrokeColor
-        )
-    }
-
-    Spacer(Modifier.height(8.dp))
-    ToggleRow(stringResource(R.string.editor_shadow), config.shadowEnabled) { viewModel.toggleShadow() }
-    AnimatedVisibility(
-        visible = config.shadowEnabled,
-        enter = expandVertically(tween(180)) + fadeIn(tween(180)),
-        exit = shrinkVertically(tween(180)) + fadeOut(tween(120))
-    ) {
-        LabeledSlider(
-            label = stringResource(R.string.editor_shadow_radius),
-            value = config.shadowRadius,
-            onValueChange = viewModel::updateShadowRadius,
-            valueRange = 0f..20f,
-            valueText = String.format(Locale.getDefault(), "%.1f px", config.shadowRadius)
-        )
-    }
-}
-
-// =====================================================================
-// 图片水印参数区（阶段二新增）
-// =====================================================================
-
-@Composable
-private fun ImageWatermarkPanelContent(
-    state: WatermarkPanelState,
-    viewModel: WatermarkPanelHost,
-    onPickLogo: () -> Unit
-) {
-    val config = state.imageConfig
-
-    // ---- 1. Logo 选择 ----
-    SectionLabel(stringResource(R.string.editor_logo_section))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Logo 缩略预览
-        Box(
-            modifier = Modifier
-                .size(64.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                    RoundedCornerShape(12.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            val logo = state.logoBitmap
-            if (logo != null && !logo.isRecycled) {
-                androidx.compose.foundation.Image(
-                    bitmap = logo.asImageBitmap(),
-                    contentDescription = stringResource(R.string.editor_logo_preview),
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .padding(4.dp)
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Filled.AddPhotoAlternate,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        }
-
-        Spacer(Modifier.size(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Button(
-                onClick = onPickLogo,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(if (state.logoBitmap == null) R.string.editor_logo_pick else R.string.editor_logo_change))
-            }
-        }
-
-        if (state.logoBitmap != null) {
-            IconButton(onClick = { viewModel.clearLogo() }) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = stringResource(R.string.editor_logo_remove),
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-
-    Spacer(Modifier.height(Spacing.Item))
-
-    // ---- 2. 尺寸与比例 ----
-    SectionLabel(stringResource(R.string.editor_size_section))
-    LabeledSlider(
-        label = stringResource(R.string.editor_logo_width),
-        value = config.widthPercent,
-        onValueChange = viewModel::updateLogoWidth,
-        valueRange = 0.05f..0.8f,
-        valueText = "${(config.widthPercent * 100).roundToInt()}%"
-    )
-    ToggleRow(stringResource(R.string.editor_logo_aspect), config.preserveAspectRatio) {
-        viewModel.togglePreserveAspectRatio()
-    }
-
-    PanelDivider()
-
-    // ---- 3. 布局与密度 ----
-    SectionLabel(stringResource(R.string.editor_layout_section))
-    SegmentedControl(
-        options = listOf(
-            LayoutMode.SINGLE to stringResource(R.string.editor_layout_single),
-            LayoutMode.TILED to stringResource(R.string.editor_layout_tiled),
-            LayoutMode.DIAGONAL to stringResource(R.string.editor_layout_diagonal)
-        ),
-        selected = config.layoutMode,
-        onSelect = viewModel::updateImageLayoutMode
-    )
-
-    if (config.layoutMode != LayoutMode.SINGLE) {
-        Spacer(Modifier.height(Spacing.Item))
-        LabeledSlider(
-            label = stringResource(R.string.editor_layout_density),
-            value = config.tileCount.toFloat(),
-            onValueChange = { viewModel.updateImageTileCount(it.roundToInt()) },
-            valueRange = 1f..20f,
-            valueText = stringResource(R.string.editor_count_value, config.tileCount)
-        )
-    }
-
-    Spacer(Modifier.height(Spacing.Item))
-    LabeledSlider(
-        label = stringResource(R.string.editor_layout_rotation),
-        value = config.rotationDegrees,
-        onValueChange = viewModel::updateImageRotation,
-        valueRange = -90f..90f,
-        valueText = "${config.rotationDegrees.roundToInt()}°"
-    )
-    LabeledSlider(
-        label = stringResource(R.string.editor_layout_alpha),
-        value = config.alpha,
-        onValueChange = viewModel::updateImageAlpha,
-        valueRange = 0.01f..1f,
-        valueText = "${(config.alpha * 100).roundToInt()}%"
-    )
-
-    // ---- 4. 位置与边距（仅单个模式）----
-    if (config.layoutMode == LayoutMode.SINGLE) {
-        PanelDivider()
-        SectionLabel(stringResource(R.string.editor_gravity_section))
-        GravityGrid(
-            selectedIndex = config.gravity.toIndex(),
-            onSelect = { viewModel.updateImageGravity(gravityFromIndex(it)) }
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = if (config.gravity == GravityPosition.CUSTOM) {
-                stringResource(R.string.editor_position_custom)
-            } else {
-                stringResource(R.string.editor_drag_hint)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(Spacing.Item))
-        LabeledSlider(
-            label = stringResource(R.string.editor_margin),
-            value = config.margin,
-            onValueChange = viewModel::updateImageMargin,
-            valueRange = 0f..100f,
-            valueText = "${config.margin.roundToInt()} px"
-        )
-    }
-}
-
-// =====================================================================
-// 通用子组件
-// =====================================================================
-
-@Composable
-private fun FontFamilySelector(
+internal fun FontFamilySelector(
     selected: FontFamilyOption,
     onSelect: (FontFamilyOption) -> Unit
 ) {
@@ -826,7 +141,7 @@ private fun FontFamilySelector(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         FontFamilyOption.entries
-            .filter { it != FontFamilyOption.CUSTOM }   // 自定义字体入口阶段四接入
+            .filter { it != FontFamilyOption.CUSTOM }
             .forEach { option ->
                 val isSelected = option == selected
                 Box(
@@ -852,8 +167,9 @@ private fun FontFamilySelector(
     }
 }
 
+/** 面板内的分组分隔：上下留白 + 一条淡分隔线。 */
 @Composable
-private fun PanelDivider() {
+internal fun PanelDivider() {
     Spacer(Modifier.height(16.dp))
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
     Spacer(Modifier.height(12.dp))

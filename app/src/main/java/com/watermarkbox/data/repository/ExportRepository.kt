@@ -77,7 +77,7 @@ class ExportRepository(private val context: Context) {
         preserveExif: Boolean = false,
         invisibleContent: String? = null
     ): ExportResult? = withContext(Dispatchers.IO) {
-        val relativePath = (albumPath ?: DEFAULT_ALBUM).trimEnd('/')
+        val relativePath = RepositoryPureLogic.normalizeAlbumPath(albumPath, DEFAULT_ALBUM)
 
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
@@ -170,5 +170,5 @@ class ExportRepository(private val context: Context) {
 
     /** 检查外部存储是否可写（Android 9 及以下使用）。 */
     fun isExternalStorageWritable(): Boolean =
-        Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED
+        RepositoryPureLogic.isStorageWritableState(Environment.getExternalStorageState())
 }

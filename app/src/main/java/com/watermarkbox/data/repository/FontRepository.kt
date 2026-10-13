@@ -28,14 +28,6 @@ class FontRepository(private val context: Context) {
     /** Typeface 缓存：文件名 → Typeface。 */
     private val cache = mutableMapOf<String, Typeface>()
 
-    companion object {
-        /** 允许的字体扩展名。 */
-        private val ALLOWED_EXT = setOf("ttf", "otf", "ttc")
-
-        /** 单文件大小上限（8MB），防止误选超大文件。 */
-        private const val MAX_FONT_BYTES = 8L * 1024 * 1024
-    }
-
     /**
      * 导入一个字体文件。
      *
@@ -44,11 +36,11 @@ class FontRepository(private val context: Context) {
      * @return 导入后的文件名；失败返回 null
      */
     suspend fun importFont(uri: Uri, copyName: String): String? = withContext(Dispatchers.IO) {
-        val ext = copyName.substringAfterLast('.', "").lowercase()
-        if (ext !in ALLOWED_EXT) return@withContext null
+        // 校验逻辑在纯函数里（可单测），这里只做调用
+        if (!RepositoryPureLogic.isAllowedFontExtension(copyName)) return@withContext null
 
         runCatching {
-            val target = File(fontDir, sanitize(copyName))
+            val target = File(fontDir, RepositoryPureLogic.sanitizeFileName(copyName))
 
             context.contentResolver.openInputStream(uri)?.use { input ->
                 // 先写到临时文件，成功后再改名，避免半截文件被当成有效字体
@@ -60,7 +52,7 @@ class FontRepository(private val context: Context) {
                         val n = input.read(buf)
                         if (n <= 0) break
                         total += n
-                        if (total > MAX_FONT_BYTES) {
+                        if (!RepositoryPureLogic.isFontSizeAllowed(total)) {
                             tmp.delete()
                             return@withContext null
                         }
@@ -103,7 +95,7 @@ class FontRepository(private val context: Context) {
     /** 列出已导入的字体文件名。 */
     fun listFonts(): List<String> =
         fontDir.listFiles()
-            ?.filter { it.isFile && it.name.substringAfterLast('.', "").lowercase() in ALLOWED_EXT }
+            ?.filter { it.isFile && RepositoryPureLogic.isAllowedFontExtension(it.name) }
             ?.map { it.name }
             ?.sorted()
             ?: emptyList()
@@ -129,8 +121,4 @@ class FontRepository(private val context: Context) {
             }
         }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
     }
-
-    /** 清理文件名中的非法字符。 */
-    private fun sanitize(name: String): String =
-        name.replace(Regex("""[\\/:*?"<>|\n\r\t]"""), "_")
 }
