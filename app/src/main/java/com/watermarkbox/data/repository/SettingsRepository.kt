@@ -284,6 +284,28 @@ class SettingsRepository(private val context: Context) {
     }
 
     /**
+     * 是否已经看过新手引导。
+     *
+     * 默认 `false` —— 新装用户第一次进首页会看到引导。
+     * 老用户升级上来也是 `false`，会多看一次引导：这是**故意的**，
+     * 2.0 加了隐藏水印签名、XMP 通道等新东西，值得再介绍一遍；
+     * 而且引导可一键跳过，成本很低。
+     */
+    val onboardingDone: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_ONBOARDING_DONE] ?: false
+    }
+
+    /** 一次性读取（供启动时判断用，不必订阅）。 */
+    suspend fun isOnboardingDone(): Boolean = onboardingDone.first()
+
+    /** 标记引导已完成 / 重置（重置仅供调试）。 */
+    suspend fun setOnboardingDone(done: Boolean = true) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_ONBOARDING_DONE] = done
+        }
+    }
+
+    /**
      * 是否启用应用内下载更新（默认关闭，实验性）。
      *
      * 默认关闭意味着：不申请安装权限、不下载、只跳浏览器。
@@ -324,5 +346,6 @@ class SettingsRepository(private val context: Context) {
         val KEY_AUTO_CHECK_UPDATE = booleanPreferencesKey("auto_check_update")
         val KEY_INAPP_DOWNLOAD = booleanPreferencesKey("in_app_download")
         val KEY_LAST_CHECK_TIME = longPreferencesKey("last_check_time")
+        val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
     }
 }

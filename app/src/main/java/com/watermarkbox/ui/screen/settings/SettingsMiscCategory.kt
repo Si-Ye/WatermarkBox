@@ -30,7 +30,8 @@ internal fun MiscCategory(
     onToggleInApp: (Boolean) -> Unit,
     onCheckUpdate: () -> Unit,
     onOpenAbout: () -> Unit,
-    onOpenChangelog: () -> Unit
+    onOpenChangelog: () -> Unit,
+    onOpenTutorial: () -> Unit
 ) {
     SectionLabel(stringResource(R.string.settings_presets_title))
     Text(
@@ -139,6 +140,16 @@ internal fun MiscCategory(
     Spacer(Modifier.height(8.dp))
 
     // 更新说明入口
+    // 使用教程入口：排在更新说明之前 —— 它是「第一次用该怎么上手」，
+    // 比「这版改了什么」更基础
+    NavRow(
+        title = stringResource(R.string.settings_tutorial_title),
+        subtitle = stringResource(R.string.settings_tutorial_desc),
+        onClick = onOpenTutorial
+    )
+
+    Spacer(Modifier.height(8.dp))
+
     NavRow(
         title = stringResource(R.string.settings_changelog_title),
         subtitle = stringResource(R.string.settings_changelog_desc),

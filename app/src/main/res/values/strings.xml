@@ -22,6 +22,24 @@
     <string name="common_cancel">取消</string>
     <string name="common_confirm">确定</string>
     <string name="common_save">保存</string>
+    <string name="tutorial_title">使用教程</string>
+    <string name="tutorial_load_failed">教程内容加载失败</string>
+    <string name="settings_tutorial_title">使用教程</string>
+    <string name="settings_tutorial_desc">从头了解各项功能怎么用</string>
+
+    <!-- ==================== 新手引导 ==================== -->
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_back">上一步</string>
+    <string name="onboarding_skip">跳过</string>
+    <string name="onboarding_start">开始使用</string>
+    <string name="onboarding_p1_title">欢迎使用水印盒</string>
+    <string name="onboarding_p1_body">完全本地运行：不联网、不上传、无广告。\n\n点「下一步」快速了解它能做什么。</string>
+    <string name="onboarding_p2_title">给图片加水印</string>
+    <string name="onboarding_p2_body">文字或 Logo 都行，支持平铺、对角线、单个三种排布。\n\n单个模式下还能直接把水印拖到任意位置。</string>
+    <string name="onboarding_p3_title">还能「藏」水印</string>
+    <string name="onboarding_p3_body">隐藏水印不改变画面观感，却能用来溯源。\n\n它带应用签名 —— 检测时能确认「这张图确实是我导出的」。</string>
+    <string name="onboarding_p4_title">准备好了</string>
+    <string name="onboarding_p4_body">想了解每个功能的细节，随时可以去：\n设置 → 其他 → 使用教程。</string>
     <string name="common_whats_this">查看说明</string>
     <string name="common_clear">清除</string>
     <string name="common_select">选择</string>

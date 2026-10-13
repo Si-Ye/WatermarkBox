@@ -17,6 +17,24 @@
     <string name="common_cancel">Cancel</string>
     <string name="common_confirm">OK</string>
     <string name="common_save">Save</string>
+    <string name="tutorial_title">Tutorial</string>
+    <string name="tutorial_load_failed">Could not load the tutorial</string>
+    <string name="settings_tutorial_title">Tutorial</string>
+    <string name="settings_tutorial_desc">Learn how each feature works, from the start</string>
+
+    <!-- ==================== Onboarding ==================== -->
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_start">Get started</string>
+    <string name="onboarding_p1_title">Welcome to WatermarkBox</string>
+    <string name="onboarding_p1_body">Fully offline: no network, no uploads, no ads.\n\nTap "Next" for a quick tour.</string>
+    <string name="onboarding_p2_title">Watermark your images</string>
+    <string name="onboarding_p2_body">Text or logo, in three layouts: tiled, diagonal, or single.\n\nIn single mode you can drag the watermark anywhere.</string>
+    <string name="onboarding_p3_title">Or hide one</string>
+    <string name="onboarding_p3_body">An invisible watermark leaves the image looking untouched, yet proves provenance.\n\nIt carries an app signature — detection can confirm the image really came from you.</string>
+    <string name="onboarding_p4_title">You\'re all set</string>
+    <string name="onboarding_p4_body">For the details of every feature, go to:\nSettings → Other → Tutorial.</string>
     <string name="common_whats_this">View description</string>
     <string name="common_clear">Clear</string>
     <string name="common_select">Select</string>

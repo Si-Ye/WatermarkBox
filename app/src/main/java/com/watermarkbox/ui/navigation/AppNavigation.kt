@@ -8,7 +8,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -24,6 +26,8 @@ import com.watermarkbox.ui.screen.detect.DetectViewModel
 import com.watermarkbox.ui.screen.editor.EditorScreen
 import com.watermarkbox.ui.screen.editor.EditorViewModel
 import com.watermarkbox.ui.screen.home.HomeScreen
+import com.watermarkbox.ui.screen.home.OnboardingDialog
+import com.watermarkbox.ui.screen.home.OnboardingViewModel
 import com.watermarkbox.ui.screen.presets.PresetEditScreen
 import com.watermarkbox.ui.screen.presets.PresetEditViewModel
 import com.watermarkbox.ui.screen.presets.PresetsScreen
@@ -31,6 +35,7 @@ import com.watermarkbox.ui.screen.presets.PresetsViewModel
 import com.watermarkbox.ui.screen.settings.AboutScreen
 import com.watermarkbox.ui.screen.settings.ChangelogScreen
 import com.watermarkbox.ui.screen.settings.SettingsScreen
+import com.watermarkbox.ui.screen.tutorial.TutorialScreen
 import com.watermarkbox.ui.screen.settings.SettingsViewModel
 import com.watermarkbox.ui.screen.update.UpdateViewModel
 import com.watermarkbox.util.PresetFileCodec
@@ -78,6 +83,9 @@ object Routes {
 
     /** 更新说明页（各版本的变更记录）。 */
     const val CHANGELOG = "changelog"
+
+    /** 使用教程页。 */
+    const val TUTORIAL = "tutorial"
 }
 
 /**
@@ -148,6 +156,17 @@ fun WatermarkBoxNavHost(
                     onOpenDetect = { navController.navigate(Routes.DETECT) },
                     onOpenPresets = { navController.navigate(Routes.PRESETS) }
                 )
+
+                // 新手引导：首次（或升级后首次）进首页时弹一次。
+                //
+                // 放在导航层而不是 HomeScreen 里 —— 首页是**纯 UI**（不做 I/O），
+                // 塞个读 DataStore 的 ViewModel 进去会让 @Preview 直接崩。
+                val onboardingViewModel: OnboardingViewModel = viewModel()
+                val showOnboarding by onboardingViewModel.visible.collectAsStateWithLifecycle()
+
+                if (showOnboarding) {
+                    OnboardingDialog(onFinish = onboardingViewModel::complete)
+                }
             }
 
             // ---------------- 首页的预设管理 ----------------
@@ -225,6 +244,7 @@ fun WatermarkBoxNavHost(
                     onBack = { navController.popBackStack() },
                     onOpenAbout = { navController.navigate(Routes.ABOUT) },
                     onOpenChangelog = { navController.navigate(Routes.CHANGELOG) },
+                    onOpenTutorial = { navController.navigate(Routes.TUTORIAL) },
                     onPickLogo = onPickLogo
                 )
             }
@@ -241,6 +261,11 @@ fun WatermarkBoxNavHost(
             // ---------------- 更新说明 ----------------
             composable(Routes.CHANGELOG) {
                 ChangelogScreen(onBack = { navController.popBackStack() })
+            }
+
+            // ---------------- 使用教程 ----------------
+            composable(Routes.TUTORIAL) {
+                TutorialScreen(onBack = { navController.popBackStack() })
             }
 
 

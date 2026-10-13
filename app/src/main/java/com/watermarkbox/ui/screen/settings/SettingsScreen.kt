@@ -119,6 +119,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAbout: () -> Unit = {},
     onOpenChangelog: () -> Unit = {},
+    onOpenTutorial: () -> Unit = {},
     onPickLogo: (onResult: (Uri) -> Unit) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -254,7 +255,8 @@ fun SettingsScreen(
                         },
                         onCheckUpdate = { updateViewModel.check(manual = true) },
                         onOpenAbout = onOpenAbout,
-                        onOpenChangelog = onOpenChangelog
+                        onOpenChangelog = onOpenChangelog,
+                        onOpenTutorial = onOpenTutorial
                     )
                 }
 
