@@ -33,13 +33,16 @@
 ---
 
 ## 目录
-
 - [这是什么](#这是什么)
 - [效果预览](#效果预览)
 - [功能](#功能)
 - [技术实现](#技术实现)
 - [构建](#构建)
 - [开发手记](#开发手记)
+
+> 🤖 **在本项目工作的 AI 会话 / 助手**：动手前请先读
+> [`docs/multi-session-collaboration.md`](docs/multi-session-collaboration.md)
+> —— 本项目有多个会话并行推进，该文档记录了共享状态、硬性规矩与已知坑。
 
 ---
 
@@ -205,7 +208,7 @@ app/src/main/java/com/watermarkbox/
 ### 命令
 
 ```bash
-# 单元测试（356 个）
+# 单元测试（391 个）
 ./gradlew testDebugUnitTest
 
 # Debug 包
