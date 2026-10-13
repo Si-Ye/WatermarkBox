@@ -31,6 +31,7 @@ import com.watermarkbox.invisible.InvisibleContentResolver
 import com.watermarkbox.ui.screen.editor.WatermarkPanelHost
 import com.watermarkbox.worker.BatchWatermarkWorker
 import com.watermarkbox.worker.JsonCodec
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -152,6 +153,9 @@ class BatchViewModel(application: Application) :
         _uiState.update {
             it.copy(images = uris.take(MAX_BATCH_SIZE), finished = false, previewIndex = 0)
         }
+        // 换了一批图，上一批的解码结果已无意义。
+        // 用 drop（只丢引用）而不是 recycle —— 旧图可能还在当前这一帧里画着。
+        imageRepository.dropPreviewCache()
         loadPreviewForCurrent()
     }
 
@@ -414,8 +418,18 @@ class BatchViewModel(application: Application) :
     fun setPreviewIndex(index: Int) {
         val clamped = index.coerceIn(0, _uiState.value.images.size)
         if (clamped == _uiState.value.previewIndex) return
-        _uiState.update { it.copy(previewIndex = clamped, previewBitmap = null) }
-        loadPreviewForCurrent()
+        // 命中缓存就**立刻**显示：相邻页在切过来之前已经被预解码，
+        // 于是「滑到隔壁看一眼」不再闪加载圈（这是批量页最常用的动作）
+        val cached = _uiState.value.images.getOrNull(clamped)
+            ?.let { imageRepository.peekPreview(it) }
+        _uiState.update {
+            it.copy(
+                previewIndex = clamped,
+                previewBitmap = cached,
+                previewLoading = cached == null
+            )
+        }
+        if (cached == null) loadPreviewForCurrent() else prefetchNeighbours()
     }
 
     /** 移除图片后修正下标，避免越界或停在空白页。 */
@@ -450,15 +464,59 @@ class BatchViewModel(application: Application) :
             _uiState.update {
                 it.copy(previewBitmap = bitmap, previewLoading = false)
             }
+            // 当前这张好了，顺手把左右两张也解码好 —— 用户下一滑就是瞬时的
+            prefetchNeighbours()
         }
     }
 
     /** 预览加载的竞态令牌：只有最新一次请求的结果会被采用。 */
     private var previewToken = 0
 
+    /** 预取任务句柄：换页时取消上一个，避免连续滑动堆积一串解码。 */
+    private var prefetchJob: Job? = null
+
+    /**
+     * 预解码**左右相邻页**，让下一次滑动命中缓存。
+     *
+     * ## 为什么值得做
+     *
+     * 批量页的语义是「一次设置、全部套用」—— 用户会反复左右滑着挑图看效果。
+     * 每次滑动都重新解码（十几到几十毫秒）就会一路闪加载圈，
+     * 而相邻页往往马上就会被看到。
+     *
+     * ## 为什么只预取相邻两张
+     *
+     * 预取全量等于把几十张大图全解进内存（单张约 4 MB）。
+     * 相邻两张覆盖了「手滑一下」这个绝大多数场景；滑得更远时，
+     * 下一次落位又会触发新的预取。
+     *
+     * ## 为什么结果**不**写进 UI 状态
+     *
+     * 预取只是为了「下次能命中缓存」。若它顺手改了 `previewBitmap`，
+     * 用户还没滑过去、界面就先跳成另一张图 —— 那是 bug。
+     * 所以这里只调用仓库层解码（自带 LRU 缓存），完全不碰 `_uiState`。
+     */
+    private fun prefetchNeighbours() {
+        prefetchJob?.cancel()
+        val uris = _uiState.value.images
+        val center = _uiState.value.previewIndex
+        prefetchJob = viewModelScope.launch {
+            for (offset in intArrayOf(1, -1)) {
+                val uri = uris.getOrNull(center + offset) ?: continue
+                if (imageRepository.peekPreview(uri) != null) continue
+                imageRepository.loadPreviewBitmap(uri)
+            }
+        }
+    }
+
     /** 首次进入时载入第一张的预览。 */
     fun ensurePreviewLoaded() {
-        if (_uiState.value.previewBitmap == null && !_uiState.value.previewLoading) {
+        if (_uiState.value.previewBitmap != null || _uiState.value.previewLoading) return
+        // 也可能直接命中缓存（例如刚预取过、或从别处返回本页）
+        val cached = _uiState.value.previewUri?.let { imageRepository.peekPreview(it) }
+        if (cached != null) {
+            _uiState.update { it.copy(previewBitmap = cached) }
+        } else {
             loadPreviewForCurrent()
         }
     }
