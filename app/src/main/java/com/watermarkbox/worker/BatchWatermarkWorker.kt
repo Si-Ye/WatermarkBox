@@ -3,6 +3,7 @@ package com.watermarkbox.worker
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -204,7 +205,7 @@ class BatchWatermarkWorker(
             // 这里要的是「是否成功」这个判断本身，**不能**把 `!= null`
             // 的结果再赋回给同名变量 —— 那样 saved 变成 Boolean，
             // 下面 `saved != null` 恒为 true，失败会被静默吞掉。
-            val savedOk = exportRepository.saveBitmap(
+            val savedResult = exportRepository.saveBitmap(
                 bitmap = toWrite,
                 displayName = fileName,
                 format = exportSettings.format,
@@ -214,9 +215,26 @@ class BatchWatermarkWorker(
                 preserveExif = exportSettings.preserveExif,
                 // EXIF 通道独立开关：关掉时传 null，等价于「不写元数据水印」
                 invisibleContent = invisibleContent.takeIf { invisibleExif }
-            ) != null
-            if (savedOk) null else BatchFailureReason.SAVE_FAILED
+            )
+            if (savedResult != null) {
+                null
+            } else {
+                // 日志：批量导出失败的原因需要可诊断。
+                // 之前这里静默返回 SAVE_FAILED，结果页只显示「保存失败 N 张」，
+                // 排查时根本不知道是哪一步出的问题。
+                Log.w(
+                    TAG,
+                    "saveBitmap 返回 null: file=$fileName uri=$uri " +
+                        "bitmap=${toWrite.width}x${toWrite.height} " +
+                        "recycled=${toWrite.isRecycled} " +
+                        "format=${exportSettings.format} " +
+                        "album=${exportSettings.customOutputDir}"
+                )
+                BatchFailureReason.SAVE_FAILED
+            }
         } catch (t: Throwable) {
+            // 同样：把异常打出来，否则「失败 N 张 / 原因未知」无从下手
+            Log.e(TAG, "processOne 抛异常: uri=$uriString", t)
             BatchFailureReason.UNKNOWN
         } finally {
             stamped?.takeIf { it != rendered && !it.isRecycled }?.recycle()
@@ -282,5 +300,8 @@ class BatchWatermarkWorker(
         const val KEY_FAIL_UNKNOWN = "failUnknown"
 
         const val WORK_NAME = "batch_watermark_work"
+
+        /** 日志 TAG。批量失败必须可诊断 —— 见 [BatchWatermarkWorker.processOne]。 */
+        const val TAG = "BatchWorker"
     }
 }

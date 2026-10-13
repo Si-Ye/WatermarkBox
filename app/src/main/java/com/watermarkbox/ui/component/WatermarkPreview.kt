@@ -97,9 +97,16 @@ fun rememberRenderedPreview(
     renderer: WatermarkRenderer = remember { WatermarkRenderer() }
 ): RenderedPreview {
     val scope = rememberCoroutineScope()
-    // 双缓冲：复用已经分配好的位图，避免每帧新分配一整张（1024 边约 3 MB）。
-    // 详见 PreviewBuffers 的说明。
-    val buffers = remember { PreviewBuffers() }
+    // 三缓冲：复用已经分配好的位图，避免每帧新分配一整张（1024 边约 3 MB）。
+    //
+    // **为什么是 3 而不是 2**：
+    // 2 块时保护窗口只有 1 块（见 PreviewBuffers），轮到「刚发布的」
+    // 那块之外只剩一块可写 —— 后台写得快、UI 画得慢时，那块可能
+    // 也正在被画，于是画面撕裂/频闪。3 块留出 2 块的保护窗口，
+    // 即使 UI 落后两帧也不会画到一半被覆写。
+    //
+    // 代价：多约 3 MB 常驻。相比「画面稳定」，这个代价是值得的。
+    val buffers = remember { PreviewBuffers(slotCount = 3) }
     val engine = remember(scope, renderer) {
         PreviewRenderEngine<PreviewRequest, Bitmap>(
             scope = scope,
