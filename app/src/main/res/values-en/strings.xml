@@ -448,6 +448,7 @@ To create one: pick an image → adjust the watermark → tap the bookmark icon 
     <string name="preset_edit_preview">Preview</string>
     <string name="preset_edit_empty_text">(no text)</string>
     <string name="preset_edit_logo_note">The logo itself cannot be changed in a preset (it is embedded in it). You can still adjust its size, position, opacity and other styling here.</string>
+    <string name="preset_edit_logo_note_title">About the logo</string>
 
     <!-- ==================== Editor messages ==================== -->
     <string name="editor_error_load_failed">Could not load the image — try again or pick another one</string>

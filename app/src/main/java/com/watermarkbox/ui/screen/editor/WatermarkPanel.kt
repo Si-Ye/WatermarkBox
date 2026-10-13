@@ -148,36 +148,30 @@ private fun InvisibleWatermarkSection(
 
     SectionLabel(stringResource(R.string.editor_invisible_title))
 
-    ToggleRow(stringResource(R.string.editor_invisible_enable), config.enabled) {
-        viewModel.toggleInvisibleWatermark()
-    }
+    ToggleRow(
+        label = stringResource(R.string.editor_invisible_enable),
+        checked = config.enabled,
+        hint = stringResource(R.string.editor_invisible_disabled_hint),
+        onCheckedChange = { viewModel.toggleInvisibleWatermark() }
+    )
 
-    if (!config.enabled) {
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.editor_invisible_disabled_hint),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        return
-    }
+    if (!config.enabled) return
 
     Spacer(Modifier.height(Spacing.Item))
 
     // ---- 内容来源 ----
-    Text(
-        text = stringResource(R.string.editor_invisible_source),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    Spacer(Modifier.height(6.dp))
     SegmentedControl(
         options = listOf(
             InvisibleSource.CUSTOM_TEXT to stringResource(R.string.editor_invisible_source_custom),
             InvisibleSource.DEVICE_AND_TIME to stringResource(R.string.editor_invisible_source_device)
         ),
         selected = config.source,
-        onSelect = viewModel::updateInvisibleSource
+        onSelect = viewModel::updateInvisibleSource,
+        hintTitle = stringResource(R.string.editor_invisible_source),
+        // 说明只在「自动生成」模式下有意义 —— 自定义模式下点了也白点
+        hint = if (config.source == InvisibleSource.DEVICE_AND_TIME) {
+            stringResource(R.string.editor_invisible_auto_hint)
+        } else null
     )
 
     // ---- 自定义文字输入 ----
@@ -198,12 +192,7 @@ private fun InvisibleWatermarkSection(
             }
         )
     } else {
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.editor_invisible_auto_hint),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // 自动模式的说明已移到上面的 ⓘ 里，这里不再重复铺开
     }
 
     // ---- 强度 ----
@@ -213,12 +202,8 @@ private fun InvisibleWatermarkSection(
         value = config.strength.toFloat(),
         onValueChange = { viewModel.updateInvisibleStrength(it.roundToInt()) },
         valueRange = 1f..4f,
-        valueText = stringResource(R.string.editor_invisible_strength_value, config.strength)
-    )
-    Text(
-        text = stringResource(R.string.editor_invisible_strength_hint),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        valueText = stringResource(R.string.editor_invisible_strength_value, config.strength),
+        hint = stringResource(R.string.editor_invisible_strength_hint)
     )
 
     // ---- 两条写入通道（各自独立开关）----

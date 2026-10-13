@@ -63,6 +63,7 @@ fun SectionLabel(
  * 带标签 + 数值显示的滑块行。
  *
  * @param valueText 右侧数值文本（由调用方格式化）
+ * @param hint 非空时在标签右侧显示 ⓘ，点击弹出说明（见 [InfoDot]）
  */
 @Composable
 fun LabeledSlider(
@@ -72,7 +73,8 @@ fun LabeledSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     valueText: String,
     modifier: Modifier = Modifier,
-    steps: Int = 0
+    steps: Int = 0,
+    hint: String? = null
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -80,11 +82,20 @@ fun LabeledSlider(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (hint != null) {
+                    Spacer(Modifier.width(6.dp))
+                    InfoDot(title = label, text = hint)
+                }
+            }
             Text(
                 text = valueText,
                 style = MaterialTheme.typography.labelSmall,
@@ -103,14 +114,35 @@ fun LabeledSlider(
 
 /**
  * 分段选择控件（Segmented Control），用于水印类型 / 布局模式等少量互斥选项。
+ *
+ * @param hint 非空时在上方显示一个带 ⓘ 的标签行，点击弹出说明（见 [InfoDot]）
  */
 @Composable
 fun <T> SegmentedControl(
     options: List<Pair<T, String>>,
     selected: T,
     onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    hintTitle: String? = null,
+    hint: String? = null
 ) {
+    if (hint != null && hintTitle != null) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = hintTitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.width(6.dp))
+            InfoDot(title = hintTitle, text = hint)
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,

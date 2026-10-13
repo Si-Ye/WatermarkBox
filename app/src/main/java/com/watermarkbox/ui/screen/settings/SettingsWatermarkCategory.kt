@@ -83,12 +83,7 @@ internal fun WatermarkCategory(
     ToggleRow(
         label = stringResource(R.string.settings_invisible_switch),
         checked = settings.invisibleDctByDefault,
-        onCheckedChange = { viewModel.toggleInvisibleDctByDefault() }
-    )
-    Spacer(Modifier.height(6.dp))
-    Text(
-        text = stringResource(R.string.settings_invisible_desc),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        onCheckedChange = { viewModel.toggleInvisibleDctByDefault() },
+        hint = stringResource(R.string.settings_invisible_desc)
     )
 }

@@ -55,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.R
+import com.watermarkbox.ui.component.InfoDot
 import com.watermarkbox.ui.screen.editor.WatermarkPanel
 import com.watermarkbox.ui.theme.Spacing
 import com.watermarkbox.util.resolve
@@ -400,33 +401,28 @@ private fun TextPreview(config: com.watermarkbox.data.model.TextWatermarkStyle) 
     }
 }
 
-/** 图片水印在预设页的限制说明。 */
+/**
+ * 图片水印在预设页的限制说明。
+ *
+ * 原先是一整张带图标的卡片 —— 说明本身有价值（点明「logo 不能在预设里换」），
+ * 但常驻占了三行高度。现在收成一个短标签 + ⓘ：想了解的点开看。
+ */
 @Composable
 private fun LogoNotice() {
-    Card(
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-        ),
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.width(18.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.preset_edit_logo_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-        }
+        Text(
+            text = stringResource(R.string.preset_edit_logo_note_title),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(6.dp))
+        InfoDot(
+            title = stringResource(R.string.preset_edit_logo_note_title),
+            text = stringResource(R.string.preset_edit_logo_note)
+        )
     }
 }
 

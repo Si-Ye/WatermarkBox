@@ -50,12 +50,8 @@ internal fun MiscCategory(
     ToggleRow(
         label = stringResource(R.string.update_auto_check_title),
         checked = autoCheckUpdate,
-        onCheckedChange = onToggleAutoCheck
-    )
-    Text(
-        text = stringResource(R.string.update_auto_check_desc),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        onCheckedChange = onToggleAutoCheck,
+        hint = stringResource(R.string.update_auto_check_desc)
     )
 
     Spacer(Modifier.height(8.dp))
@@ -63,12 +59,8 @@ internal fun MiscCategory(
     ToggleRow(
         label = stringResource(R.string.update_inapp_title),
         checked = inAppDownload,
-        onCheckedChange = onToggleInApp
-    )
-    Text(
-        text = stringResource(R.string.update_inapp_desc),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        onCheckedChange = onToggleInApp,
+        hint = stringResource(R.string.update_inapp_desc)
     )
 
     Spacer(Modifier.height(8.dp))
