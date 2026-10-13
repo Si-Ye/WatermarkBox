@@ -39,6 +39,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import androidx.core.net.toUri
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * 批量处理页 UI 状态。
@@ -341,6 +345,49 @@ class BatchViewModel(application: Application) :
 
     /** 观察 Worker 进度与结果。 */
     private fun observeWork(workId: java.util.UUID) {
+        // ================================================================
+        // 为什么除了 collect(WorkInfo) 还要单独轮询进度
+        // ================================================================
+        //
+        // WorkManager 的 `getWorkInfoByIdFlow` 只保证「最终一致」：
+        // 它的 WorkInfo 来自一个**带节流的内部查询**（系统默认
+        // 10 秒量级，且只在状态变化时刷新得更快）。
+        //
+        // 后果：3 张图、十几秒跑完的批次，UI 可能**一次进度都收不到** ——
+        // 进度条从头到尾停在 0，然后「啪」地弹出完成统计。
+        // 用户的直观感受就是「它把图堆在一起一口气处理完了」，
+        // 而实际上 Worker 是老老实实一张一张处理的。
+        //
+        // 所以这里补一条**自己的轻量轮询**：每 250ms 直接查一次
+        // `getWorkInfoById`，把进度尽早上屏。开销很小（一次内存查询），
+        // 而且任务结束就随协程一起取消。
+        //
+        // 250ms 是权衡：更密（如 60ms）没有意义 —— 单张处理就要
+        // 几百毫秒，用户看不出差别，却白耗 CPU；更疏（如 1s）
+        // 又会让进度条一跳一大格。
+        //
+        // ⚠️ 这里用 `getWorkInfoById(...).await()` 是不行的：
+        // 那个 await 扩展被标了 @RestrictTo（只在 androidx.work
+        // 内部可用），lint 直接报 RestrictedApi。
+        // 公开的等价写法是 ListenableFuture.addListener + 自己桥接协程，
+        // 见 [awaitWorkInfo]。
+        viewModelScope.launch {
+            while (true) {
+                val info = awaitWorkInfo(workId)
+                if (info == null) break
+                val done = info.progress.getInt(BatchWatermarkWorker.KEY_PROGRESS_DONE, 0)
+                val total = info.progress.getInt(
+                    BatchWatermarkWorker.KEY_PROGRESS_TOTAL,
+                    0
+                )
+                if (total > 0 && done > _uiState.value.done) {
+                    _uiState.update { it.copy(done = done, total = total) }
+                }
+                if (info.state.isFinished) break
+                delay(PROGRESS_POLL_MS)
+            }
+        }
+
         viewModelScope.launch {
             workManager.getWorkInfoByIdFlow(workId).collect { info ->
                 if (info == null) return@collect
@@ -353,7 +400,17 @@ class BatchViewModel(application: Application) :
 
                 when (info.state) {
                     WorkInfo.State.RUNNING -> {
-                        _uiState.update { it.copy(done = done, total = total) }
+                        // ⚠️ 这里**不能**无条件写 done：
+                        //
+                        // WorkInfo 的 progress 是**快照**。任务刚被标记为
+                        // RUNNING、第一张还没处理完时，快照里没有 progress，
+                        // `getInt(..., 0)` 返回 0 —— 直接把进度**打回 0**，
+                        // 界面上表现为进度条先跳到一半又弹回起点。
+                        //
+                        // 凡「新值小于已显示值」的快照一律视为过期，忽略。
+                        if (done >= _uiState.value.done) {
+                            _uiState.update { it.copy(done = done, total = total) }
+                        }
                     }
 
                     WorkInfo.State.SUCCEEDED -> {
@@ -414,6 +471,39 @@ class BatchViewModel(application: Application) :
             }
         }
     }
+
+    /**
+     * 查一次某个任务的 [WorkInfo]，挂起直到结果就绪。
+     *
+     * ## 为什么不用 `ListenableFuture.await()`
+     *
+     * WorkManager 提供的那个 `await()` 扩展被标注了 `@RestrictTo`
+     * （只允许 `androidx.work` 内部或同 groupId 调用），
+     * 在应用代码里用会被 lint 判为 `RestrictedApi` 而**直接构建失败**。
+     *
+     * 所以用公开 API 自己桥接：`ListenableFuture.addListener` +
+     * `suspendCancellableCoroutine`。这也是 Google 官方推荐的
+     * 「把 ListenableFuture 变成挂起函数」的写法。
+     *
+     * 任务结束时 [WorkManager.getWorkInfoById] 也会正常回调
+     * （返回最后一次快照），所以不会永久挂起。
+     */
+    private suspend fun awaitWorkInfo(workId: java.util.UUID): WorkInfo? =
+        suspendCancellableCoroutine { cont ->
+            val future = workManager.getWorkInfoById(workId)
+            // 协程被取消时把监听摘掉，避免回调泄漏
+            cont.invokeOnCancellation { future.cancel(true) }
+            future.addListener(
+                {
+                    runCatching { future.get() }
+                        .onSuccess { if (cont.isActive) cont.resume(it) }
+                        .onFailure { if (cont.isActive) cont.resume(null) }
+                },
+                // 回调跑在哪个 Executor 上 —— 用主线程，因为我们只是
+                // 读一下内存里的 WorkInfo 然后立刻切回协程
+                ContextCompat.getMainExecutor(getApplication())
+            )
+        }
 
     /** 取消正在进行的批量任务。 */
     fun cancelProcessing() {
@@ -725,5 +815,17 @@ class BatchViewModel(application: Application) :
          * 统一由 [BatchLimits] 管理，避免多处硬编码不一致。
          */
         const val MAX_BATCH_SIZE = BatchLimits.MAX_BATCH_SIZE
+
+        /**
+         * 进度轮询间隔（毫秒）。
+         *
+         * 为什么需要额外轮询：见 [observeWork] 的注释 ——
+         * WorkManager 的 WorkInfo 流是**节流**的，短批次可能一次
+         * 进度都收不到，用户会以为"一起处理"了。
+         *
+         * 250ms 的取舍：单张处理本身就要几百毫秒，采样更密看不出
+         * 差别却白耗 CPU；更疏则进度条一跳一大格。
+         */
+        private const val PROGRESS_POLL_MS = 250L
     }
 }

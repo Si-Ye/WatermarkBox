@@ -96,23 +96,50 @@ class PreviewRenderEngine<T : Any, R : Any>(
         scope.launch {
             requests.filterNotNull().collectLatest { request ->
                 _rendering.value = true
-                // 被 collectLatest 取消时，这里会抛 CancellationException，
-                // 于是**不会**写回结果 —— 过期的画面不该覆盖新的
-                val rendered = withContext(dispatcher) {
-                    try {
-                        render(request)
-                    } catch (cancellation: CancellationException) {
-                        // 取消必须照常向上传播（见上）
-                        throw cancellation
-                    } catch (error: Throwable) {
-                        // ⚠️ 单次渲染失败**绝不能**把这条流水线带走：
-                        // 协程一死，之后所有 submit 都会石沉大海 ——
-                        // 表现就是「预览从此再也不更新」，用户只能重启应用。
-                        // 当作「这次没有结果」，下一次请求照常处理。
-                        null
-                    }
+
+                // ---- 用一个「哨兵」把「失败」和「真的没内容」分开 ----
+                //
+                // 早期写法是：
+                //     val rendered = try { render(request) } catch (t: Throwable) { null }
+                //     _result.value = rendered
+                //
+                // 问题：**null 同时表示两件完全不同的事** ——
+                //   (a) 渲染过程抛异常（Bitmap 正被回收、参数非法…）
+                //   (b) 渲染成功，但确实没有内容（source 为 null）
+                //
+                // 对 (a)，把画面置空是错的：用户看到的是「我的图不见了」，
+                // 而实际上图还在，只是这一帧没算出来。
+                //
+                // **拖动旋转滑块时这个 bug 被放大**：参数每帧都变 →
+                // collectLatest 每帧取消上一次渲染 → 取消/失败次数暴增 →
+                // 结果被反复置成 null → 画面持续闪烁。
+                // 停下来后参数不再变，渲染能跑完，于是「恢复正常」。
+                // 这正是老大看到的症状。
+                //
+                // 修法：渲染失败时**保留上一帧**（看旧的，总比看空白强）；
+                // 只有渲染成功且确实返回 null（源图没了）才清空画面。
+                //
+                // 实现上不能再用 `R?` 的 null 当信号 —— 那正是要区分的两件事。
+                // 这里用一个局部 sentinel 对象占位，判定时用引用比较而非 equals，
+                // 以免和业务数据里合法的「值相等」对象混淆。
+                val failed = Any()
+                val rendered: Any? = try {
+                    withContext(dispatcher) { render(request) }
+                } catch (cancellation: CancellationException) {
+                    // 取消是我们**主动**发的（有新请求了）：这一次的结果
+                    // 本就该丢弃，直接向上抛，什么都不写回。
+                    throw cancellation
+                } catch (error: Throwable) {
+                    // 渲染失败：标记为 failed，下面不覆盖画面
+                    failed
                 }
-                _result.value = rendered
+
+                when {
+                    // 失败 → **不动 _result**，保留上一帧，界面不会闪
+                    rendered === failed -> Unit
+                    // 成功 → 如实写回（含「确实没有内容」的 null）
+                    else -> _result.value = rendered as R?
+                }
                 _rendering.value = false
             }
         }
