@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -31,6 +31,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -127,26 +128,69 @@ fun DetectScreen(
             }
 
             // ---- 操作按钮 ----
-            Button(
-                onClick = {
-                    if (state.imageUri != null) viewModel.reset()
-                    onPickImage()
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = if (state.imageUri == null) Icons.Filled.AddPhotoAlternate
-                    else Icons.Filled.Search,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    stringResource(
-                        if (state.imageUri == null) R.string.detect_pick
-                        else R.string.detect_recheck
+            //
+            // 两种状态，动作集合不同：
+            //
+            // ① 还没有图：只有「选择图片」一个动作。
+            //
+            // ② 已有图：拆成两个并列动作，因为它们**服务于不同目的**：
+            //    - 「重新检测」（主按钮，实心）：不换图，用**当前设置**再跑一遍。
+            //      典型场景：改完下面的检测设置（强度/方向），想在同一张图上
+            //      验证新设置 —— 不必回相册重选一遍。
+            //      这是改设置后的**下一个自然动作**，所以给它更高的视觉权重。
+            //    - 「换一张检测」（次按钮，描边）：回相册选新图。
+            //      它不是改设置后的常用路径，所以降级为次要动作，
+            //      也避免用户误以为只能换图。
+            //
+            // 之前只有一个按钮，文案写「换一张检测」但图标是放大镜 ——
+            // 语义与行为不一致，且**完全没有原地重检的入口**
+            // （尽管 ViewModel 早有 recheck()）。
+            if (state.imageUri == null) {
+                Button(
+                    onClick = onPickImage,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AddPhotoAlternate,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
                     )
-                )
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.detect_pick))
+                }
+            } else {
+                Button(
+                    onClick = viewModel::recheck,
+                    // 检测中禁用：否则连点会叠加多次检测任务，
+                    // 而且并发跑同一个 detector 没有意义
+                    enabled = !state.isDetecting,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.detect_rerun))
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        viewModel.reset()
+                        onPickImage()
+                    },
+                    enabled = !state.isDetecting,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AddPhotoAlternate,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.detect_recheck))
+                }
             }
 
             Spacer(Modifier.height(Spacing.Item))

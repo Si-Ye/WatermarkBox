@@ -110,6 +110,65 @@ cp app/build/outputs/apk/debug/app-debug.apk \
 
 ---
 
-## 历史
+## 装机规范（重要，别踩）
 
+### 默认包名就是 `com.watermarkbox`
+
+日常开发**只升级这一个包**：
+
+```sh
+# ✅ 正确：不加任何后缀参数
+sh gradlew :app:assembleDebug
+pm install -r -d --user 0 app/build/outputs/apk/debug/app-debug.apk
+```
+
+### ⛔ 不要用 `-PparallelSuffix` 做日常装机
+
+`parallelSuffix` 的**唯一用途**是「同时装两个版本、对比效果」
+（例如切语言看文案长度、A/B 对比布局）：
+
+```sh
+# 仅用于「多开对比」，且用完要清理：
+#   pm uninstall com.watermarkbox.<suffix>
+sh gradlew :app:assembleDebug -PparallelSuffix=.tmp
+```
+
+它会让 `applicationId` 变成 `com.watermarkbox.tmp` ——
+也就是**装出一个全新应用**，而不是升级现有应用。
+
+**误用的后果**（真实踩过）：
+1. 手机上多出一堆 `com.watermarkbox.final` / `.dcqim` 之类的包
+2. 用户实际在用的包**根本没被更新** —— 白测一场
+3. 桌面出现重复图标，用户以为装坏了
+
+### 装机前必须确认包名
+
+```sh
+# 用 build-tools 里的 aapt2 读 APK 的真实包名
+aapt2 dump badging app/build/outputs/apk/debug/app-debug.apk | head -1
+# 输出应是：package: name='com.watermarkbox.final' ...
+```
+
+如果 `aapt2` 不在 PATH 里，用 Android SDK 的 build-tools 目录下的同名文件
+（不要写死本机路径 —— 每个人的 SDK 位置不同）。
+
+### 也**不要动 release 版
+
+用户手机上可能装着 release 签名的正式版：
+
+```
+INSTALL_FAILED_UPDATE_INCOMPATIBLE:
+Existing package com.watermarkbox signatures do not match newer version
+```
+
+debug 包与 release 包**签名不同，无法覆盖安装**。
+看到这个报错是**正常的**，不要去卸载重装 —— 那会清掉用户数据。
+开发期间一律用 debug 包名 `com.watermarkbox`（二者签名不同的话，
+说明用户装的是另一个渠道的包，**装不上就装不上，别强来**）。
+
+---
+
+## 历史
 - **2026-10-13** 建立规范，把 `Download/` 里的 62 项历史产物（221 MB）迁移过来
+- **2026-10-13** 补充装机规范 —— 起因是误用 `-PparallelSuffix` 装出了
+  多余包名，而真正的应用没被更新

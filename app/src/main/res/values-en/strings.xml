@@ -545,6 +545,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="detect_image_desc">Image to check</string>
     <string name="detect_pick">Choose a photo</string>
     <string name="detect_recheck">Check another</string>
+    <string name="detect_rerun">Re-check with current settings</string>
     <string name="detect_running">Checking…</string>
     <string name="detect_found_title">Hidden watermark detected</string>
     <string name="detect_not_found_title">No hidden watermark found</string>

@@ -46,9 +46,9 @@ class DetectViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * 改检测选项。
      *
-     * 顺带清掉已有结果 —— 那份结果对应的是**旧选项**，
+     * 顺带清掉已有结果与「开始前」的标记 —— 那份结果对应的是**旧选项**，
      * 留在屏幕上会让人以为「新选项也是这个结论」。
-     * 用户可以点「重新检测」用新选项再跑一遍。
+     * 用户可以点「用当前设置重新检测」在同一张图上跑一遍。
      */
     fun updateOptions(newOptions: DetectOptions) {
         _uiState.update { it.copy(options = newOptions, result = null) }
@@ -64,8 +64,22 @@ class DetectViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    /** 用**当前选项**对同一张图重新检测。 */
+    /**
+     * 用**当前选项**对同一张图重新检测。
+     *
+     * ## 为什么要有这个入口
+     *
+     * 「改设置 → 在同图上验证效果」是个高频动作。没有它，用户只能
+     * 回相册重新选同一张图 —— 既烦琐，也无法确认「选的还是那张」。
+     *
+     * ## 防重入
+     *
+     * 已经在检测中就直接返回。否则连点会并发跑多个检测任务：
+     * 既浪费算力（大图上每次都要 DCT 全图），也存在**结果乱序**风险 ——
+     * 后完成的旧任务可能覆盖新任务的结果。
+     */
     fun recheck() {
+        if (_uiState.value.isDetecting) return
         _uiState.value.imageUri?.let { detect(it) }
     }
 

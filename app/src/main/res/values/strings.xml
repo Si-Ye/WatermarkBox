@@ -544,6 +544,12 @@
     <string name="detect_image_desc">待检测图片</string>
     <string name="detect_pick">选择图片</string>
     <string name="detect_recheck">换一张检测</string>
+    <!--
+      与「换一张检测」并列的另一个动作：**不换图、原地重跑**。
+      典型用法：改完下面的检测设置（强度/方向），想在同一张图上
+      验证新设置的效果 —— 不必重新去相册选一遍。
+    -->
+    <string name="detect_rerun">用当前设置重新检测</string>
     <string name="detect_running">正在检测…</string>
     <string name="detect_found_title">检测到隐藏水印</string>
     <string name="detect_not_found_title">未检测到隐藏水印</string>
