@@ -321,6 +321,7 @@ class InvisibleWatermarkEngine(
         // ---- 第二遍：枚举候选负载长度，做软判决投票 + RS 解码 ----
         var bestText: String? = null
         var bestConfidence = 0f
+        var bestSignature: Boolean? = null
 
         for (dataBytes in 1..WatermarkPayload.MAX_DATA_BYTES) {
             val payloadBits = WatermarkPayload.bitLength(dataBytes)
@@ -389,8 +390,8 @@ class InvisibleWatermarkEngine(
             // 「2 个校验符号换 1 个错误」变成「1 个换 1 个」，
             // 因此每块可修的范围从 4 个错误扩到最多 8 个擦除。
             val corrected = ReedSolomon.decode(votedBytes, symbolConfidence)
-            val text = WatermarkPayload.decode(corrected)
-            if (text != null) {
+            val decoded = WatermarkPayload.decodeDetailed(corrected)
+            if (decoded != null) {
                 var sum = 0f
                 var count = 0
                 for (i in 0 until bitCount) {
@@ -402,13 +403,14 @@ class InvisibleWatermarkEngine(
                 val avg = if (count > 0) sum / count else 0f
                 if (avg > bestConfidence) {
                     bestConfidence = avg
-                    bestText = text
+                    bestText = decoded.text
+                    bestSignature = decoded.signatureValid
                 }
             }
         }
 
         return if (bestText != null) {
-            WatermarkExtraction.Found(bestText, bestConfidence)
+            WatermarkExtraction.Found(bestText, bestConfidence, bestSignature)
         } else {
             WatermarkExtraction.NotFound("未检测到水印（或损坏超出纠错能力）")
         }
@@ -603,8 +605,19 @@ class InvisibleWatermarkEngine(
  * 提取结果。
  */
 sealed class WatermarkExtraction {
-    /** 检测到水印。 */
-    data class Found(val text: String, val confidence: Float) : WatermarkExtraction()
+    /**
+     * 检测到水印。
+     *
+     * @param signatureValid 签名状态：
+     *        `true` = 本应用签发且未篡改；
+     *        `false` = 带了签名但校验失败（**可能被伪造**）；
+     *        `null` = 旧格式无签名，无法判断真伪
+     */
+    data class Found(
+        val text: String,
+        val confidence: Float,
+        val signatureValid: Boolean? = null
+    ) : WatermarkExtraction()
 
     /** 未检测到。 */
     data class NotFound(val reason: String) : WatermarkExtraction()

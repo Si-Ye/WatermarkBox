@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -254,6 +255,19 @@ private fun DetectOptionsCard(
                     onCheckedChange = { onChange(options.copy(autoRotation = !options.autoRotation)) }
                 )
                 OptionHint(stringResource(R.string.detect_option_rotation_hint))
+
+                Spacer(Modifier.height(10.dp))
+
+                ToggleRow(
+                    label = stringResource(R.string.detect_option_verify_sig),
+                    checked = options.verifySignatureViaDct,
+                    onCheckedChange = {
+                        onChange(
+                            options.copy(verifySignatureViaDct = !options.verifySignatureViaDct)
+                        )
+                    }
+                )
+                OptionHint(stringResource(R.string.detect_option_verify_sig_hint))
             }
 
             Spacer(Modifier.height(10.dp))
@@ -281,16 +295,35 @@ private fun OptionHint(text: String) {
 @Composable
 private fun ResultCard(result: DetectResult) {
     when (result) {
-        is DetectResult.Found -> ResultCardImpl(
-            icon = Icons.Filled.CheckCircle,
-            iconTint = Color(0xFF2E7D32),
-            title = stringResource(R.string.detect_found_title),
-            lines = buildList {
-                add(stringResource(R.string.detect_field_content) to result.content)
-                add(stringResource(R.string.detect_field_channel) to stringResource(result.channel.labelRes))
-                add(stringResource(R.string.detect_field_confidence) to "${(result.confidence * 100).roundToInt()}%")
-            }
-        )
+        is DetectResult.Found -> {
+            // 签名无效 = 可能是伪造的，视觉上要和「确认是本应用签发」区分开，
+            // 否则用户会把两者当成同一件事
+            val suspicious = result.signatureValid == false
+            ResultCardImpl(
+                icon = if (suspicious) Icons.Filled.WarningAmber
+                else Icons.Filled.CheckCircle,
+                iconTint = if (suspicious) Color(0xFFE65100) else Color(0xFF2E7D32),
+                title = stringResource(
+                    if (suspicious) R.string.detect_found_suspicious_title
+                    else R.string.detect_found_title
+                ),
+                lines = buildList {
+                    add(stringResource(R.string.detect_field_content) to result.content)
+                    add(
+                        stringResource(R.string.detect_field_channel) to
+                            stringResource(result.channel.labelRes)
+                    )
+                    add(
+                        stringResource(R.string.detect_field_signature) to
+                            signatureLabel(result.signatureValid)
+                    )
+                    add(
+                        stringResource(R.string.detect_field_confidence) to
+                            "${(result.confidence * 100).roundToInt()}%"
+                    )
+                }
+            )
+        }
         is DetectResult.NoWatermark -> ResultCardImpl(
             icon = Icons.Filled.CloudOff,
             iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -363,6 +396,16 @@ private fun ResultCardImpl(
         }
     }
 }
+/** 把签名状态翻译成人话。 */
+@Composable
+private fun signatureLabel(state: Boolean?): String = when (state) {
+    true -> stringResource(R.string.detect_signature_valid)
+    false -> stringResource(R.string.detect_signature_invalid)
+    // null 有两种来路：EXIF 通道（明文，本来就没签名）、
+    // 或旧版本导出的图（那时还没有签名机制）。对用户来说都是「验不了」。
+    null -> stringResource(R.string.detect_signature_unknown)
+}
+
 /**
  * 把检测器返回的「未找到」原因映射为本地化文案。
  *

@@ -483,6 +483,11 @@
     <string name="detect_field_confidence">置信度</string>
     <string name="detect_field_reason">说明</string>
     <string name="detect_field_error">原因</string>
+    <string name="detect_field_signature">签名</string>
+    <string name="detect_signature_valid">已验证 · 本应用签发</string>
+    <string name="detect_signature_invalid">无效 · 可能被伪造</string>
+    <string name="detect_signature_unknown">无法验证（无签名或来自旧版本）</string>
+    <string name="detect_found_suspicious_title">检测到水印，但签名无效</string>
     <string name="detect_channel_exif">EXIF 元数据</string>
     <string name="detect_channel_frequency">频域（DCT）</string>
 
@@ -535,6 +540,8 @@
     <string name="detect_option_strength_hint">导出时用了几倍强度，这里无从得知，全试更可靠（慢约 4 倍）。</string>
     <string name="detect_option_rotation">尝试 4 个旋转方向</string>
     <string name="detect_option_rotation_hint">关掉可快约 4 倍，但被旋转过的图片会认不出来。</string>
+    <string name="detect_option_verify_sig">用 DCT 验证签名</string>
+    <string name="detect_option_verify_sig_hint">EXIF 是明文、本身不带签名。打开后会用频域复查一遍，才能给出「已验证」。</string>
 
     <string name="detect_error_skipped_dct">已跳过频域检测（设置中关闭），EXIF 里也没有</string>
     <string name="detect_error_skipped_all">已跳过全部检测通道（设置中关闭）</string>

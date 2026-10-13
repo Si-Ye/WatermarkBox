@@ -55,7 +55,29 @@ data class DetectOptions(
      * 关掉后只按当前方向提取，快约 4 倍 ——
      * 但被旋转过的图就认不出来了。
      */
-    val autoRotation: Boolean = true
+    val autoRotation: Boolean = true,
+
+    /**
+     * 是否用 DCT 通道验证签名。
+     *
+     * ## 为什么需要它
+     *
+     * EXIF 存的是**明文**，本身不带签名。若看到 EXIF 就直接返回，
+     * 那么即使这张图**同时**带着签名有效的 DCT 水印，
+     * 结果也只能是「无法验证」—— 一张完全合法的图显得可疑。
+     *
+     * 打开这项后，EXIF 命中时会**继续扫一遍 DCT** 把签名状态取回来，
+     * 于是能显示「已验证 · 本应用签发」。
+     *
+     * ## 代价
+     *
+     * EXIF 命中的图也要跑一次全量频域扫描，明显变慢。
+     * 只想快速确认「有没有水印」时，把它关掉 —— 那时签名列会显示
+     * 「无法验证」，这是**如实**的：确实没去查。
+     *
+     * 仅在 [checkDct] 也开启时有意义。
+     */
+    val verifySignatureViaDct: Boolean = true
 ) {
     companion object {
         val Default = DetectOptions()
@@ -122,19 +144,25 @@ class WatermarkDetector(private val context: Context) {
         // readUserComment 已内部完成 Base64 解码（见 ExifTextCodec），
         // 因此这里拿到的是**可读原文**，中文完整。
         var exifComment: String? = null
+        var exifText: String? = null
         if (options.checkExif) {
             exifComment = ExifCopier.readUserComment(context, uri)
-            val exifText = exifComment
-                ?.takeIf { it.startsWith(ExifTextCodec.TAG_PREFIX) }
+            exifText = exifComment?.takeIf { it.startsWith(ExifTextCodec.TAG_PREFIX) }
+        }
 
-            if (exifText != null) {
-                return@withContext DetectResult.Found(
-                    content = exifText,
-                    channel = DetectChannel.EXIF,
-                    confidence = 1f,
-                    frequencyText = null
-                )
-            }
+        // EXIF 命中，且不需要用 DCT 取签名状态 → 直接返回（最快路径）。
+        //
+        // 这里返回的 signatureValid 是 null 而不是 true：
+        // EXIF 是**明文**、本身不带签名，谁都能改。标成「无法验证」
+        // 才不会让上层把「EXIF 有内容」误读成「确认是本应用写的」。
+        if (exifText != null && !(options.checkDct && options.verifySignatureViaDct)) {
+            return@withContext DetectResult.Found(
+                content = exifText,
+                channel = DetectChannel.EXIF,
+                confidence = 1f,
+                frequencyText = null,
+                signatureValid = null
+            )
         }
 
         if (!options.checkDct) {
@@ -161,16 +189,43 @@ class WatermarkDetector(private val context: Context) {
                 val extraction = engine.extract(bitmap, tryRotations = options.autoRotation)
 
                 if (extraction is WatermarkExtraction.Found) {
-                    return@withContext DetectResult.Found(
-                        content = extraction.text,
-                        channel = DetectChannel.FREQUENCY,
-                        confidence = extraction.confidence,
-                        frequencyText = extraction.text
-                    )
+                    // EXIF 优先（人可读、无歧义），但把 DCT 验到的**签名状态**
+                    // 一起带上 —— 这正是本选项存在的意义：
+                    // 让「EXIF + DCT 都有的合法图」显示成「已验证」，
+                    // 而不是含糊的「无法验证」。
+                    return@withContext if (exifText != null) {
+                        DetectResult.Found(
+                            content = exifText,
+                            channel = DetectChannel.EXIF,
+                            confidence = 1f,
+                            frequencyText = extraction.text,
+                            signatureValid = extraction.signatureValid
+                        )
+                    } else {
+                        DetectResult.Found(
+                            content = extraction.text,
+                            channel = DetectChannel.FREQUENCY,
+                            confidence = extraction.confidence,
+                            frequencyText = extraction.text,
+                            signatureValid = extraction.signatureValid
+                        )
+                    }
                 }
             }
         } finally {
             bitmap.recycle()
+        }
+
+        // EXIF 有内容，但 DCT 没命中 → 只能给出 EXIF 的内容，
+        // 签名无从验证（这张图可能只写了 EXIF，没写频域）
+        if (exifText != null) {
+            return@withContext DetectResult.Found(
+                content = exifText,
+                channel = DetectChannel.EXIF,
+                confidence = 1f,
+                frequencyText = null,
+                signatureValid = null
+            )
         }
 
         // 有 EXIF 但不是我们的 → 明确报告「非本 App 水印」，
@@ -205,7 +260,16 @@ sealed class DetectResult {
         /** 置信度 0~1。EXIF 通道恒为 1。 */
         val confidence: Float,
         /** 频域通道读到的内容（若 EXIF 优先命中则可能为空）。 */
-        val frequencyText: String?
+        val frequencyText: String?,
+        /**
+         * 签名状态。
+         *
+         * - `true`  = 本应用签发且未篡改
+         * - `false` = 带签名但校验失败（**可能被伪造**）
+         * - `null`  = 无法判断（EXIF 通道是明文，本身就没有签名；
+         *   或图片来自旧版本，那时还没有签名机制）
+         */
+        val signatureValid: Boolean? = null
     ) : DetectResult()
 
     /** 未检测到水印。 */

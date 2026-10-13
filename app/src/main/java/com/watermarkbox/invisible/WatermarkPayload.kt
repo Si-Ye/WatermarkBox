@@ -6,10 +6,10 @@ package com.watermarkbox.invisible
  * ## 数据布局
  *
  * ```
- * ┌────────┬────────┬──────────────┬────────┐
- * │ SYNC   │ LEN    │ DATA         │ CRC16  │
- * │ 16 bit │ 8 bit  │ N*8 bit      │ 16 bit │
- * └────────┴────────┴──────────────┴────────┘
+ * ┌────────┬────────┬──────────┬──────────┬────────┐
+ * │ SYNC   │ LEN    │ DATA     │ SIG      │ CRC16  │
+ * │ 16 bit │ 8 bit  │ N*8 bit  │ 64 bit   │ 16 bit │
+ * └────────┴────────┴──────────┴──────────┴────────┘
  * ```
  *
  * - `SYNC`：同步字 `0xA5C3`。提取时先扫同步字，避免把「普通图片的
@@ -17,7 +17,17 @@ package com.watermarkbox.invisible
  * - `LEN`：数据字节数（0~255）。上限 255 字节足够放
  *   「WMB:xxx:yyy」这类文本。
  * - `DATA`：UTF-8 字节。
- * - `CRC16`：对 LEN+DATA 的校验，抗「能读出但读错」的情况。
+ * - `SIG`：HMAC 签名（见 [WatermarkSigner]），覆盖 **LEN + DATA**。
+ *   用来回答「这段内容是不是本应用写的」—— 明文时代任何人都能
+ *   往图里塞一段 `WMB1:xxx`，检测端只能照单全收。
+ * - `CRC16`：只对 `DATA` 的校验，抗「能读出但读错」的情况。
+ *   注意它**不能防伪造**（攻击者可以重算 CRC），防伪靠 `SIG`。
+ *
+ * ## 旧格式兼容
+ *
+ * v2 之前没有 `SIG` 字段。解码时**先按新格式试，失败再回退旧格式**，
+ * 因此升级前导出的图仍能正常读出，只是签名状态为 `null`
+ * （表示「无法判断真伪」）。
  *
  * ## 为什么先编码再纠错
  *
@@ -41,52 +51,111 @@ object WatermarkPayload {
     val TAG_PREFIX: String get() = com.watermarkbox.util.ExifTextCodec.TAG_PREFIX
 
     /**
-     * 把文本编码为负载字节。
+     * 解码结果。
+     *
+     * @param text 还原出的文本
+     * @param signatureValid 签名状态：
+     *        `true`  = 本应用签发，且未被篡改；
+     *        `false` = 带了签名但校验失败（**可能是伪造**）；
+     *        `null`  = 旧格式，没有签名，无法判断真伪
+     */
+    data class Decoded(val text: String, val signatureValid: Boolean?)
+
+    /**
+     * 把文本编码为负载字节（**带签名**）。
      *
      * @return 编码后的字节数组；文本过长时返回 null
      */
     fun encode(text: String): ByteArray? {
         val data = text.toByteArray(Charsets.UTF_8)
         if (data.isEmpty() || data.size > MAX_DATA_BYTES) return null
+        return encode(data)
+    }
 
+    /** 把已编码好的字节装进负载帧（带签名）。 */
+    fun encode(data: ByteArray): ByteArray {
         val bits = BitWriter()
         bits.writeBits(SYNC, 16)
         bits.writeBits(data.size, 8)
         data.forEach { bits.writeBits(it.toInt() and 0xFF, 8) }
+        // 签名覆盖「长度 + 数据」：只签数据的话，
+        // 攻击者可以截取合法的一段再改 LEN 来改变解析结果
+        WatermarkSigner.sign(data.size, data).forEach {
+            bits.writeBits(it.toInt() and 0xFF, 8)
+        }
         bits.writeBits(crc16(data), 16)
         return bits.toByteArray()
     }
 
     /**
-     * 从负载字节解码文本。
+     * 从负载字节解码文本（**只取文本**，忽略签名状态）。
      *
-     * @param bytes 由 [ReedSolomon] 纠错后的字节
-     * @return 解码后的文本；同步字不符 / 长度非法 / CRC 失败返回 null
+     * 保留这个入口是为了让既有调用方与测试继续可用；
+     * 需要真伪信息时用 [decodeDetailed]。
      */
-    fun decode(bytes: ByteArray): String? {
-        val reader = BitReader(bytes)
-        if (reader.remaining < 16 + 8) return null
-
-        val sync = reader.readBits(16)
-        if (sync != SYNC) return null
-
-        val len = reader.readBits(8)
-        if (len <= 0 || len > MAX_DATA_BYTES) return null
-        if (reader.remaining < len * 8 + 16) return null
-
-        val data = ByteArray(len) { (reader.readBits(8) and 0xFF).toByte() }
-        val crc = reader.readBits(16)
-
-        if (crc != crc16(data)) return null
-        return runCatching { String(data, Charsets.UTF_8) }.getOrNull()
-            ?.takeIf { it.isNotEmpty() }
-    }
+    fun decode(bytes: ByteArray): String? = decodeDetailed(bytes)?.text
 
     /**
-     * 负载的**总比特数**（含同步/长度/CRC 开销）。
+     * 从负载字节解码，并给出**签名状态**。
+     *
+     * 先按新格式（带签名）解析，失败再回退旧格式 ——
+     * 这样升级前导出的图仍能读出，只是签名状态为 `null`。
+     */
+    fun decodeDetailed(bytes: ByteArray): Decoded? =
+        decodeSigned(bytes) ?: decodeLegacy(bytes)
+
+    /** 新格式：`SYNC + LEN + DATA + SIG(8) + CRC(2)` */
+    private fun decodeSigned(bytes: ByteArray): Decoded? {
+        val r = BitReader(bytes)
+        if (r.remaining < 16 + 8) return null
+        if (r.readBits(16) != SYNC) return null
+        val len = r.readBits(8)
+        if (len <= 0 || len > MAX_DATA_BYTES) return null
+        if (r.remaining < len * 8 + WatermarkSigner.SIGNATURE_BYTES * 8 + 16) return null
+
+        val data = ByteArray(len) { (r.readBits(8) and 0xFF).toByte() }
+        val signature = ByteArray(WatermarkSigner.SIGNATURE_BYTES) {
+            (r.readBits(8) and 0xFF).toByte()
+        }
+        val crc = r.readBits(16)
+
+        if (crc != crc16(data)) return null
+
+        return Decoded(
+            text = toText(data) ?: return null,
+            signatureValid = WatermarkSigner.verify(len, data, signature)
+        )
+    }
+
+    /** 旧格式（无签名）：`SYNC + LEN + DATA + CRC(2)` */
+    private fun decodeLegacy(bytes: ByteArray): Decoded? {
+        val r = BitReader(bytes)
+        if (r.remaining < 16 + 8) return null
+        if (r.readBits(16) != SYNC) return null
+        val len = r.readBits(8)
+        if (len <= 0 || len > MAX_DATA_BYTES) return null
+        if (r.remaining < len * 8 + 16) return null
+
+        val data = ByteArray(len) { (r.readBits(8) and 0xFF).toByte() }
+        val crc = r.readBits(16)
+
+        if (crc != crc16(data)) return null
+
+        // 旧格式没有签名 → 用 null 表示「无法判断」，
+        // 而不是 false（false 的语义是「签名验不过 = 可能伪造」）
+        return Decoded(text = toText(data) ?: return null, signatureValid = null)
+    }
+
+    private fun toText(data: ByteArray): String? =
+        runCatching { String(data, Charsets.UTF_8) }.getOrNull()
+            ?.takeIf { it.isNotEmpty() }
+
+    /**
+     * 负载的**总比特数**（含同步/长度/签名/CRC 开销）。
      * 用于计算嵌入需要多少个 8×8 块。
      */
-    fun bitLength(dataBytes: Int): Int = 16 + 8 + dataBytes * 8 + 16
+    fun bitLength(dataBytes: Int): Int =
+        16 + 8 + dataBytes * 8 + WatermarkSigner.SIGNATURE_BYTES * 8 + 16
 
     /** CRC-16/CCITT-FALSE。选它是因为实现简单且分布均匀。 */
     fun crc16(data: ByteArray): Int {
