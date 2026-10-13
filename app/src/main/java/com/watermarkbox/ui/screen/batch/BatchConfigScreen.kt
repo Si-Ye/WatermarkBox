@@ -50,7 +50,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -488,26 +494,45 @@ private fun ThumbnailStrip(
     ) {
         images.forEachIndexed { index, _ ->
             val selected = index == currentIndex
+            // 无障碍：圆点没有任何文字，必须自己说明「这是第几张」；
+            // 另外它视觉上只有 20dp，用 minimumInteractiveComponentSize 把**触摸目标**
+            // 撑到 48dp —— 手部不便的用户才点得中（视觉大小不变）
+            val pageLabel = stringResource(R.string.a11y_page_dot, index + 1)
             Box(
                 modifier = Modifier
+                    .minimumInteractiveComponentSize()
                     .size(if (selected) 26.dp else 20.dp)
                     .clip(CircleShape)
                     .background(
                         if (selected) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.surfaceVariant
                     )
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = pageLabel
+                        this.selected = selected
+                    }
                     .clickable { onSelect(index) }
             )
         }
         // 末尾的「添加更多」指示点：当前停在追加页时高亮
+        val addMoreLabel = stringResource(R.string.batch_add_more)
+        val onAddMorePage = currentIndex >= images.size
         Box(
             modifier = Modifier
-                .size(if (currentIndex >= images.size) 26.dp else 20.dp)
+                // 同上一处：把触摸目标撑到 48dp（视觉仍是小圆点）
+                .minimumInteractiveComponentSize()
+                .size(if (onAddMorePage) 26.dp else 20.dp)
                 .clip(CircleShape)
                 .background(
-                    if (currentIndex >= images.size) MaterialTheme.colorScheme.primary
+                    if (onAddMorePage) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 )
+                .semantics {
+                    role = Role.Button
+                    contentDescription = addMoreLabel
+                    this.selected = onAddMorePage
+                }
                 .clickable(onClick = onAddMore),
             contentAlignment = Alignment.Center
         ) {

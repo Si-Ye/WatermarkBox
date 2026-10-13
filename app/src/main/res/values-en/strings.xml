@@ -49,6 +49,9 @@
     <string name="a11y_app_icon">WatermarkBox</string>
     <string name="a11y_app_logo">WatermarkBox icon</string>
     <string name="a11y_avatar">Avatar of %1$s</string>
+    <string name="a11y_panel_expanded">Expanded, tap to collapse</string>
+    <string name="a11y_panel_collapsed">Collapsed, tap to expand</string>
+    <string name="a11y_page_dot">Image %1$d</string>
 
     <!-- ==================== Home ==================== -->
     <string name="home_brand_name">WatermarkBox</string>

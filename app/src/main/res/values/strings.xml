@@ -54,6 +54,9 @@
     <string name="a11y_app_icon">水印盒</string>
     <string name="a11y_app_logo">水印盒图标</string>
     <string name="a11y_avatar">%1$s 的头像</string>
+    <string name="a11y_panel_expanded">已展开，点击收起</string>
+    <string name="a11y_panel_collapsed">已收起，点击展开</string>
+    <string name="a11y_page_dot">第 %1$d 张</string>
 
     <!-- ==================== 首页 ==================== -->
     <string name="home_brand_name">水印盒</string>

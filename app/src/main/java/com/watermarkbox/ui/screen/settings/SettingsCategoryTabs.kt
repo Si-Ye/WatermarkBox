@@ -12,7 +12,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -46,7 +48,10 @@ internal fun SettingsCategoryTabs(
                         if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                     )
-                    .clickable { onSelect(item) }
+                    // 无障碍：用 selectable 而不是 clickable ——
+                    // 它会把「这是个页签」+「当前是否选中」一起告诉 TalkBack，
+                    // 否则读屏用户听不出自己在哪个分类
+                    .selectable(selected = isSelected, role = Role.Tab) { onSelect(item) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {

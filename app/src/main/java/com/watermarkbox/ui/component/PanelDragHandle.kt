@@ -18,6 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,10 +53,20 @@ fun PanelDragHandle(
     modifier: Modifier = Modifier,
     @StringRes titleRes: Int = R.string.panel_title
 ) {
+    // 无障碍：整行可点，但视觉上只有一条细杠 + 文字，
+    // TalkBack 需要两件它看不出来的事：「这是个按钮」以及「当前是展开还是收起」。
+    val stateText = stringResource(
+        if (expanded) R.string.a11y_panel_expanded else R.string.a11y_panel_collapsed
+    )
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
+            .semantics {
+                role = Role.Button
+                stateDescription = stateText
+            }
             .clickable { onToggle() }
             .padding(horizontal = Spacing.PageHorizontal, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
