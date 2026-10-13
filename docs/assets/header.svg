@@ -91,22 +91,21 @@
     <text x="218" y="192" font-size="21" fill="#C5CAE9"
           letter-spacing="0.5">一个安静、克制的 Android 图片水印工具</text>
 
-    <!-- 特性标签：218..350 / 362..494 / 506..638 -->
+    <!-- 特性标签：三个等宽 132px 的胶囊，间隔 12px ——
+         文案必须都是**四个字**，否则字数少的那个在框里会显得空、看着像错位 -->
     <g font-size="17">
       <rect x="218" y="216" width="132" height="38" rx="19"
             fill="#FFFFFF" fill-opacity="0.12"
             stroke="#FFFFFF" stroke-opacity="0.24"/>
       <text x="284" y="241" fill="#E8EAF6" text-anchor="middle">实时预览</text>
-
       <rect x="362" y="216" width="132" height="38" rx="19"
             fill="#FF6F00" fill-opacity="0.18"
             stroke="#FF6F00" stroke-opacity="0.55"/>
       <text x="428" y="241" fill="#FFCC80" text-anchor="middle">隐藏水印</text>
-
       <rect x="506" y="216" width="132" height="38" rx="19"
             fill="#FFFFFF" fill-opacity="0.12"
             stroke="#FFFFFF" stroke-opacity="0.24"/>
-      <text x="572" y="241" fill="#E8EAF6" text-anchor="middle">不上传</text>
+      <text x="572" y="241" fill="#E8EAF6" text-anchor="middle">不上传图</text>
     </g>
 
   </g>
