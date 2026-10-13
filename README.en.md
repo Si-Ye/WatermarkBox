@@ -115,12 +115,22 @@ image, with 100% confidence.</sub>
 Both channels can be **switched on and off independently**. Metadata is the *overt* path — precise but
 fragile; DCT is the *covert* path — fuzzy but stubborn.
 
-**Measured** (512×512 test image):
+**Measured** (512×512 test image, per-block bit accuracy):
 
-- Bit accuracy **97%** (3994 / 4096)
+- Per-block accuracy **99.5%** (54.2% before the light-background embedding fix)
+- PSNR **~38 dB** on realistic images — visually imperceptible
 - Survives JPEG quality **90 / 80**
 - Survives **two consecutive re-encodes** (90 → 85)
 - Survives a lossless PNG round-trip
+
+**Two embedding improvements** (v2.1.0):
+
+- **Per-pixel clipping** replaces whole-block uniform scaling — light backgrounds
+  have almost no headroom, and the old strategy flattened the delta in 28% of
+  blocks, so the watermark was written but unreadable.
+- **DC-QIM distortion compensation** (α = 0.4) — **+4.34 dB** image quality at the
+  cost of a 0.42% bit error rate, fully absorbed by redundancy voting (extraction
+  stays at 100%), with **zero loss** in JPEG re-compression robustness.
 
 **And what it cannot do** — this part matters:
 
@@ -215,7 +225,7 @@ implemented from scratch.
 ### Commands
 
 ```bash
-# Unit tests (356)
+# Unit tests (411)
 ./gradlew testDebugUnitTest
 
 # Debug build
@@ -333,7 +343,7 @@ Apache-2.0 — see [LICENSE](LICENSE).
 
 <br>
 
-**WatermarkBox**　`v2.0.1`
+**WatermarkBox**　`v2.1.0`
 
 Made with 🐺 by [Si-Ye](https://github.com/Si-Ye)
 
