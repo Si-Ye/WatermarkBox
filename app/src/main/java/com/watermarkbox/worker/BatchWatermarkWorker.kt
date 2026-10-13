@@ -200,7 +200,11 @@ class BatchWatermarkWorker(
                 index = index
             )
 
-            val saved = exportRepository.saveBitmap(
+            // ⚠️ 注意类型：saveBitmap 返回 ExportResult?，
+            // 这里要的是「是否成功」这个判断本身，**不能**把 `!= null`
+            // 的结果再赋回给同名变量 —— 那样 saved 变成 Boolean，
+            // 下面 `saved != null` 恒为 true，失败会被静默吞掉。
+            val savedOk = exportRepository.saveBitmap(
                 bitmap = toWrite,
                 displayName = fileName,
                 format = exportSettings.format,
@@ -211,7 +215,7 @@ class BatchWatermarkWorker(
                 // EXIF 通道独立开关：关掉时传 null，等价于「不写元数据水印」
                 invisibleContent = invisibleContent.takeIf { invisibleExif }
             ) != null
-            if (saved != null) null else BatchFailureReason.SAVE_FAILED
+            if (savedOk) null else BatchFailureReason.SAVE_FAILED
         } catch (t: Throwable) {
             BatchFailureReason.UNKNOWN
         } finally {
