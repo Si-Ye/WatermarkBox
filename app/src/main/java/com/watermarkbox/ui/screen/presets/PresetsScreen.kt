@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.BuildConfig
 import com.watermarkbox.R
+import com.watermarkbox.ui.component.InfoDot
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.theme.Spacing
@@ -111,7 +112,21 @@ fun PresetsScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.presets_title), fontWeight = FontWeight.SemiBold) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.presets_title),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        // 页面简介收进标题旁的 ⓘ —— 它解释的是「这个页面能干什么」，
+                        // 挂在标题边上比塞在列表上方更贴切，也省一行高度
+                        InfoDot(
+                            title = stringResource(R.string.presets_title),
+                            text = stringResource(R.string.presets_tip)
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -192,13 +207,6 @@ fun PresetsScreen(
                 }
 
                 else -> {
-                    Text(
-                        text = stringResource(R.string.presets_tip),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(Spacing.Item))
-
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
