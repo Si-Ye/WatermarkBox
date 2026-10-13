@@ -13,6 +13,7 @@ import com.watermarkbox.data.model.ImageWatermarkStyle
 import com.watermarkbox.data.model.LayoutMode
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.util.PlaceholderResolver
+import kotlinx.coroutines.CancellationException
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.cos
@@ -94,6 +95,22 @@ class WatermarkRenderer {
      * @param sourceFileName 原图文件名，用于 {filename} 占位符
      * @param baseWidth  配置数值所基于的宽度；默认与 source 同宽（预览场景传原图宽度）
      * @param baseHeight 配置数值所基于的高度；默认与 source 同高
+     * @param cancel    取消检查点。平铺循环里会周期性查询，被取消则
+     *                  立即停止后续绘制并抛出 [CancellationException]。
+     *
+     *                  **为什么必须显式传**：本方法及其下游是**完全同步**的
+     *                  （无 `delay`、无线程切换），Kotlin 协程的取消
+     *                  **只在挂起点生效** —— 同步函数里的取消只能排队，
+     *                  要等函数自己跑完才抛出来。
+     *
+     *                  后果（老大实测的预览频闪根因）：拖滑块时
+     *                  `collectLatest` 每帧都取消上一次，但每次渲染都
+     *                  阻塞着跑完 → 多个渲染**并发**写同一批复用位图
+     *                  → UI 看到的画面在各自半成品之间跳 → 频闪。
+     *
+     *                  所以把「是否已取消」传进来，让耗时的平铺循环
+     *                  主动退出。
+     *
      * @return 渲染后的新 Bitmap
      */
     fun render(
@@ -101,7 +118,8 @@ class WatermarkRenderer {
         config: TextWatermarkStyle,
         sourceFileName: String? = null,
         baseWidth: Int = source.width,
-        baseHeight: Int = source.height
+        baseHeight: Int = source.height,
+        cancel: RenderCancelCheck = RenderCancelCheck.Never
     ): Bitmap {
         val ctx = RenderContext(
             baseWidth = baseWidth,
@@ -111,8 +129,8 @@ class WatermarkRenderer {
         )
         return when (config.layoutMode) {
             LayoutMode.SINGLE -> renderSingle(source, config, sourceFileName, ctx)
-            LayoutMode.TILED -> renderTiled(source, config, sourceFileName, ctx)
-            LayoutMode.DIAGONAL -> renderDiagonal(source, config, sourceFileName, ctx)
+            LayoutMode.TILED -> renderTiled(source, config, sourceFileName, ctx, cancel)
+            LayoutMode.DIAGONAL -> renderDiagonal(source, config, sourceFileName, ctx, cancel)
         }
     }
 
@@ -256,7 +274,8 @@ class WatermarkRenderer {
         sourceFileName: String? = null,
         ctx: RenderContext = RenderContext(
             source.width, source.height, source.width, source.height
-        )
+        ),
+        cancel: RenderCancelCheck = RenderCancelCheck.Never
     ): Bitmap {
         val output = outputFor(source)
         val canvas = Canvas(output)
@@ -298,7 +317,23 @@ class WatermarkRenderer {
         val rotateEach = config.rotationDegrees
 
         // 嵌套循环：行 → 列，逐个绘制
+        //
+        // ⚠️ **取消检查点**（本函数是整条渲染链路里唯一耗时的地方）：
+        //
+        // 每画完**一行**检查一次「是否已被取消」。粒度选「行」而非「格」：
+        // - 一格的开销在微秒级，每格检查反而让检查本身成为负担
+        // - 一行通常几十格，即便大图上也能在几十微秒内响应取消
+        //
+        // 为什么必须检查：本函数**完全同步**（无挂起点），协程的
+        // `collectLatest` 取消无法中断它。不检查的后果是拖滑块时
+        // 多个渲染**并发**写同一批缓冲 → 画面在各自半成品间跳 → 频闪。
+        // 详见 [RenderCancelCheck] 的完整说明。
         for (row in 0..rows) {
+            if (cancel.isCancelled()) {
+                // 抛出 CancellationException 让上层协程按取消处理：
+                // 不写结果、不覆盖画面。
+                throw CancellationException("预览渲染已被新请求取代")
+            }
             for (col in 0..cols) {
                 // 奇数行做半格错位，形成砖块式平铺，视觉更均匀
                 val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
@@ -329,7 +364,8 @@ class WatermarkRenderer {
         sourceFileName: String? = null,
         ctx: RenderContext = RenderContext(
             source.width, source.height, source.width, source.height
-        )
+        ),
+        cancel: RenderCancelCheck = RenderCancelCheck.Never
     ): Bitmap {
         val output = outputFor(source)
         val canvas = Canvas(output)
@@ -388,7 +424,12 @@ class WatermarkRenderer {
         val rows = ceil((bounds.height + cellHeight * 2) / cellHeight).toInt() + 1
 
         canvas.withRotation(angle, originX, originY) {
+            // ⚠️ 取消检查点，见 renderTiled 里同一处的说明。
+            // 抛出的异常会经由 withRotation 内部的 finally 正确 restore 画布状态。
             for (row in 0..rows) {
+                if (cancel.isCancelled()) {
+                    throw CancellationException("预览渲染已被新请求取代")
+                }
                 for (col in 0..cols) {
                     val offsetX = if (row % 2 == 1) cellWidth / 2f else 0f
                     val x = startX + col * cellWidth + offsetX

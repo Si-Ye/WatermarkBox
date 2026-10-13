@@ -110,25 +110,41 @@ fun rememberRenderedPreview(
     val engine = remember(scope, renderer) {
         PreviewRenderEngine<PreviewRequest, Bitmap>(
             scope = scope,
-            render = { request ->
-                renderer.reuseTarget = buffers.acquire(
-                    request.source.width,
-                    request.source.height
-                )
-                val rendered = PreviewRenderer.render(
-                    renderer = renderer,
-                    bitmap = request.source,
-                    watermarkType = request.watermarkType,
-                    textConfig = request.textConfig,
-                    imageConfig = request.imageConfig,
-                    logoBitmap = request.logoBitmap,
-                    sourceFileName = request.sourceFileName
-                )
-                // 用完就摘掉：这个渲染器不归缓冲池，别让它长期握着复用目标
-                renderer.reuseTarget = null
-                buffers.onPublished(rendered)
-                rendered
-            }
+            render = { request, cancel ->
+                // ⚠️ 关键：这里**必须**用 try/finally 把 reuseTarget 摘掉。
+                //
+                // 渲染会被 collectLatest 取消（拖滑块时每帧都取消上一次）。
+                // 若取消发生在「设置 reuseTarget」与「画完」之间，
+                // 且没有 finally，那么 reuseTarget 会**一直挂着那块缓冲** ——
+                // 下一次 acquire 时，缓冲池以为它空闲，就把它分给别人写，
+                // 于是出现「两次渲染写同一块位图」→ 画面花 / 闪。
+                //
+                // 用 finally 保证无论正常结束、抛异常还是被取消，
+                // 渲染器都不会长期握着别人的缓冲。
+                try {
+                    renderer.reuseTarget = buffers.acquire(
+                        request.source.width,
+                        request.source.height
+                    )
+                    PreviewRenderer.render(
+                        renderer = renderer,
+                        bitmap = request.source,
+                        watermarkType = request.watermarkType,
+                        textConfig = request.textConfig,
+                        imageConfig = request.imageConfig,
+                        logoBitmap = request.logoBitmap,
+                        sourceFileName = request.sourceFileName,
+                        // 把取消状态一路传到平铺循环里 —— 它是渲染链路中
+                        // 唯一耗时的地方，也是唯一能让取消真正生效的点。
+                        cancel = cancel
+                    )
+                } finally {
+                    // 这个渲染器不归缓冲池，别让它长期握着复用目标
+                    renderer.reuseTarget = null
+                }
+            },
+            // 渲染结束后（且未被取消）才发布结果
+            onRendered = { rendered -> buffers.onPublished(rendered) }
         )
     }
 

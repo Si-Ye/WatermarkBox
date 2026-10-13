@@ -26,15 +26,22 @@ class PreviewRenderEngineTest {
     private fun engineWith(
         scopeDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
         renderDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.Unconfined,
-        render: suspend (String) -> String
+        render: suspend (String, RenderCancelCheck) -> String?
     ) = PreviewRenderEngine<String, String>(
         scope = CoroutineScope(scopeDispatcher),
         dispatcher = renderDispatcher,
         render = render
     )
 
+    /**
+     * 便捷重载：忽略取消检查（大多数用例不关心它）。
+     *
+     * 签名从 `suspend (String) -> String` 变成两参是因为引擎现在会把
+     * 「是否已取消」传给渲染代码 —— 渲染链路是同步的，协程取消
+     * 无法中断它，只能靠这个查询口（详见 [RenderCancelCheck]）。
+     */
     private fun engineWith(render: suspend (String) -> String) =
-        engineWith(Dispatchers.Unconfined, Dispatchers.Unconfined, render)
+        engineWith(Dispatchers.Unconfined, Dispatchers.Unconfined) { it_, _ -> render(it_) }
 
     @Test
     fun `提交后发布渲染结果`() {
@@ -79,7 +86,7 @@ class PreviewRenderEngineTest {
         val engine = engineWith(
             scopeDispatcher = Dispatchers.Default,
             renderDispatcher = Dispatchers.Default,
-            render = { renderThread = Thread.currentThread(); "ok" }
+            render = { _, _ -> renderThread = Thread.currentThread(); "ok" }
         )
         engine.submit("x")
 

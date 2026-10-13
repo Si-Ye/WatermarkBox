@@ -25,7 +25,14 @@ object PreviewRenderer {
         textConfig: TextWatermarkStyle,
         imageConfig: ImageWatermarkStyle,
         logoBitmap: Bitmap?,
-        sourceFileName: String?
+        sourceFileName: String?,
+        /**
+         * 取消检查点，透传给 [WatermarkRenderer] 的平铺循环。
+         *
+         * 为什么必须一路传下来：渲染链路**完全同步**，
+         * 协程取消无法中断它（详见 [RenderCancelCheck]）。
+         */
+        cancel: RenderCancelCheck = RenderCancelCheck.Never
     ): Bitmap? {
         if (bitmap == null || bitmap.isRecycled) return null
 
@@ -34,7 +41,8 @@ object PreviewRenderer {
                 WatermarkType.TEXT -> renderer.render(
                     source = bitmap,
                     config = textConfig,
-                    sourceFileName = sourceFileName
+                    sourceFileName = sourceFileName,
+                    cancel = cancel
                 )
 
                 WatermarkType.IMAGE -> {
