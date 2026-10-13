@@ -223,12 +223,16 @@ fun PresetsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         items(state.presets, key = { it.id }) { preset ->
-                            PresetCard(
-                                preset = preset,
-                                onEdit = { onEditPreset(preset) },
-                                onExport = { onExportOne(preset) },
-                                onDelete = { viewModel.requestDelete(preset) }
-                            )
+                            // 增删/排序时让卡片自己补间滑入滑出，而不是「啪」地出现或消失。
+                            // animateItem 只作用于本项的摆放（layer + 位置），不触发兄弟项重排动画。
+                            Box(modifier = Modifier.animateItem()) {
+                                PresetCard(
+                                    preset = preset,
+                                    onEdit = { onEditPreset(preset) },
+                                    onExport = { onExportOne(preset) },
+                                    onDelete = { viewModel.requestDelete(preset) }
+                                )
+                            }
                         }
                         item { Spacer(Modifier.height(24.dp)) }
                     }

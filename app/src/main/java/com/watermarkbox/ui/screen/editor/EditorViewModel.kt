@@ -39,6 +39,33 @@ import kotlinx.coroutines.launch
 /**
  * 编辑页 UI 状态。
  */
+/**
+ * 导出走到哪一步了。
+ *
+ * ## 为什么要有它
+ *
+ * 大图导出要依次经过「解码原图 → 渲染水印 → 嵌隐藏水印 → 写文件」，
+ * 全程可能好几秒。以前界面上只有按钮文字在变，看起来就像**卡死**了。
+ * 把阶段暴露给界面，就能明确告诉用户「正在做哪一步」。
+ *
+ * 用枚举而不是字符串：阶段是有限集合，界面按它选文案；
+ * 写错名字编译期就报，字符串要等运行时才发现「这一步没文案」。
+ */
+@Immutable
+enum class ExportStage {
+    /** 解码原图（大图最就的在这一步）。 */
+    LOADING_SOURCE,
+
+    /** 渲染可见水印。 */
+    RENDERING,
+
+    /** 嵌入隐藏水印（频域 / 元数据）。 */
+    EMBEDDING_INVISIBLE,
+
+    /** 写入文件。 */
+    SAVING
+}
+
 @Immutable
 data class EditorUiState(
     /** 选中的图片 Uri */
@@ -73,6 +100,8 @@ data class EditorUiState(
     val exportSettings: ExportSettings = ExportSettings(),
     /** 是否正在导出 */
     val isExporting: Boolean = false,
+    /** 导出走到哪一步；null 表示没在导出。 */
+    val exportStage: ExportStage? = null,
     /** 最近一次导出结果（用于显示缩略图预览） */
     val lastExportUri: Uri? = null,
     // ---- 预设 ----
@@ -377,7 +406,13 @@ class EditorViewModel(application: Application) :
         }
         if (state.isExporting) return
 
-        _uiState.update { it.copy(isExporting = true, errorMessage = null) }
+        _uiState.update {
+            it.copy(
+                isExporting = true,
+                exportStage = ExportStage.LOADING_SOURCE,
+                errorMessage = null
+            )
+        }
         viewModelScope.launch {
             var fullBitmap: Bitmap? = null
             var rendered: Bitmap? = null
@@ -411,6 +446,7 @@ class EditorViewModel(application: Application) :
                     is BitmapLoadOutcome.Ok -> fullBitmap = outcome.bitmap
                 }
 
+                _uiState.update { it.copy(exportStage = ExportStage.RENDERING) }
                 // 用原图坐标系渲染：此时 baseWidth == targetWidth，缩放系数为 1
                 rendered = when (state.watermarkType) {
                     WatermarkType.TEXT -> renderer.render(
@@ -462,6 +498,7 @@ class EditorViewModel(application: Application) :
                 // 它对 rendered 做一次带噪声的复制，因此要回收原 rendered。
                 var toWrite = rendered
                 if (resolved != null && invisible.dctEnabled) {
+                    _uiState.update { it.copy(exportStage = ExportStage.EMBEDDING_INVISIBLE) }
                     val stamped = InvisibleWatermarkEngine(invisible.strength.toFloat())
                         .embed(rendered, resolved)
                     if (stamped != null) {
@@ -471,6 +508,7 @@ class EditorViewModel(application: Application) :
                     }
                 }
 
+                _uiState.update { it.copy(exportStage = ExportStage.SAVING) }
                 val result = exportRepository.saveBitmap(
                     bitmap = toWrite,
                     displayName = fileName,
@@ -500,6 +538,9 @@ class EditorViewModel(application: Application) :
                     it.copy(isExporting = false, errorMessage = UiMessage(R.string.editor_error_export_exception, t.message ?: ""))
                 }
             } finally {
+                // 无论成功失败都收尾：按钮恢复可用、进度卡消失。
+                // 放 finally 里统一处理，免得每个提前 return 都要记得清一次。
+                _uiState.update { it.copy(isExporting = false, exportStage = null) }
                 // 释放大对象，避免内存峰值滞留
                 rendered?.takeIf { it != fullBitmap && !it.isRecycled }?.recycle()
                 fullBitmap?.takeIf { !it.isRecycled }?.recycle()

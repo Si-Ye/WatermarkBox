@@ -473,6 +473,12 @@ To create one: pick an image → adjust the watermark → tap the bookmark icon 
     <string name="editor_error_no_image">No image to export</string>
     <string name="editor_error_source_load">Could not load the original image — export aborted</string>
     <string name="editor_error_image_too_large">Image is too large: about %1$d MB is needed at full resolution, more than this device can spare. Please shrink the image before exporting</string>
+    <string name="editor_export_progress_title">Exporting</string>
+    <string name="editor_export_stage_source">Decoding the original…</string>
+    <string name="editor_export_stage_render">Rendering the watermark…</string>
+    <string name="editor_export_stage_invisible">Embedding the hidden watermark…</string>
+    <string name="editor_export_stage_save">Saving to the gallery…</string>
+    <string name="editor_export_large_hint">Large images can take a few seconds — hang tight</string>
     <string name="editor_error_no_logo">Choose a Logo image first</string>
     <string name="editor_error_export_failed">Export failed — please try again</string>
     <string name="editor_error_export_exception">Export error: %1$s</string>

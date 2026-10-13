@@ -2,6 +2,11 @@ package com.watermarkbox.ui.navigation
 
 import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -47,6 +52,22 @@ import com.watermarkbox.ui.screen.tutorial.TutorialScreen
 import com.watermarkbox.ui.screen.settings.SettingsViewModel
 import com.watermarkbox.ui.screen.update.UpdateViewModel
 import com.watermarkbox.util.PresetFileCodec
+
+/**
+ * 页面切换动效时长（毫秒）。
+ *
+ * ## 为什么是 200，而不是 Material 默认的 300~400
+ *
+ * 前提是「流畅优先」：转场只该负责说明**谁进谁出**，不该让用户等它演完。
+ * 200ms 足够看出方向感，又几乎察觉不到等待。
+ *
+ * ## 为什么只做「水平位移 + 透明度」
+ *
+ * 这两种只改 layer，不触发重新测量与布局；而 scale、共享轴（shared axis）
+ * 之类的转场会让整棵子树每帧重新布局 —— 在低端机上那就是掉帧来源。
+ * 出场位移取屏幕宽度的 1/8（不整屏滑），视觉上更轻，也一样省。
+ */
+private const val NAV_TRANSITION_MS = 200
 
 /**
  * 导航目的地定义。
@@ -151,7 +172,28 @@ fun WatermarkBoxNavHost(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        NavHost(navController = navController, startDestination = Routes.HOME) {
+        NavHost(
+            navController = navController,
+            startDestination = Routes.HOME,
+            // 页面转场：小幅水平位移 + 淡入淡出（时长与取舍见 NAV_TRANSITION_MS 注释）。
+            // 前进时新页从右滑入、旧页向左退出；返回时相反。
+            enterTransition = {
+                slideInHorizontally(tween(NAV_TRANSITION_MS)) { it / 8 } +
+                    fadeIn(tween(NAV_TRANSITION_MS))
+            },
+            exitTransition = {
+                slideOutHorizontally(tween(NAV_TRANSITION_MS)) { -it / 8 } +
+                    fadeOut(tween(NAV_TRANSITION_MS))
+            },
+            popEnterTransition = {
+                slideInHorizontally(tween(NAV_TRANSITION_MS)) { -it / 8 } +
+                    fadeIn(tween(NAV_TRANSITION_MS))
+            },
+            popExitTransition = {
+                slideOutHorizontally(tween(NAV_TRANSITION_MS)) { it / 8 } +
+                    fadeOut(tween(NAV_TRANSITION_MS))
+            }
+        ) {
 
             // ---------------- 首页 ----------------
             composable(Routes.HOME) {

@@ -10,6 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
@@ -222,6 +228,21 @@ fun EditorScreen(
                     onPickLogo = onPickLogo,
                     onPickFont = onPickFont
                 )
+            }
+
+            // ---- 导出进行中：一张能看见「在做什么」的进度卡 ----
+            //
+            // 为什么要有它：大图导出要经历「解码 → 渲染 → 嵌隐藏水印 → 写文件」，
+            // 全程可能好几秒；以前只有按钮文字在变，观感就是「卡住了」。
+            //
+            // 入场/退场用淡入 + 轻微放大（160/120ms）：够短，只为说明「它出现了」。
+            AnimatedVisibility(
+                visible = state.isExporting,
+                enter = fadeIn(tween(160)) + scaleIn(initialScale = 0.96f, animationSpec = tween(160)),
+                exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.98f, animationSpec = tween(120)),
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                ExportProgressCard(stage = state.exportStage)
             }
         }
     }

@@ -55,6 +55,12 @@ import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
 import com.watermarkbox.ui.theme.WatermarkPresetColors
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -599,7 +605,13 @@ private fun TextWatermarkPanelContent(
     // ---- 5. 水印增强 ----
     SectionLabel(stringResource(R.string.editor_enhance_section))
     ToggleRow(stringResource(R.string.editor_stroke), config.strokeEnabled) { viewModel.toggleStroke() }
-    if (config.strokeEnabled) {
+    // 展开/收起用动画：开关一拨内容「瞬移」出现会很生硬。
+    // 只影响这一块自身高度（180ms），不动其它兄弟节点 —— 符合「流畅优先」。
+    AnimatedVisibility(
+        visible = config.strokeEnabled,
+        enter = expandVertically(tween(180)) + fadeIn(tween(180)),
+        exit = shrinkVertically(tween(180)) + fadeOut(tween(120))
+    ) {
         LabeledSlider(
             label = stringResource(R.string.editor_stroke_width),
             value = config.strokeWidth,
@@ -624,7 +636,11 @@ private fun TextWatermarkPanelContent(
 
     Spacer(Modifier.height(8.dp))
     ToggleRow(stringResource(R.string.editor_shadow), config.shadowEnabled) { viewModel.toggleShadow() }
-    if (config.shadowEnabled) {
+    AnimatedVisibility(
+        visible = config.shadowEnabled,
+        enter = expandVertically(tween(180)) + fadeIn(tween(180)),
+        exit = shrinkVertically(tween(180)) + fadeOut(tween(120))
+    ) {
         LabeledSlider(
             label = stringResource(R.string.editor_shadow_radius),
             value = config.shadowRadius,

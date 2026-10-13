@@ -472,6 +472,12 @@
     <string name="editor_error_no_image">没有可导出的图片</string>
     <string name="editor_error_source_load">原图加载失败，无法导出</string>
     <string name="editor_error_image_too_large">图片过大：按原分辨率处理约需 %1$d MB，超出本机可用内存。请先缩小图片再导出</string>
+    <string name="editor_export_progress_title">正在导出</string>
+    <string name="editor_export_stage_source">解码原图…</string>
+    <string name="editor_export_stage_render">渲染水印…</string>
+    <string name="editor_export_stage_invisible">写入隐藏水印…</string>
+    <string name="editor_export_stage_save">保存到相册…</string>
+    <string name="editor_export_large_hint">图片较大时会花几秒，请稍候</string>
     <string name="editor_error_no_logo">请先选择 Logo 图片</string>
     <string name="editor_error_export_failed">导出失败，请重试</string>
     <string name="editor_error_export_exception">导出异常：%1$s</string>
