@@ -260,6 +260,10 @@ fun EditorScreen(
         ExportSettingsDialog(
             settings = state.exportSettings,
             title = stringResource(R.string.editor_export_global_title),
+            // 明确"这是全局"：确认按钮 + 顶部作用域说明卡
+            confirmText = stringResource(R.string.export_settings_global_confirm),
+            scopeHint = stringResource(R.string.export_scope_global),
+            persistentScope = true,
             onConfirm = {
                 viewModel.updateExportSettings(it)
                 showExportDialog = false
@@ -277,6 +281,8 @@ fun EditorScreen(
             settings = state.exportSettings,
             title = stringResource(R.string.editor_export_title),
             confirmText = stringResource(R.string.editor_export_start),
+            scopeHint = stringResource(R.string.export_scope_once),
+            persistentScope = false,
             onConfirm = { temp ->
                 showExportParams = false
                 viewModel.export(temp)

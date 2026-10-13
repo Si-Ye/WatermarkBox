@@ -33,7 +33,7 @@
     <string name="onboarding_skip">跳过</string>
     <string name="onboarding_start">开始使用</string>
     <string name="onboarding_p1_title">从这里开始</string>
-    <string name="onboarding_p1_body">点这里选一张图片，加好水印就能导出。\n\n图片只在本机处理：**只下载、不上传**、无广告。</string>
+    <string name="onboarding_p1_body">点这里选一张图片，加好水印就能导出。\n\n图片只在本机处理：只下载、不上传、无广告。</string>
     <string name="onboarding_p2_title">一次处理多张</string>
     <string name="onboarding_p2_body">批量最多 100 张，参数面板与单张编辑完全一致。</string>
     <string name="onboarding_p3_title">检查水印</string>
@@ -346,6 +346,16 @@
 
     <!-- ==================== 编辑器 / 导出对话框 ==================== -->
     <string name="editor_export_title">导出设置</string>
+    <!-- 全局（持久）作用域说明：点右上角/齿轮入口时显示 -->
+    <!-- ⚠️ 这里是**纯文本**，不要写 Markdown 语法（**加粗** 之类）：
+         界面的 Text 组件不会渲染 Markdown，星号会原样显示出来。
+         要强调就换措辞，或者用中文引号「」框住关键词。 -->
+    <string name="export_scope_global">这里的改动会永久生效，之后的导出都用这套默认值。</string>
+    <!-- 本次（临时）作用域说明：点导出按钮时显示 -->
+    <string name="export_scope_once">这里的改动只对本次导出生效，不会改动全局默认值。</string>
+    <string name="export_settings_global_confirm">保存为默认</string>
+    <!-- 「本次导出」入口的标题：与全局入口明确区分 -->
+    <string name="export_settings_once_title">本次导出设置</string>
     <string name="editor_export_global_title">全局导出设置</string>
     <string name="editor_export_format">输出格式</string>
     <string name="editor_export_naming">文件命名</string>

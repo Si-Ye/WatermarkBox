@@ -145,6 +145,8 @@ fun BatchConfigScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showExportDialog by remember { mutableStateOf(false) }
+    // 「开始」时弹的**本次导出**参数框（与顶栏齿轮的"全局默认"是两件事）
+    var showExportParams by remember { mutableStateOf(false) }
     var showSummary by remember { mutableStateOf(false) }
     var showPresetDialog by remember { mutableStateOf(false) }
     // 用于缩略图点击跳页（animateScrollToPage 是挂起函数）
@@ -288,18 +290,56 @@ fun BatchConfigScreen(
             // ============ 底部执行条（浮在最上层）============
             BatchActionBar(
                 state = state,
-                onStart = viewModel::startProcessing,
+                // 先弹参数框，确认后才真正开始 ——
+                // 与编辑页 FAB 完全同构：框里改的参数**只对这一次生效**，
+                // 不污染全局默认值（全局默认仍由顶栏齿轮那个入口维护）。
+                onStart = { showExportParams = true },
                 onCancel = viewModel::cancelProcessing,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
     }
 
-    // ---- 导出设置对话框 ----
+    // ---- 本次导出的参数框（点「开始」时弹）----
+    //
+    // 与编辑页 `showExportParams` 同款语义：
+    // - 初始值 = 全局设置，用户想微调就直接改，不想改就点确认
+    // - 确认后**只用于这一次**，不动全局默认值
+    //
+    // 标题用「本次导出设置」而不是通用的「导出设置」——
+    // 否则和顶栏齿轮那个框（全局）重名，用户分不清。
+    if (showExportParams) {
+        ExportSettingsDialog(
+            settings = state.exportSettings,
+            title = stringResource(R.string.export_settings_once_title),
+            confirmText = stringResource(R.string.editor_export_start),
+            // 明确告诉用户：这里的改动**只对本次生效**
+            scopeHint = stringResource(R.string.export_scope_once),
+            persistentScope = false,
+            onConfirm = { temp ->
+                showExportParams = false
+                viewModel.startProcessing(overrideSettings = temp)
+            },
+            onDismiss = { showExportParams = false }
+        )
+    }
+
+    // ---- 全局默认导出设置（顶栏齿轮入口）----
+    //
+    // 与「开始」那个框**明确区分**：
+    // - 标题：「全局导出设置」（不是通用的「导出设置」）
+    // - 确认：「保存为默认」
+    // - 顶部有作用域说明卡片
+    //
+    // 老大反馈过「齿轮功能没有改成全局设置」—— 功能一直是对的，
+    // 但两个入口长得一模一样，用户根本分不清点「保存」会改什么。
     if (showExportDialog) {
         ExportSettingsDialog(
             settings = state.exportSettings,
-            // 批量页这个入口的语义是「设全局默认导出参数」（与编辑页右上角一致）
+            title = stringResource(R.string.editor_export_global_title),
+            confirmText = stringResource(R.string.export_settings_global_confirm),
+            scopeHint = stringResource(R.string.export_scope_global),
+            persistentScope = true,
             onConfirm = {
                 viewModel.updateExportSettings(it)
                 showExportDialog = false

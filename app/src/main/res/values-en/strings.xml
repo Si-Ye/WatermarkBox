@@ -341,6 +341,15 @@
 
     <!-- ==================== Editor / Export dialog ==================== -->
     <string name="editor_export_title">Export settings</string>
+    <!-- Scope hint shown when the entry point persists to global defaults -->
+    <!-- NOTE: plain text only - the UI Text does NOT render Markdown,
+         so **bold** would show up as literal asterisks. -->
+    <string name="export_scope_global">Changes here are saved permanently and used for all future exports.</string>
+    <!-- Scope hint shown when the entry point applies to this export only -->
+    <string name="export_scope_once">Changes here apply to this export only and won\'t touch your defaults.</string>
+    <string name="export_settings_global_confirm">Save as default</string>
+    <!-- Title of the "this export only" entry, kept distinct from the global one -->
+    <string name="export_settings_once_title">Export settings (this time)</string>
     <string name="editor_export_global_title">Global export settings</string>
     <string name="editor_export_format">Output format</string>
     <string name="editor_export_naming">File naming</string>

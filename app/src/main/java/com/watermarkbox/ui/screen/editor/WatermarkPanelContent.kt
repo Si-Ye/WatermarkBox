@@ -325,26 +325,40 @@ internal fun TextWatermarkPanelContent(
         enter = expandVertically(tween(180)) + fadeIn(tween(180)),
         exit = shrinkVertically(tween(180)) + fadeOut(tween(120))
     ) {
-        LabeledSlider(
-            label = stringResource(R.string.editor_stroke_width),
-            value = config.strokeWidth,
-            onValueChange = viewModel::updateStrokeWidth,
-            valueRange = 0.5f..10f,
-            // 显式给 Locale：默认 Locale 下阿拉伯语等区域会把数字格式化成
-            // 阿拉伯-印度数字，与界面其它数字不一致（lint: DefaultLocale）
-            valueText = String.format(Locale.getDefault(), "%.1f px", config.strokeWidth)
-        )
-        Text(
-            text = stringResource(R.string.editor_stroke_color),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(Modifier.height(6.dp))
-        ColorPalette(
-            colors = WatermarkPresetColors,
-            selected = config.strokeColor.color,
-            onSelect = viewModel::updateStrokeColor
-        )
+        // ⚠️ **必须**用 Column 包住多个子节点。
+        //
+        // `AnimatedVisibility` 的 content 签名是 `AnimatedVisibilityScope.() -> Unit`，
+        // 它**不提供** Column/Row 作用域 —— 也就是说多个直接子节点会
+        // 被放在同一个布局位置、**互相重叠**。
+        //
+        // 这正是老大实测到的「描边颜色选择错位 + 重叠」：
+        // LabeledSlider / Text / Spacer / ColorPalette 四个节点
+        // 全部堆叠在左上角。
+        //
+        // 而且 `expandVertically` 算的是「内容整体高度」，
+        // 重叠时高度也不对，动画会一跳一跳。
+        Column {
+            LabeledSlider(
+                label = stringResource(R.string.editor_stroke_width),
+                value = config.strokeWidth,
+                onValueChange = viewModel::updateStrokeWidth,
+                valueRange = 0.5f..10f,
+                // 显式给 Locale：默认 Locale 下阿拉伯语等区域会把数字格式化成
+                // 阿拉伯-印度数字，与界面其它数字不一致（lint: DefaultLocale）
+                valueText = String.format(Locale.getDefault(), "%.1f px", config.strokeWidth)
+            )
+            Text(
+                text = stringResource(R.string.editor_stroke_color),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(6.dp))
+            ColorPalette(
+                colors = WatermarkPresetColors,
+                selected = config.strokeColor.color,
+                onSelect = viewModel::updateStrokeColor
+            )
+        }
     }
 
     Spacer(Modifier.height(8.dp))
@@ -354,13 +368,17 @@ internal fun TextWatermarkPanelContent(
         enter = expandVertically(tween(180)) + fadeIn(tween(180)),
         exit = shrinkVertically(tween(180)) + fadeOut(tween(120))
     ) {
-        LabeledSlider(
-            label = stringResource(R.string.editor_shadow_radius),
-            value = config.shadowRadius,
-            onValueChange = viewModel::updateShadowRadius,
-            valueRange = 0f..20f,
-            valueText = String.format(Locale.getDefault(), "%.1f px", config.shadowRadius)
-        )
+        // 同上：单个子节点虽然不会重叠，但显式 Column 保证
+        // 将来往这里加内容时不会踩同一个坑。
+        Column {
+            LabeledSlider(
+                label = stringResource(R.string.editor_shadow_radius),
+                value = config.shadowRadius,
+                onValueChange = viewModel::updateShadowRadius,
+                valueRange = 0f..20f,
+                valueText = String.format(Locale.getDefault(), "%.1f px", config.shadowRadius)
+            )
+        }
     }
 }
 @Composable

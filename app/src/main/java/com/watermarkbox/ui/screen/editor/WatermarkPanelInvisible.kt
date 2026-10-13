@@ -1,4 +1,10 @@
 package com.watermarkbox.ui.screen.editor
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,24 +72,37 @@ internal fun InvisibleWatermarkSection(
     )
 
     // ---- 自定义文字输入 ----
-    if (config.source == InvisibleSource.CUSTOM_TEXT) {
-        Spacer(Modifier.height(Spacing.Item))
-        OutlinedTextField(
-            value = config.content,
-            onValueChange = viewModel::updateInvisibleContent,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text(stringResource(R.string.editor_invisible_content)) },
-            placeholder = { Text(stringResource(R.string.editor_invisible_content_placeholder)) },
-            supportingText = {
-                Text(
-                    stringResource(R.string.editor_invisible_content_limit),
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        )
-    } else {
-        // 自动模式的说明已移到上面的 ⓘ 里，这里不再重复铺开
+    //
+    // 用 AnimatedVisibility 做展开/收起，而不是直接 if/else 增删节点。
+    // 原因：这段内容会**随「内容来源」切换出现或消失**，
+    // 突兀地整块闪现/消失很跳。给它 160ms 的高度+透明度过渡，
+    // 视线能跟上「这里多了一块 / 少了一块」。
+    AnimatedVisibility(
+        visible = config.source == InvisibleSource.CUSTOM_TEXT,
+        enter = expandVertically(tween(160)) + fadeIn(tween(160)),
+        exit = shrinkVertically(tween(160)) + fadeOut(tween(100))
+    ) {
+        // ⚠️ 必须用 Column 包住：`AnimatedVisibility` 不提供
+        // Column/Row 作用域，多个直接子节点会**重叠**在同一位置
+        // （描边颜色区就踩过这个坑，见 WatermarkPanelContent）。
+        // 这里虽然只有一个可见子节点，也统一包上以防后续加内容踩坑。
+        Column {
+            Spacer(Modifier.height(Spacing.Item))
+            OutlinedTextField(
+                value = config.content,
+                onValueChange = viewModel::updateInvisibleContent,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text(stringResource(R.string.editor_invisible_content)) },
+                placeholder = { Text(stringResource(R.string.editor_invisible_content_placeholder)) },
+                supportingText = {
+                    Text(
+                        stringResource(R.string.editor_invisible_content_limit),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            )
+        }
     }
 
     // ---- 强度 ----
@@ -154,21 +173,31 @@ private fun InvisibleChannels(
     )
 
     // ---- 两条都关：这不是「更隐蔽」，而是「没写」----
-    if (!config.exifEnabled && !config.dctEnabled) {
-        Spacer(Modifier.height(Spacing.Item))
-        Card(
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                text = stringResource(R.string.editor_invisible_no_channel),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.padding(12.dp)
-            )
+    //
+    // 用 AnimatedVisibility 让警示卡平滑出现/消失：
+    // 它出现在用户**刚关掉最后一条通道**的瞬间，
+    // 正是最需要被注意到的时刻 —— 直接闪现容易看漏。
+    AnimatedVisibility(
+        visible = !config.exifEnabled && !config.dctEnabled,
+        enter = expandVertically(tween(180)) + fadeIn(tween(180)),
+        exit = shrinkVertically(tween(140)) + fadeOut(tween(100))
+    ) {
+        Column {
+            Spacer(Modifier.height(Spacing.Item))
+            Card(
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(R.string.editor_invisible_no_channel),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
         }
     }
 }

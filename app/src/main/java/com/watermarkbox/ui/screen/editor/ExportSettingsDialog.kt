@@ -1,14 +1,25 @@
 package com.watermarkbox.ui.screen.editor
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -18,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +65,12 @@ import kotlin.math.roundToInt
  *
  * @param title       对话框标题（两种语义用不同标题区分）
  * @param confirmText 确认按钮文案（全局模式是「保存」，本次模式是「开始导出」）
+ * @param scopeHint   作用域说明（显示在表单顶部的小卡片里）。
+ *                    传 null/空串则不显示。
+ *                    这是为了消除"两个入口长得一样"造成的困惑 ——
+ *                    详见下方实现处的注释。
+ * @param persistentScope 作用域是否**持久**（写全局默认值）。
+ *                    只影响说明卡片的配色与图标，不改变行为。
  */
 @Composable
 fun ExportSettingsDialog(
@@ -60,7 +78,9 @@ fun ExportSettingsDialog(
     onConfirm: (com.watermarkbox.data.model.ExportSettings) -> Unit,
     onDismiss: () -> Unit,
     title: String = stringResource(R.string.editor_export_title),
-    confirmText: String = stringResource(R.string.common_save)
+    confirmText: String = stringResource(R.string.common_save),
+    scopeHint: String? = null,
+    persistentScope: Boolean = true
 ) {
     // 完整草稿：所有改动只动它，绝不外泄
     var draft by remember(settings) { mutableStateOf(settings) }
@@ -88,6 +108,65 @@ fun ExportSettingsDialog(
                     .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState())
             ) {
+                // ---- 作用域说明 ----
+                //
+                // ## 为什么必须有这一段
+                //
+                // 同一个组件服务两种语义（写全局 / 只本次），
+                // 而两边的默认标题都叫「导出设置」—— 用户根本分不清
+                // 点「保存」会改掉什么。老大实测的反馈正是：
+                // 「批量右上角的导出设置按钮功能没有改成全局导出设置」。
+                //
+                // 功能其实是对的，问题出在**没有任何提示告诉用户
+                // 这一份设置的作用范围**。所以这里在表单最上方
+                // 用一句话把作用域讲清楚，并用配色区分：
+                // - 全局（持久）：主色容器，语气平和
+                // - 本次（临时）：次要容器，明确"仅本次"
+                if (!scopeHint.isNullOrBlank()) {
+                    Card(
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (persistentScope) {
+                                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                            }
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                imageVector = if (persistentScope) {
+                                    Icons.Filled.Save
+                                } else {
+                                    Icons.Filled.Info
+                                },
+                                contentDescription = null,
+                                tint = if (persistentScope) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = scopeHint,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (persistentScope) {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(Spacing.Item))
+                }
+
                 SectionLabel(stringResource(R.string.editor_export_format))
                 SegmentedControl(
                     options = listOf(

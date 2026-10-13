@@ -275,9 +275,20 @@ class BatchViewModel(application: Application) :
      *
      * 通过 WorkManager 的 OneTimeWorkRequest 提交一个 CoroutineWorker，
      * 配置以 JSON 形式放入 inputData。
+     *
+     * @param overrideSettings 本次专用的导出设置。
+     *        `null`（默认）表示用全局的 `state.exportSettings`。
+     *
+     *        ## 为什么需要这个参数
+     *
+     *        批量页点「开始」时会先弹一个参数框（与编辑页 FAB 同构），
+     *        用户在框里的改动**只对这一批生效**，不该污染全局默认值。
+     *        所以整条链路（Worker 入参、进度展示）都用这一份临时设置。
      */
-    fun startProcessing() {
+    fun startProcessing(overrideSettings: ExportSettings? = null) {
         val state = _uiState.value
+        // 本次生效的导出设置：优先用调用方传入的临时值
+        val exportSettings = overrideSettings ?: state.exportSettings
         if (state.images.isEmpty()) {
             _uiState.update { it.copy(errorMessage = UiMessage(R.string.batch_error_no_images)) }
             return
@@ -306,7 +317,7 @@ class BatchViewModel(application: Application) :
             )
             .putString(
                 BatchWatermarkWorker.KEY_EXPORT_SETTINGS,
-                JsonCodec.encodeExportSettings(state.exportSettings)
+                JsonCodec.encodeExportSettings(exportSettings)
             )
             .apply {
                 state.imageStyle.logoUri?.let {
