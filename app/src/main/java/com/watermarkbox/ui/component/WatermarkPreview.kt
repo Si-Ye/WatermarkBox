@@ -15,6 +15,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -24,6 +25,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -196,6 +198,16 @@ fun WatermarkPreview(
     }
     val dragEnabled = onWatermarkDrag != null && isSingleMode && scale <= 1.01f
 
+    // ⚠️ 手势回调必须先包成 State 再交给手势 Modifier。
+    //
+    // 直接把回调函数当作 `pointerInput` 的 key 是个陷阱：它在**每次重组时
+    // 都是新的 lambda 实例**，而拖动过程中每一帧都会重组（水印位置在变）——
+    // 于是 key 每帧都变，手势协程被反复取消并重建，表现为
+    // 「拖到一半就卡住，得松手重新按住才能继续拖」。
+    //
+    // 包成 State 后：key 只由尺寸决定（拖动中不变），而回调永远是「最新那个」。
+    val dragCallback = rememberUpdatedState(onWatermarkDrag)
+
     Box(
         modifier = modifier
             .background(Color(0xFF1A1A1A))
@@ -261,10 +273,10 @@ fun WatermarkPreview(
                                     // 拖动水印：**放在图片平移之后**，
                                     // 这样只有在 scale≈1（没有平移缩放）时才会真正响应
                                     // —— 那时用户显然是在拖水印，不是在拖图片。
-                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, onWatermarkDrag))
+                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback))
                             } else {
                                 Modifier
-                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, onWatermarkDrag))
+                                    .then(watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback))
                             }
                         )
                 )
@@ -316,33 +328,75 @@ fun WatermarkPreview(
  * [enabled] 为 false 时返回 `Modifier`，完全不注册手势处理器
  * —— 理由同上面 `detectTransformGestures` 的注释：
  * 挂上就会消费触摸序列，必须从根上不注册。
+ *
+ * ## ⚠️ 为什么回调参数是 [State] 而不是普通函数
+ *
+ * `pointerInput` 的 key 一旦变化，**进行中的手势会被取消、从头开始**。
+ * 而回调在每次重组时都是新的 lambda 实例，拖动过程中又恰恰每帧都在重组 ——
+ * 把回调塞进 key 里，结果就是「手指还没抬起来，手势已被重启了好几次」，
+ * 手感上表现为拖一下卡一下、得重新按住才能继续拖。
+ *
+ * 所以：key 只由**尺寸**决定（拖动中不变），回调经 State 取最新值。
  */
 private fun watermarkDragModifier(
     enabled: Boolean,
     bitmap: Bitmap?,
     containerSize: IntSize,
-    onDrag: ((Float, Float) -> Unit)?
+    onDrag: State<((Float, Float) -> Unit)?>
 ): Modifier {
-    if (!enabled || onDrag == null || bitmap == null) return Modifier
+    if (!enabled || bitmap == null) return Modifier
     if (containerSize.width <= 0 || containerSize.height <= 0) return Modifier
 
     val bw = bitmap.width.toFloat()
     val bh = bitmap.height.toFloat()
     if (bw <= 0f || bh <= 0f) return Modifier
 
-    return Modifier.pointerInput(containerSize, bw, bh, onDrag) {
+    return Modifier.pointerInput(containerSize, bw, bh) {
         detectDragGestures { change, _ ->
             change.consume()
-            // Fit 缩放比与居中偏移
-            val fitScale = minOf(containerSize.width / bw, containerSize.height / bh)
-            val drawW = bw * fitScale
-            val drawH = bh * fitScale
-            val drawLeft = (containerSize.width - drawW) / 2f
-            val drawTop = (containerSize.height - drawH) / 2f
-
-            val nx = ((change.position.x - drawLeft) / drawW).coerceIn(0f, 1f)
-            val ny = ((change.position.y - drawTop) / drawH).coerceIn(0f, 1f)
-            onDrag(nx, ny)
+            val normalized = normalizeToImageSpace(
+                position = change.position,
+                containerSize = containerSize,
+                imageWidth = bw,
+                imageHeight = bh
+            )
+            onDrag.value?.invoke(normalized.x, normalized.y)
         }
     }
+}
+
+/**
+ * 把「容器内的触摸点」换算成「相对图片的 0~1 坐标」。
+ *
+ * 抽成纯函数是为了可测：Fit 的居中留白换算最容易写错，
+ * 而它错了只表现为「水印跟手偏了一点」，肉眼几乎判断不出来。
+ *
+ * （手势本身没法单测 —— 见 `PreviewFitMeasurementTest` 里
+ * 「Espresso 输入注入在本环境不可用」的说明。）
+ */
+internal fun normalizeToImageSpace(
+    position: Offset,
+    containerSize: IntSize,
+    imageWidth: Float,
+    imageHeight: Float
+): Offset {
+    if (imageWidth <= 0f || imageHeight <= 0f) return Offset(0.5f, 0.5f)
+    if (containerSize.width <= 0 || containerSize.height <= 0) return Offset(0.5f, 0.5f)
+
+    // ContentScale.Fit：等比缩放到刚好放进容器，然后居中
+    val fitScale = minOf(
+        containerSize.width.toFloat() / imageWidth,
+        containerSize.height.toFloat() / imageHeight
+    )
+    val drawW = imageWidth * fitScale
+    val drawH = imageHeight * fitScale
+    if (drawW <= 0f || drawH <= 0f) return Offset(0.5f, 0.5f)
+
+    val drawLeft = (containerSize.width - drawW) / 2f
+    val drawTop = (containerSize.height - drawH) / 2f
+
+    return Offset(
+        x = ((position.x - drawLeft) / drawW).coerceIn(0f, 1f),
+        y = ((position.y - drawTop) / drawH).coerceIn(0f, 1f)
+    )
 }
