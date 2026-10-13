@@ -248,6 +248,126 @@ class InvisibleWatermarkInstrumentedTest {
     }
 
     /**
+     * 几何与色调变换的**能力边界**诊断。
+     *
+     * 目的不是断言某档必须成功，而是把实际边界测出来。
+     * 尤其是**缩放** —— 它比旋转更常见（微信、图床、朋友圈都会缩图），
+     * 但一直没验证过，方案（整数倍还原 / DWT / 自相关同步）差别极大，
+     * 必须先看数据再定。
+     */
+    @Test
+    fun diagnose_geometry_boundary() {
+        val source = makeTestBitmap()
+        val text = "WMB1:geometry"
+        val stamped = track(engine.embed(source, text)!!)
+
+        // ---- 缩放 ----
+        for (scale in listOf(0.5f, 0.75f, 1.5f, 2f)) {
+            val scaled = track(scaleBitmap(stamped, scale))
+            println("DIAG scale[$scale] = " + okText(canExtract(scaled, text)))
+        }
+
+        // ---- 裁剪（保留中心一块）----
+        for (keep in listOf(0.9f, 0.8f, 0.5f)) {
+            val cropped = track(cropCenter(stamped, keep))
+            println("DIAG crop[$keep] = " + okText(canExtract(cropped, text)))
+        }
+
+        // ---- 亮度调整 ----
+        for (delta in listOf(-40, -20, 20, 40)) {
+            val adjusted = track(adjustBrightness(stamped, delta))
+            println("DIAG brightness[$delta] = " + okText(canExtract(adjusted, text)))
+        }
+
+        // ---- 对比度调整 ----
+        for (factor in listOf(0.8f, 1.2f)) {
+            val adjusted = track(adjustContrast(stamped, factor))
+            println("DIAG contrast[$factor] = " + okText(canExtract(adjusted, text)))
+        }
+    }
+
+    /**
+     * 缩放能否通过「重采样还原」救回。
+     *
+     * 这决定了方案走向：
+     * - 若能救回 → 走「检测时试几个常见倍率」（同旋转试方向，成本可控）
+     * - 若不能   → 只能上 DWT 多尺度或自相关同步（大改）
+     */
+    @Test
+    fun diagnose_scale_restore() {
+        val source = makeTestBitmap()
+        val text = "WMB1:restore"
+        val stamped = track(engine.embed(source, text)!!)
+
+        // 放大 2× 再缩回
+        val up = track(scaleBitmap(stamped, 2f))
+        val upBack = track(scaleBitmap(up, 0.5f))
+        println("DIAG restore[2.0→0.5] = " + okText(canExtract(upBack, text)))
+
+        // 缩小 0.5× 再放大
+        val down = track(scaleBitmap(stamped, 0.5f))
+        val downBack = track(scaleBitmap(down, 2f))
+        println("DIAG restore[0.5→2.0] = " + okText(canExtract(downBack, text)))
+
+        // 对照：只做缩放不还原
+        println("DIAG raw[2.0] = " + okText(canExtract(up, text)))
+        println("DIAG raw[0.5] = " + okText(canExtract(down, text)))
+    }
+
+    /** 按比例缩放（用系统路径，与相册/微信同类）。 */
+    private fun scaleBitmap(src: Bitmap, scale: Float): Bitmap {
+        val w = (src.width * scale).toInt().coerceAtLeast(8)
+        val h = (src.height * scale).toInt().coerceAtLeast(8)
+        return Bitmap.createScaledBitmap(src, w, h, true)
+    }
+
+    /** 从中心裁掉一圈（尺寸变化，原点仍在左上）。 */
+    private fun cropCenter(src: Bitmap, keep: Float): Bitmap {
+        val w = (src.width * keep).toInt()
+        val h = (src.height * keep).toInt()
+        val x = (src.width - w) / 2
+        val y = (src.height - h) / 2
+        return Bitmap.createBitmap(src, x, y, w, h)
+    }
+
+    /** 整体加减亮度。 */
+    private fun adjustBrightness(src: Bitmap, delta: Int): Bitmap {
+        val w = src.width
+        val h = src.height
+        val px = IntArray(w * h)
+        src.getPixels(px, 0, w, 0, 0, w, h)
+        for (i in px.indices) {
+            val p = px[i]
+            val r = (((p shr 16) and 0xFF) + delta).coerceIn(0, 255)
+            val g = (((p shr 8) and 0xFF) + delta).coerceIn(0, 255)
+            val b = ((p and 0xFF) + delta).coerceIn(0, 255)
+            px[i] = (p and 0xFF000000.toInt()) or (r shl 16) or (g shl 8) or b
+        }
+        val out = Bitmap.createBitmap(w, h, src.config ?: Bitmap.Config.ARGB_8888)
+        out.setPixels(px, 0, w, 0, 0, w, h)
+        return out
+    }
+
+    /** 绕 128 调整对比度。 */
+    private fun adjustContrast(src: Bitmap, factor: Float): Bitmap {
+        val w = src.width
+        val h = src.height
+        val px = IntArray(w * h)
+        src.getPixels(px, 0, w, 0, 0, w, h)
+        fun f(v: Int) = (((v - 128) * factor) + 128).toInt().coerceIn(0, 255)
+        for (i in px.indices) {
+            val p = px[i]
+            val r = f((p shr 16) and 0xFF)
+            val g = f((p shr 8) and 0xFF)
+            val b = f(p and 0xFF)
+            px[i] = (p and 0xFF000000.toInt()) or (r shl 16) or (g shl 8) or b
+        }
+        val out = Bitmap.createBitmap(w, h, src.config ?: Bitmap.Config.ARGB_8888)
+        out.setPixels(px, 0, w, 0, 0, w, h)
+        return out
+    }
+
+    /**
      * 旋转**能力边界**诊断。
      *
      * 分两类，难度天差地别，必须分开测：

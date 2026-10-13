@@ -490,7 +490,7 @@
     <string name="detect_signature_invalid">无效 · 可能被伪造</string>
     <string name="detect_signature_unknown">无法验证（无签名或来自旧版本）</string>
     <string name="detect_found_suspicious_title">检测到水印，但签名无效</string>
-    <string name="detect_channel_exif">EXIF 元数据</string>
+    <string name="detect_channel_exif">元数据（EXIF / XMP）</string>
     <string name="detect_channel_frequency">频域（DCT）</string>
 
     <!-- ==================== 批量 / 组件 / 其他 ==================== -->

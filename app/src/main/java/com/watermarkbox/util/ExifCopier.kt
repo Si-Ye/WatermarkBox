@@ -159,6 +159,45 @@ object ExifCopier {
         null
     }
 
+    /**
+     * 写入 **XMP** 水印。
+     *
+     * ## 和 UserComment 的关系
+     *
+     * 两条都写、互为备份：有些工具只清 EXIF 而保留 XMP（在它们看来
+     * XMP 才是标准元数据容器），反之亦然。多写一份的代价只有几十字节，
+     * 却能把「元数据被剥掉」这个常见场景的存活率提高不少。
+     *
+     * XMP 是 UTF-8 的 XML，**不存在** UserComment 那种
+     * 「中文被替换成 `?`」的问题 —— 所以不需要 [ExifTextCodec] 中转。
+     */
+    fun writeXmp(context: Context, targetUri: Uri, content: String): Boolean {
+        return try {
+            context.contentResolver.openFileDescriptor(targetUri, "rw")?.use { pfd ->
+                val exif = ExifInterface(pfd.fileDescriptor)
+                exif.setAttribute(ExifInterface.TAG_XMP, XmpCodec.pack(content))
+                exif.saveAttributes()
+            }
+            true
+        } catch (t: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * 从 XMP 里读回水印内容。
+     *
+     * @return 内容；无 XMP 或没有我们的字段时返回 null
+     */
+    fun readXmp(context: Context, uri: Uri): String? = try {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val raw = ExifInterface(input).getAttribute(ExifInterface.TAG_XMP)
+            XmpCodec.unpack(raw)
+        }
+    } catch (t: Throwable) {
+        null
+    }
+
     /** 供测试使用的白名单副本。 */
     internal fun copiableTags(): List<String> = COPIABLE_TAGS
 }

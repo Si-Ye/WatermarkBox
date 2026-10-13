@@ -491,7 +491,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="detect_signature_invalid">Invalid · possibly forged</string>
     <string name="detect_signature_unknown">Not verifiable (no signature, or from an older version)</string>
     <string name="detect_found_suspicious_title">Watermark found, but the signature is invalid</string>
-    <string name="detect_channel_exif">EXIF metadata</string>
+    <string name="detect_channel_exif">Metadata (EXIF / XMP)</string>
     <string name="detect_channel_frequency">Frequency domain (DCT)</string>
 
     <!-- ==================== Batch / components / misc ==================== -->

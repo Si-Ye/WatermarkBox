@@ -142,7 +142,11 @@ class ExportRepository(private val context: Context) {
             ExifCopier.copyExif(context, sourceUri, targetUri)
         }
         if (!invisibleContent.isNullOrBlank()) {
+            // 元数据层**两个容器都写**、互为备份：
+            // 有些工具只清 EXIF 而保留 XMP（在它们看来 XMP 才是标准容器），反之亦然。
+            // 代价只有几十字节，却能显著提高「元数据被剥掉」场景的存活率。
             ExifCopier.writeUserComment(context, targetUri, invisibleContent)
+            ExifCopier.writeXmp(context, targetUri, invisibleContent)
         }
     }
 

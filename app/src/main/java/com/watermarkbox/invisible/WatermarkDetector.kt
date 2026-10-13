@@ -146,7 +146,11 @@ class WatermarkDetector(private val context: Context) {
         var exifComment: String? = null
         var exifText: String? = null
         if (options.checkExif) {
+            // EXIF UserComment 与 XMP 是**两个独立的元数据容器**，
+            // 有些工具只清其中一个。两个都读，命中率更高。
+            // EXIF 优先：人可读、任何看图工具都能直接看到。
             exifComment = ExifCopier.readUserComment(context, uri)
+                ?: ExifCopier.readXmp(context, uri)
             exifText = exifComment?.takeIf { it.startsWith(ExifTextCodec.TAG_PREFIX) }
         }
 
