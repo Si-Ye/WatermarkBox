@@ -213,6 +213,14 @@
     <string name="release_1_6_0_c4">Fixed: diagonal now rotates the whole grid, tiled rotates each item — the two modes had their rotation logic swapped</string>
     <string name="release_1_6_0_c5">Fixed: in single mode, rotating a watermark placed at a corner threw it off-screen</string>
 
+    <!-- ==================== v1.6.1 ==================== -->
+    <string name="release_1_6_1_title">Presets as files: export &amp; import</string>
+    <string name="release_1_6_1_c1">New menu on the Presets screen: export all presets to a single file, or import presets from a file</string>
+    <string name="release_1_6_1_c2">Every preset card has an export button, so a single preset can be shared on its own</string>
+    <string name="release_1_6_1_c3">Duplicate names are renamed automatically on import — existing presets are never overwritten</string>
+    <string name="release_1_6_1_c4">A summary reports how many presets were added and how many were renamed</string>
+    <string name="release_1_6_1_c5">Exported files do not contain device-local images; image presets need a new logo after import (all other settings are preserved)</string>
+
     <!-- ==================== Changelog: 1.4.1 ==================== -->
     <string name="release_1_4_1_title">Changelog screen</string>
     <string name="release_1_4_1_c1">Added a changelog under Settings → Other, listing every change since 1.0.0</string>

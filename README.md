@@ -98,6 +98,7 @@
 - DataStore 持久化，重启不丢
 - **可脱离图片单独编辑** —— 不选图也能改参数
 - 同名保存时会询问：保留两者 / 替换 / 取消（不会静默覆盖）
+- **可导出为文件 / 从文件导入** —— 便于备份与分享；导入时重名会自动改名，不会覆盖已有预设
 
 ### 隐藏水印
 
@@ -480,7 +481,7 @@ limitations under the License.
 
 <br>
 
-**水印盒 · WatermarkBox**　`v1.6.0`
+**水印盒 · WatermarkBox**　`v1.6.1`
 
 Made with 🐺 by [肆叶](https://github.com/Si-Ye)
 

@@ -102,6 +102,8 @@ image, with 100% confidence.</sub>
 - **Editable without an image** — you can tweak parameters before picking one
 - Saving under an existing name asks first: keep both / replace / cancel.
   It never silently overwrites.
+- **Export to a file / import from a file** — for backup and sharing. Duplicate
+  names are renamed on import, so existing presets are never overwritten.
 
 ### Invisible watermark
 
@@ -322,7 +324,7 @@ Apache-2.0 — see [LICENSE](LICENSE).
 
 <br>
 
-**WatermarkBox**　`v1.6.0`
+**WatermarkBox**　`v1.6.1`
 
 Made with 🐺 by [Si-Ye](https://github.com/Si-Ye)
 
