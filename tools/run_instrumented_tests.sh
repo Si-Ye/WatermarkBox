@@ -42,9 +42,33 @@
 # 结果建议重定向到文件，避免长输出被截断：
 #   sh ... > wmb_test_out.txt 2>&1
 # ---------------------------------------------------------------------------
+# 自动探测本机的 instrumentation 组件。
+#
+# ## 为什么不能硬编码
+#
+# debug 包名带后缀，测试 APK 还要再带一层：
+#   主包   com.watermarkbox.test
+#   测试包 com.watermarkbox.test.test
+# `am instrument` 的第一个参数必须是**测试包名**，不是主包名。
+#
+# 早先这里写死成主包名，`am instrument` 直接报
+# `INSTRUMENTATION_FAILED: Unable to find instrumentation info`
+# —— 而脚本把这类输出归入「会话未建立」，重试 3 次后静默 SKIP。
+# 表现是「所有测试都跳过」，完全看不出是包名写错了。
+#
+# 改为自动探测后，换机器 / 改 applicationIdSuffix 都不受影响。
+INSTRUMENTATION=$(pm list instrumentation 2>/dev/null \
+  | grep watermarkbox \
+  | head -1 \
+  | sed 's/^instrumentation://; s/ .*//')
 
-TEST_PKG="com.watermarkbox.test"
-RUNNER="androidx.test.runner.AndroidJUnitRunner"
+if [ -z "$INSTRUMENTATION" ]; then
+  echo "错误：未找到 watermarkbox 的 instrumentation。"
+  echo "请先构建并安装测试 APK："
+  echo "  ./gradlew :app:assembleDebugAndroidTest"
+  echo "  pm install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+  exit 1
+fi
 
 # 换行分隔的列表（POSIX sh 没有数组）
 METHODS="
@@ -107,7 +131,7 @@ printf '%s\n' "$METHODS" | while IFS= read -r target; do
   done_flag=0
   while [ $attempt -lt 4 ]; do
     settle
-    out=$(am instrument -w -e class "$target" "$TEST_PKG/$RUNNER" 2>&1)
+    out=$(am instrument -w -e class "$target" "$INSTRUMENTATION" 2>&1)
 
     if printf '%s' "$out" | grep -q "OK ("; then
       n=$(printf '%s' "$out" | grep -oE "OK \([0-9]+" | grep -oE "[0-9]+" | head -1)
