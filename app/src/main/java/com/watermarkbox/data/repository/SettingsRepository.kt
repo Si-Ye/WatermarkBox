@@ -118,6 +118,54 @@ class SettingsRepository(private val context: Context) {
         return finalName
     }
 
+    /**
+     * 批量添加预设（供「导入预设文件」使用）。
+     *
+     * ## 为什么不复用 [savePreset] 循环调用
+     *
+     * 1. **性能**：`savePreset` 每次都完整读一遍 JSON、加一条、再写回。
+     *    导入 50 条就是 50 次读写，而这里只需一次。
+     * 2. **原子性**：中途失败时不会留下「导入了一半」的状态。
+     * 3. **名称冲突的连锁处理**：同一批次内也可能有重名
+     *    （比如文件里两条都叫「我的水印」），必须把**本批已用掉的名称**
+     *    也算进"已占用"，否则两条会拿到同一个名字。
+     *
+     * ## 冲突策略：一律重命名保留
+     *
+     * 导入是批量操作，逐条弹窗询问会让用户点到崩溃；
+     * 而「覆盖」会静默丢掉用户原有的预设 —— 那是不可接受的。
+     * 所以固定采用「重命名保留」（`原名 (2)`、`原名 (3)`…）。
+     *
+     * @return 实际写入的名称列表，与 [presets] 顺序一一对应
+     *         （冲突时与传入名称不同）
+     */
+    suspend fun addPresets(presets: List<WatermarkPreset>): List<String> {
+        if (presets.isEmpty()) return emptyList()
+
+        val finalNames = mutableListOf<String>()
+
+        context.settingsDataStore.edit { prefs ->
+            val current = prefs[KEY_PRESETS]?.let { raw ->
+                runCatching { json.decodeFromString(presetListSerializer, raw) }
+                    .getOrDefault(emptyList())
+            } ?: emptyList()
+
+            // 已占用名称：现有预设 + 本批次已确定的名称
+            val taken = current.map { it.name }.toMutableList()
+
+            val added = presets.map { preset ->
+                val unique = PresetNaming.uniqueName(preset.name, taken)
+                taken += unique
+                finalNames += unique
+                preset.copy(name = unique)
+            }
+
+            prefs[KEY_PRESETS] = json.encodeToString(presetListSerializer, current + added)
+        }
+
+        return finalNames
+    }
+
     /** 按 id 删除预设。 */
     suspend fun deletePreset(id: String) {
         context.settingsDataStore.edit { prefs ->

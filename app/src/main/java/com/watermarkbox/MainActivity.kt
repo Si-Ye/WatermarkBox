@@ -106,6 +106,45 @@ class MainActivity : AppCompatActivity() {
         pendingFontPick = null
     }
 
+    /** 挂起的预设导出回调。 */
+    private var pendingPresetExport: ((Uri) -> Unit)? = null
+
+    /** 挂起的预设导入回调。 */
+    private var pendingPresetImport: ((Uri) -> Unit)? = null
+
+    /**
+     * 创建预设导出文件。
+     *
+     * ## 为什么用 SAF（CreateDocument）而不是直接写固定目录
+     *
+     * - **不需要任何存储权限**：SAF 由系统把用户选定的位置授权给应用，
+     *   全程不碰 `WRITE_EXTERNAL_STORAGE`（那个权限在高版本上也不好用）
+     * - **位置由用户决定**：可以存到下载目录、网盘 App、
+     *   聊天软件的收藏…… 应用无权也不该替用户决定
+     * - **重名由系统处理**：系统会提示"已存在同名文件，是否替换"，
+     *   比我们自己在某个目录里算命名冲突可靠
+     */
+    private val createPresetFile = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        if (uri != null) pendingPresetExport?.invoke(uri)
+        pendingPresetExport = null
+    }
+
+    /**
+     * 选择要导入的预设文件。
+     *
+     * MIME 过滤见 [PRESET_FILE_MIME_TYPES] —— 故意放得很宽，
+     * 因为 `.json` 在不同设备上被上报的 MIME 并不统一。
+     * 放宽过滤没有风险：文件内容由 `PresetFileCodec` 严格校验。
+     */
+    private val openPresetFile = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) pendingPresetImport?.invoke(uri)
+        pendingPresetImport = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -152,6 +191,14 @@ class MainActivity : AppCompatActivity() {
                                 "application/octet-stream"
                             )
                         )
+                    },
+                    onExportPresetFile = { suggestedName, onResult ->
+                        pendingPresetExport = onResult
+                        createPresetFile.launch(suggestedName)
+                    },
+                    onImportPresetFile = { onResult ->
+                        pendingPresetImport = onResult
+                        openPresetFile.launch(PRESET_FILE_MIME_TYPES)
                     }
                 )
 
@@ -162,5 +209,37 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         // 上限统一由 BatchLimits 管理，此处不再重复定义
+
+        /**
+         * 预设文件的 MIME 过滤。
+         *
+         * ## 为什么要带上通配类型
+         *
+         * `.json` 在不同文件管理器 / 内容提供者上被上报的 MIME
+         * **并不统一** —— `application/json`、`text/plain`、
+         * `application/octet-stream` 都实际见过。
+         *
+         * 只列前几个的话，用户可能在某些设备上**根本看不到自己的文件**
+         * （文件明明在，但在选择器里是灰的），却不知道为什么。
+         *
+         * ## 放宽过滤没有安全风险
+         *
+         * 文件内容由 `PresetFileCodec` 严格校验：
+         * 不是本应用的文件、版本过高、结构损坏，都会被明确拒绝
+         * 并给出原因。也就是说，选错文件的代价只是看到一句提示。
+         *
+         * 相比之下「文件选不到」的代价更大 —— 那是用户无法自救的。
+         *
+         * 注：下面数组的最后一项是通配 MIME（星号斜杠星号）。
+         * 这里不能直接把那三个字符写进注释 —— 其中的
+         * 星号加斜杠会被 Kotlin 当成 KDoc 的结束标记，
+         * 导致整段注释提前终止、后续代码全部变成语法错误。
+         */
+        val PRESET_FILE_MIME_TYPES = arrayOf(
+            "application/json",
+            "text/plain",
+            "application/octet-stream",
+            "*/*"
+        )
     }
 }

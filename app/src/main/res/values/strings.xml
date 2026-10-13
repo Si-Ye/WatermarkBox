@@ -380,7 +380,8 @@
     <string name="presets_title">水印预设</string>
     <string name="presets_loading">正在读取…</string>
     <string name="presets_tip">点任意预设可编辑它的名称与水印参数（无需图片）。
-右侧图标：铅笔=编辑、垃圾桶=删除。</string>
+右侧图标：铅笔=编辑、箭头=导出此预设、垃圾桶=删除。
+右上角「⋮」可导出全部预设、或从文件导入预设。</string>
     <string name="presets_empty_title">还没有任何预设</string>
     <string name="presets_empty_desc">预设可以保存一套水印参数（文字、字号、颜色、位置等），
 下次一键套用，不用重新调。
@@ -390,6 +391,41 @@
     <string name="presets_type_text">文字</string>
     <string name="presets_type_image">图片</string>
     <string name="presets_logo_width">Logo 宽 %1$d%% · %2$s</string>
+
+    <!-- ==================== 预设导入导出 ==================== -->
+    <string name="presets_more">更多操作</string>
+    <string name="presets_export_all">导出全部预设…</string>
+    <string name="presets_export_one">导出此预设…</string>
+    <string name="presets_import">从文件导入…</string>
+    <string name="presets_export_nothing">还没有预设可导出</string>
+    <string name="presets_export_failed">导出失败，请重试</string>
+
+    <string name="presets_import_failed_title">导入失败</string>
+    <string name="presets_import_fail_empty">文件是空的，没有内容可读。</string>
+    <string name="presets_import_fail_too_large">文件太大，不是有效的预设文件。</string>
+    <string name="presets_import_fail_malformed">文件内容损坏或格式不正确，可能没传完整。</string>
+    <string name="presets_import_fail_not_ours">这不是水印盒导出的预设文件。</string>
+    <string name="presets_import_fail_version">该文件由更新版本的应用导出，请先升级本应用再导入。</string>
+    <string name="presets_import_fail_no_presets">文件里没有任何预设。</string>
+
+    <string name="presets_import_done_title">导入完成</string>
+    <string name="presets_import_safe_notice">导入的预设都是新增的，不会覆盖你已有的预设。</string>
+    <string name="presets_import_logo_notice">⚠️ 图片水印的 logo 不在预设文件里（它是本机图片的引用），导入后需打开预设重新选一张。</string>
+
+    <!--
+      带数量的文案用 plurals 而非 string。
+      中文没有单复数变化，所以只有 other 一项 —— 但必须写成 plurals，
+      才能和英文版的数量规则对应上（否则英文会出现 "1 presets"）。
+    -->
+    <plurals name="presets_export_done">
+        <item quantity="other">已导出 %1$d 个预设</item>
+    </plurals>
+    <plurals name="presets_import_done_message">
+        <item quantity="other">已导入 %1$d 个预设。</item>
+    </plurals>
+    <plurals name="presets_import_done_message_renamed">
+        <item quantity="other">已导入 %1$d 个预设，其中 %2$d 个因重名已自动改名。</item>
+    </plurals>
     <string name="preset_edit_title">编辑预设</string>
     <string name="preset_edit_loading">正在载入预设…</string>
     <string name="preset_clash_title">名称已存在</string>

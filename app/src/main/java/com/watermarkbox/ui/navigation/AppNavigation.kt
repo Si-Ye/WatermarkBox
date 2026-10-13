@@ -33,6 +33,7 @@ import com.watermarkbox.ui.screen.settings.ChangelogScreen
 import com.watermarkbox.ui.screen.settings.SettingsScreen
 import com.watermarkbox.ui.screen.settings.SettingsViewModel
 import com.watermarkbox.ui.screen.update.UpdateViewModel
+import com.watermarkbox.util.PresetFileCodec
 
 /**
  * 导航目的地定义。
@@ -85,6 +86,11 @@ object Routes {
  * @param onPickSingleImage 发起单张 Photo Picker
  * @param onPickBatchImages 发起多选 Photo Picker（最多 50 张）
  * @param onPickLogo        发起 logo 选择
+ * @param onPickFont        发起字体文件选择
+ * @param onExportPresetFile 发起「创建文件」（导出预设）。
+ *        第一个参数是建议的文件名，第二个是拿到 Uri 后的回调。
+ *        Uri 为 null（用户取消）时不会回调。
+ * @param onImportPresetFile 发起「选择文件」（导入预设）
  */
 @Composable
 fun WatermarkBoxNavHost(
@@ -92,6 +98,8 @@ fun WatermarkBoxNavHost(
     onPickBatchImages: (onResult: (List<Uri>) -> Unit) -> Unit,
     onPickLogo: (onResult: (Uri) -> Unit) -> Unit,
     onPickFont: (onResult: (Uri) -> Unit) -> Unit,
+    onExportPresetFile: (suggestedName: String, onResult: (Uri) -> Unit) -> Unit,
+    onImportPresetFile: (onResult: (Uri) -> Unit) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val navController = rememberNavController()
@@ -150,6 +158,28 @@ fun WatermarkBoxNavHost(
                     onBack = { navController.popBackStack() },
                     onEditPreset = { preset ->
                         navController.navigate(Routes.presetEdit(preset.id))
+                    },
+                    // 文件名在这里算：它是纯逻辑（在 PresetFileCodec 里），
+                    // 而「导出哪个预设」是 PresetsScreen 才知道的信息。
+                    // 两边各出一半，汇到这里。
+                    onExportAll = {
+                        onExportPresetFile(
+                            PresetFileCodec.suggestFileName(
+                                presetName = null,
+                                now = System.currentTimeMillis()
+                            )
+                        ) { uri -> presetsViewModel.exportAll(uri) }
+                    },
+                    onExportOne = { preset ->
+                        onExportPresetFile(
+                            PresetFileCodec.suggestFileName(
+                                presetName = preset.name,
+                                now = System.currentTimeMillis()
+                            )
+                        ) { uri -> presetsViewModel.exportOne(uri, preset) }
+                    },
+                    onImport = {
+                        onImportPresetFile { uri -> presetsViewModel.importFrom(uri) }
                     }
                 )
             }

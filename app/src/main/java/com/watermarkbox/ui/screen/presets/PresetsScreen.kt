@@ -21,9 +21,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -39,19 +43,24 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.watermarkbox.BuildConfig
 import com.watermarkbox.R
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.util.PresetFileCodec
 import com.watermarkbox.util.resolve
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -81,6 +90,9 @@ fun PresetsScreen(
     viewModel: PresetsViewModel,
     onBack: () -> Unit,
     onEditPreset: (WatermarkPreset) -> Unit = {},
+    onExportAll: () -> Unit = {},
+    onExportOne: (WatermarkPreset) -> Unit = {},
+    onImport: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -106,6 +118,48 @@ fun PresetsScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.common_back)
                         )
+                    }
+                },
+                actions = {
+                    // 「更多」菜单：导入 / 导出全部
+                    //
+                    // 为什么放在溢出菜单而不是两个并列按钮：
+                    // 这两个操作都不常用（备份/迁移时才用），
+                    // 占着标题栏会挤压标题空间，也让日常操作（编辑/删除）显得不突出。
+                    var menuOpen by remember { mutableStateOf(false) }
+
+                    Box {
+                        IconButton(
+                            onClick = { menuOpen = true },
+                            enabled = !state.transferBusy
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = stringResource(R.string.presets_more)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = menuOpen,
+                            onDismissRequest = { menuOpen = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.presets_import)) },
+                                onClick = {
+                                    menuOpen = false
+                                    onImport()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.presets_export_all)) },
+                                onClick = {
+                                    menuOpen = false
+                                    onExportAll()
+                                },
+                                // 没有预设时导出无意义，直接禁用比点了再提示更好
+                                enabled = state.presets.isNotEmpty()
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -153,6 +207,7 @@ fun PresetsScreen(
                             PresetCard(
                                 preset = preset,
                                 onEdit = { onEditPreset(preset) },
+                                onExport = { onExportOne(preset) },
                                 onDelete = { viewModel.requestDelete(preset) }
                             )
                         }
@@ -181,6 +236,101 @@ fun PresetsScreen(
             }
         )
     }
+
+    // ---- 导入结果 ----
+    state.importOutcome?.let { outcome ->
+        when (outcome) {
+            is PresetImportOutcome.Success -> AlertDialog(
+                onDismissRequest = { viewModel.dismissImportOutcome() },
+                title = { Text(stringResource(R.string.presets_import_done_title)) },
+                text = {
+                    Column {
+                        Text(
+                            text = if (outcome.renamed > 0) {
+                                pluralStringResource(
+                                    R.plurals.presets_import_done_message_renamed,
+                                    outcome.imported,
+                                    outcome.imported,
+                                    outcome.renamed
+                                )
+                            } else {
+                                pluralStringResource(
+                                    R.plurals.presets_import_done_message,
+                                    outcome.imported,
+                                    outcome.imported
+                                )
+                            }
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = stringResource(R.string.presets_import_safe_notice),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        // 只有真的导入了图片预设才提这句 ——
+                        // 否则每次导入都弹一句无关的警告，用户很快就学会无视它，
+                        // 那这条提示在需要时也就失效了
+                        if (outcome.imagePresets > 0) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = stringResource(R.string.presets_import_logo_notice),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.dismissImportOutcome() }) {
+                        Text(stringResource(R.string.common_confirm))
+                    }
+                }
+            )
+
+            is PresetImportOutcome.Failure -> AlertDialog(
+                onDismissRequest = { viewModel.dismissImportOutcome() },
+                title = { Text(stringResource(R.string.presets_import_failed_title)) },
+                text = {
+                    Column {
+                        Text(importFailureText(outcome.reason))
+                        // 技术细节只在调试包显示：普通用户看到
+                        // "SerializationException: Unexpected JSON token"
+                        // 只会更困惑，而这句话对开发者排查很有用
+                        if (BuildConfig.DEBUG && !outcome.detail.isNullOrBlank()) {
+                            Spacer(Modifier.height(10.dp))
+                            Text(
+                                text = outcome.detail,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.dismissImportOutcome() }) {
+                        Text(stringResource(R.string.common_confirm))
+                    }
+                }
+            )
+        }
+    }
+}
+
+/**
+ * 把导入失败原因映射为用户可读的文案。
+ *
+ * 每种原因都对应一句**能指导下一步行动**的话，而不是笼统的"导入失败"：
+ * 「文件是空的」→ 重新导出一次；「不是水印盒的文件」→ 选错文件了；
+ * 「版本过新」→ 升级应用。
+ */
+@Composable
+private fun importFailureText(reason: PresetFileCodec.FailureReason): String = when (reason) {
+    PresetFileCodec.FailureReason.EMPTY -> stringResource(R.string.presets_import_fail_empty)
+    PresetFileCodec.FailureReason.TOO_LARGE -> stringResource(R.string.presets_import_fail_too_large)
+    PresetFileCodec.FailureReason.MALFORMED -> stringResource(R.string.presets_import_fail_malformed)
+    PresetFileCodec.FailureReason.NOT_OURS -> stringResource(R.string.presets_import_fail_not_ours)
+    PresetFileCodec.FailureReason.VERSION_TOO_NEW -> stringResource(R.string.presets_import_fail_version)
+    PresetFileCodec.FailureReason.NO_PRESETS -> stringResource(R.string.presets_import_fail_no_presets)
 }
 
 @Composable
@@ -221,15 +371,19 @@ private fun EmptyHint() {
 }
 
 /**
- * 单个预设卡片：展示信息 + 右侧重命名 / 删除。
+ * 单个预设卡片：展示信息 + 右侧 导出 / 重命名 / 删除。
  *
  * 卡片**不可整体点击** —— 首页没有图片，无法"应用"预设。
  * 若做成可点击但没有反馈，用户会以为坏了。
+ *
+ * 三个图标都用触摸区 40dp（而非默认 48dp）以节省横向空间 ——
+ * 360dp 宽的屏幕上还要留给名称和类型徽章。
  */
 @Composable
 private fun PresetCard(
     preset: WatermarkPreset,
     onEdit: () -> Unit,
+    onExport: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -290,8 +444,8 @@ private fun PresetCard(
                 )
             }
 
-            // 操作
-            IconButton(onClick = onEdit) {
+            // 操作：编辑 / 导出 / 删除
+            IconButton(onClick = onEdit, modifier = Modifier.size(40.dp)) {
                 Icon(
                     imageVector = Icons.Filled.Edit,
                     contentDescription = stringResource(R.string.presets_edit_action),
@@ -299,7 +453,15 @@ private fun PresetCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            IconButton(onClick = onDelete) {
+            IconButton(onClick = onExport, modifier = Modifier.size(40.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.Share,
+                    contentDescription = stringResource(R.string.presets_export_one),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = stringResource(R.string.preset_delete_action),

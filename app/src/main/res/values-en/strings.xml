@@ -374,7 +374,8 @@ Turn on DCT if you need tracing that survives compression.</string>
     <string name="presets_title">Watermark presets</string>
     <string name="presets_loading">Loading…</string>
     <string name="presets_tip">Tap a preset to edit its name and watermark settings (no image needed).
-Icons on the right: pencil = edit, trash = delete.</string>
+Icons on the right: pencil = edit, arrow = export this preset, trash = delete.
+The ⋮ button in the top bar exports all presets, or imports them from a file.</string>
     <string name="presets_empty_title">No presets yet</string>
     <string name="presets_empty_desc">A preset stores a full set of watermark settings (text, size, color, position and more),
 so you can apply it again in one tap.
@@ -384,6 +385,48 @@ To create one: pick an image → adjust the watermark → tap the bookmark icon 
     <string name="presets_type_text">Text</string>
     <string name="presets_type_image">Image</string>
     <string name="presets_logo_width">Logo width %1$d%% · %2$s</string>
+
+    <!-- ==================== Preset import / export ==================== -->
+    <string name="presets_more">More options</string>
+    <string name="presets_export_all">Export all presets…</string>
+    <string name="presets_export_one">Export this preset…</string>
+    <string name="presets_import">Import from file…</string>
+    <string name="presets_export_nothing">No presets to export yet</string>
+    <string name="presets_export_failed">Export failed, please try again</string>
+
+    <string name="presets_import_failed_title">Import failed</string>
+    <string name="presets_import_fail_empty">The file is empty — nothing to read.</string>
+    <string name="presets_import_fail_too_large">The file is too large to be a preset file.</string>
+    <string name="presets_import_fail_malformed">The file is corrupted or not in the expected format.</string>
+    <string name="presets_import_fail_not_ours">This file was not exported by WatermarkBox.</string>
+    <string name="presets_import_fail_version">This file was exported by a newer version. Please update the app first.</string>
+    <string name="presets_import_fail_no_presets">The file contains no presets.</string>
+
+    <string name="presets_import_done_title">Import complete</string>
+    <string name="presets_import_safe_notice">Imported presets are always added as new ones — your existing presets are never overwritten.</string>
+    <string name="presets_import_logo_notice">⚠️ The logo image is not stored inside the preset file (it only references a local picture), so you need to pick one again after importing.</string>
+
+    <!--
+      Counted messages use plurals so English gets proper singular/plural
+      forms. Writing "%1$d preset(s)" would be a cop-out — and lint flags
+      it as [PluralsCandidate] for exactly that reason.
+    -->
+    <plurals name="presets_export_done">
+        <item quantity="one">Exported %1$d preset</item>
+        <item quantity="other">Exported %1$d presets</item>
+    </plurals>
+    <plurals name="presets_import_done_message">
+        <item quantity="one">Imported %1$d preset.</item>
+        <item quantity="other">Imported %1$d presets.</item>
+    </plurals>
+    <!--
+      The parenthetical form avoids a subject–verb agreement problem:
+      "%2$d were renamed" would be wrong when only one was renamed.
+    -->
+    <plurals name="presets_import_done_message_renamed">
+        <item quantity="one">Imported %1$d preset (%2$d renamed to avoid a conflict).</item>
+        <item quantity="other">Imported %1$d presets (%2$d renamed to avoid a conflict).</item>
+    </plurals>
     <string name="preset_edit_title">Edit preset</string>
     <string name="preset_edit_loading">Loading preset…</string>
     <string name="preset_clash_title">Name already exists</string>
