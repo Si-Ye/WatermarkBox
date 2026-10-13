@@ -116,12 +116,13 @@ fun HomeScreen(
                 .padding(horizontal = Spacing.PageHorizontal),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(64.dp))
+            Spacer(Modifier.height(40.dp))
 
             // ---- 品牌头部 ----
             AppLogo()
-
-            Spacer(Modifier.height(20.dp))
+            // Logo 从 96dp 收到 84dp：三个入口卡片才是这一页的主角，
+            // 品牌头只是「报个到」，不该占掉五分之一屏。
+            Spacer(Modifier.height(16.dp))
 
             Text(
                 text = stringResource(R.string.home_brand_name),
@@ -209,7 +210,9 @@ private fun AppLogo() {
         painter = painterResource(R.drawable.ic_app_logo),
         contentDescription = stringResource(R.string.a11y_app_icon),
         contentScale = ContentScale.Crop,
-        modifier = Modifier.size(96.dp)
+        // 84dp：与「关于页头部」一致。首页的主角是下面三张入口卡片，
+        // Logo 只是品牌点缀 —— 96dp 会显得头重脚轻。
+        modifier = Modifier.size(84.dp)
     )
 }
 
@@ -235,14 +238,22 @@ private fun EntryCard(
         modifier = modifier
             .fillMaxWidth()
             // 用 heightIn 而不是 height：系统字号调大后卡片能长高，
-            // 否则标题 + 副标题会被 104dp 裁掉（无障碍：不只是读屏，字号也算）
+            // 否则标题 + 副标题会被裁掉（无障碍：不只是读屏，字号也算）
             //
-            // ⚠️ 必须**同时给上限**。只写 min 的话卡片高度变成「父容器给多少就多高」，
-            // 配合下面 Row 的 fillMaxSize 会一路撑满可用空间 ——
-            // 实测后果是第一个卡片吃掉整屏，后面两个被顶出屏幕。
-            // 上限取 min 的 2 倍：足够容纳「大字号 + 两行副标题」，
-            // 又不会让卡片在正常字号下离谱地高。
-            .heightIn(min = 104.dp, max = 208.dp)
+            // ⚠️ min 必须贴近**实际内容高度**，不能拍脑袋给大数。
+            //
+            // 内容构成：图标 48dp 与「标题 + 4dp + 副标题」两行文字取较大者，
+            // 再各加 12dp 上下 padding：
+            //     48 + 24 = 72dp      ← 图标 + padding
+            //     24 + 4 + 20 + 24 = 72dp  ← 两行文字 + padding
+            // 取 **76dp**：比内容略高一点，让三种字形组合看起来一致。
+            //
+            // 之前给 104dp 时，每张卡片白多出约 28dp —— 三张就多 84dp，
+            // 直接把第三个入口挤出屏幕。min 只负责「对齐观感」，
+            // 不该承担「撑大」的职责。
+            //
+            // max 给 2 倍：大字号（无障碍设置里可到 200%）时文字换行也不会被裁。
+            .heightIn(min = 76.dp, max = 152.dp)
     ) {
         Row(
             modifier = Modifier
@@ -265,15 +276,15 @@ private fun EntryCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .background(accent.copy(alpha = 0.12f), RoundedCornerShape(16.dp)),
+                    .size(48.dp)
+                    .background(accent.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
                     tint = accent,
-                    modifier = Modifier.size(30.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
             Spacer(Modifier.width(16.dp))
