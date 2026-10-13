@@ -69,6 +69,7 @@ class RenderPerformanceTest {
         repeat(60) { i -> renderer.render(src, cfg(30f + (i % 40))) }
         val perFrame = (System.nanoTime() - t0) / 1e6 / 60
 
+        println("PERF 字号拖动60帧 avg=%.2fms".format(perFrame))
         assertTrue(
             "512px 预览每帧应远低于 16ms，实际 %.2fms".format(perFrame),
             perFrame < 16.0
@@ -91,6 +92,7 @@ class RenderPerformanceTest {
         repeat(120) { i -> renderer.render(src, list[i % list.size]) }
         val perCall = (System.nanoTime() - t0) / 1e6 / 120
 
+        println("PERF 字形切换120次 avg=%.2fms".format(perCall))
         assertTrue(
             "切换字形应因缓存而廉价，实际 %.2fms/次".format(perCall),
             perCall < 16.0
@@ -108,6 +110,7 @@ class RenderPerformanceTest {
         repeat(30) { renderer.render(src, tiled) }
         val perFrame = (System.nanoTime() - t0) / 1e6 / 30
 
+        println("PERF 平铺8个30帧 avg=%.2fms".format(perFrame))
         assertTrue(
             "平铺 8 个水印每帧应 < 24ms，实际 %.2fms".format(perFrame),
             perFrame < 24.0
@@ -131,6 +134,7 @@ class RenderPerformanceTest {
         }
         val perFrame = (System.nanoTime() - t0) / 1e6 / frames
 
+        println("PERF 面板拖动40帧 avg=%.2fms".format(perFrame))
         assertTrue(
             "拖动面板每帧应 < 16ms，实际 %.2fms".format(perFrame),
             perFrame < 16.0

@@ -155,6 +155,26 @@ configurations.all {
     }
 }
 
+/**
+ * Compose 编译器报告。
+ *
+ * ## 为什么需要它
+ *
+ * Compose 卡顿的两大来源，**看代码完全看不出来**，只能靠编译器告诉我们：
+ *
+ * 1. **「restartable but not skippable」的组件** ——
+ *    参数被判定为不稳定时，父组件每次重组都会把它从头执行一遍，
+ *    即使它的输入压根没变
+ * 2. **不稳定（unstable）的参数类型** ——
+ *    通常是 `List`/`Set` 这类集合，或含可变字段的 data class
+ *
+ * 产物在 `app/build/compose-reports/`，只用于人工分析，不参与打包。
+ */
+composeCompiler {
+    metricsDestination = layout.buildDirectory.dir("compose-metrics")
+    reportsDestination = layout.buildDirectory.dir("compose-reports")
+}
+
 dependencies {
     // ---- AndroidX 基础 ----
     implementation(libs.androidx.core.ktx)
