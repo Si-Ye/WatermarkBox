@@ -308,13 +308,14 @@
     <string name="editor_invisible_auto_hint">将自动写入「设备短 ID + 导出时间」，格式：WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss</string>
     <string name="editor_invisible_strength">嵌入强度</string>
     <string name="editor_invisible_strength_hint">强度越高越抗压缩，但对像素的改动也越大（1 × 最隐蔽，4 × 最顽固）</string>
+    <string name="editor_invisible_channels">写入通道（各自独立，可任意组合）</string>
+    <string name="editor_invisible_exif">EXIF 元数据</string>
+    <string name="editor_invisible_exif_pro">画质完全无损，像素一个都不改</string>
+    <string name="editor_invisible_exif_con">图片一旦被压缩或转格式就会丢失</string>
     <string name="editor_invisible_dct">DCT 频域嵌入</string>
-    <string name="editor_invisible_dct_on">已开启 DCT：能抵抗 JPEG 重压缩、转格式等处理，但会轻微影响画质（像素有 ±3/255 的扰动，肉眼几乎不可见）。
-
-适合需要长期溯源、且图片会被二次压缩的场景。</string>
-    <string name="editor_invisible_dct_off">当前只写入 EXIF 元数据：画质完全无损，但图片一旦被压缩或转格式，溯源信息就会丢失。
-
-需要抗压缩溯源时，请开启 DCT。</string>
+    <string name="editor_invisible_dct_pro">能扛 JPEG 重压缩、转格式等处理</string>
+    <string name="editor_invisible_dct_con">会轻微改动画质（亮度 ±3/255，肉眼不可见）</string>
+    <string name="editor_invisible_no_channel">两条通道都没开，不会写入任何隐藏水印。请至少开启一条。</string>
     <string name="editor_invisible_strength_value">%1$d ×</string>
     <string name="editor_text_section">水印文字</string>
     <string name="editor_text_placeholder">输入水印文字…</string>
@@ -523,4 +524,19 @@
     <string name="common_selected">已选中</string>
     <string name="invisible_error_too_small">图片过小，无法承载水印</string>
     <string name="invisible_error_not_found">未检测到水印（或损坏超出纠错能力）</string>
+
+    <!-- ==================== 检测设置 ==================== -->
+    <string name="detect_options_title">检测设置</string>
+    <string name="detect_option_exif">检查 EXIF 元数据</string>
+    <string name="detect_option_exif_hint">最快。未被处理过的图片靠它就能认出，不用扫描像素。</string>
+    <string name="detect_option_dct">检查 DCT 频域</string>
+    <string name="detect_option_dct_hint">能扛压缩。需要逐像素扫描，明显更慢。</string>
+    <string name="detect_option_strength">尝试全部嵌入强度</string>
+    <string name="detect_option_strength_hint">导出时用了几倍强度，这里无从得知，全试更可靠（慢约 4 倍）。</string>
+    <string name="detect_option_rotation">尝试 4 个旋转方向</string>
+    <string name="detect_option_rotation_hint">关掉可快约 4 倍，但被旋转过的图片会认不出来。</string>
+
+    <string name="detect_error_skipped_dct">已跳过频域检测（设置中关闭），EXIF 里也没有</string>
+    <string name="detect_error_skipped_all">已跳过全部检测通道（设置中关闭）</string>
+    <string name="detect_options_apply_hint">改完设置后，重新选一次图片即可用新设置检测。</string>
 </resources>

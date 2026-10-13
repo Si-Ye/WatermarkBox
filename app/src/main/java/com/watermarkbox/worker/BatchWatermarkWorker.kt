@@ -65,6 +65,10 @@ class BatchWatermarkWorker(
         // 那会导致同一批次里每张图的嵌入内容不一致，无法互相印证）
         val invisibleContent = inputData.getString(KEY_INVISIBLE_CONTENT)
         val invisibleStrength = inputData.getInt(KEY_INVISIBLE_STRENGTH, 0)
+        // 两条通道各自独立。默认值刻意与“升级前”的行为一致：
+        // EXIF 从前总是写；DCT 从前是 strength > 0 才嵌。
+        val invisibleExif = inputData.getBoolean(KEY_INVISIBLE_EXIF, true)
+        val invisibleDct = inputData.getBoolean(KEY_INVISIBLE_DCT, invisibleStrength > 0)
 
         var success = 0
         val failed = mutableListOf<String>()
@@ -82,7 +86,9 @@ class BatchWatermarkWorker(
                 logoBitmap = logoBitmap,
                 exportSettings = exportSettings,
                 invisibleContent = invisibleContent,
-                invisibleStrength = invisibleStrength
+                invisibleStrength = invisibleStrength,
+                invisibleExif = invisibleExif,
+                invisibleDct = invisibleDct
             )
             if (ok) success++ else failed.add(uriString)
 
@@ -115,7 +121,9 @@ class BatchWatermarkWorker(
         logoBitmap: Bitmap?,
         exportSettings: ExportSettings,
         invisibleContent: String?,
-        invisibleStrength: Int
+        invisibleStrength: Int,
+        invisibleExif: Boolean,
+        invisibleDct: Boolean
     ): Boolean {
         var source: Bitmap? = null
         var rendered: Bitmap? = null
@@ -143,9 +151,9 @@ class BatchWatermarkWorker(
                 }
             }
 
-            // 隐藏水印频域嵌入（若启用）
+            // 隐藏水印频域嵌入（仅当该通道开启）
             var toWrite = rendered
-            if (!invisibleContent.isNullOrBlank() && invisibleStrength > 0) {
+            if (invisibleDct && !invisibleContent.isNullOrBlank() && invisibleStrength > 0) {
                 stamped = InvisibleWatermarkEngine(invisibleStrength.toFloat())
                     .embed(rendered, invisibleContent)
                 if (stamped != null) toWrite = stamped
@@ -166,7 +174,8 @@ class BatchWatermarkWorker(
                 albumPath = exportSettings.customOutputDir,
                 sourceUri = uri,
                 preserveExif = exportSettings.preserveExif,
-                invisibleContent = invisibleContent
+                // EXIF 通道独立开关：关掉时传 null，等价于「不写元数据水印」
+                invisibleContent = invisibleContent.takeIf { invisibleExif }
             ) != null
         } catch (t: Throwable) {
             false
@@ -204,6 +213,22 @@ class BatchWatermarkWorker(
         const val KEY_EXPORT_SETTINGS = "exportSettingsJson"
         const val KEY_INVISIBLE_CONTENT = "invisibleContent"
         const val KEY_INVISIBLE_STRENGTH = "invisibleStrength"
+
+        /**
+         * 是否写 EXIF 通道。
+         *
+         * 缺省 `true`：老任务里没有这个键，而当时的行为就是「内容非空必写 EXIF」，
+         * 用 true 兜底才能保持升级前后的行为一致。
+         */
+        const val KEY_INVISIBLE_EXIF = "invisibleExif"
+
+        /**
+         * 是否写 DCT 通道。
+         *
+         * 缺省值由 [KEY_INVISIBLE_STRENGTH] 推断（老任务的约定是 strength > 0 才嵌），
+         * 同样是为了兼容升级前入队的任务。
+         */
+        const val KEY_INVISIBLE_DCT = "invisibleDct"
 
         const val KEY_PROGRESS_DONE = "progressDone"
         const val KEY_PROGRESS_TOTAL = "progressTotal"

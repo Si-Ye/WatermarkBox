@@ -1,6 +1,7 @@
 package com.watermarkbox.invisible
 
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -28,7 +29,7 @@ import kotlin.random.Random
  *    提取时对同一比特的所有副本做「置信度加权投票」，
  *    这等价于把误码率按副本数平摊。
  *
- * 2. **频域选点**：只改中频系数（u+v ∈ [4,8]），
+ * 2. **频域选点**：只改中频系数（u+v ∈ [2,6]，且标准量化步长 ≤ 14），
  *    低频是图像主体（改了就看得见）、高频是压缩垃圾场（改了就被丢）。
  *
  * 3. **纠错码**：RS(16,8) 兜底 —— 投票后即便仍有符号错，
@@ -59,6 +60,27 @@ class InvisibleWatermarkEngine(
     companion object {
         /** 位置序列的固定种子。改这个值会让旧图无法被新版本检测。 */
         const val POSITION_SEED = 0x5761746DL // "Watm"
+
+        /**
+         * 提取时额外尝试的旋转角（度）。
+         *
+         * ## 为什么需要它们
+         *
+         * DCT 嵌入是按 8×8 块网格做的，而「哪个块承载哪个比特」
+         * 由固定种子洗牌决定。图片被旋转 90°/180°/270° 后：
+         * - 块内像素被转置或翻转 → DCT 系数跟着变
+         * - 块索引整体重排 → 洗牌序列对不上
+         *
+         * 两者叠加，直接提取必然失败（实测确认）。但这类旋转**可逆**：
+         * 把图转回原方向，块网格与索引就都恢复了。
+         *
+         * 试 90/180/270 三个角度即可覆盖全部直角旋转 ——
+         * 图被转过 θ 时，转 360−θ 恰好还原，而它一定在这个集合里。
+         *
+         * 任意角度（如 15°）**不在**覆盖范围内：重采样会让块网格彻底
+         * 错位，需要几何同步机制才能解决，属另一课题。
+         */
+        private val ORTHOGONAL_ROTATIONS = listOf(90f, 180f, 270f)
 
         /** 块大小的常量。 */
         const val BLOCK = 8
@@ -201,11 +223,67 @@ class InvisibleWatermarkEngine(
     }
 
     /**
-     * 从 [bitmap] 提取隐藏水印。
+     * 提取隐藏水印。
      *
-     * @return 提取结果（含 text / 置信度 / 状态）
+     * ## 为什么要试多个方向
+     *
+     * DCT 嵌入是**按 8×8 块网格**做的，而「哪个块承载哪个比特」
+     * 由固定种子洗牌决定。图片一旦被旋转 90°/180°/270°：
+     *
+     * - 块内部像素被转置或翻转 → DCT 系数跟着变
+     * - 块索引整体重排 → 洗牌序列对不上
+     *
+     * 两者叠加，直接提取必然失败。但这类旋转是**可逆的**：
+     * 把图转回原方向，块网格与索引就都恢复了 —— 实测确认。
+     *
+     * 所以这里先按原方向试一次（绝大多数图不需要旋转），
+     * 不行再依次试 90°/180°/270°。相册的「旋转」按钮、
+     * 多数图片工具产生的都是这类直角旋转。
+     *
+     * 任意角度（如 15°）的旋转**不在覆盖范围内** —— 重采样会让
+     * 块网格彻底错位，需要几何同步机制才能解决，属另一课题。
+     *
+     * @param tryRotations 失败时是否再试 3 个直角方向。
+     *        检测页可以关掉它换速度（代价：旋转过的图认不出来）。
      */
-    fun extract(bitmap: Bitmap): WatermarkExtraction {
+    fun extract(bitmap: Bitmap, tryRotations: Boolean = true): WatermarkExtraction {
+        // 1) 原方向 —— 绝大多数图不需要旋转，先走这条快路径
+        val direct = extractOriented(bitmap)
+        if (direct is WatermarkExtraction.Found) return direct
+
+        // 2) 直角旋转 —— 把图转回去再试
+        if (!tryRotations) return direct
+
+        for (angle in ORTHOGONAL_ROTATIONS) {
+            val restored = rotateBack(bitmap, angle) ?: continue
+            try {
+                val result = extractOriented(restored)
+                if (result is WatermarkExtraction.Found) return result
+            } finally {
+                if (restored !== bitmap && !restored.isRecycled) restored.recycle()
+            }
+        }
+
+        // 三个方向都不行，返回原方向的结果 —— 它的失败描述最贴合
+        // 用户看到的那张图，不会误导成「旋转害的」
+        return direct
+    }
+
+    /**
+     * 把位图绕中心旋转 [degrees]（用于让直角旋转过的图回到正方向）。
+     *
+     * @return 旋转后的新位图；失败、或结果与原图是同一对象时返回 null
+     */
+    private fun rotateBack(bitmap: Bitmap, degrees: Float): Bitmap? = runCatching {
+        val matrix = Matrix().apply { postRotate(degrees) }
+        val rotated = Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+        )
+        rotated.takeIf { it !== bitmap }
+    }.getOrNull()
+
+    /** 实际执行提取（默认朝向已正确）。 */
+    private fun extractOriented(bitmap: Bitmap): WatermarkExtraction {
         val blocksX = bitmap.width / BLOCK
         val blocksY = bitmap.height / BLOCK
         val totalBlocks = blocksX * blocksY
@@ -281,7 +359,36 @@ class InvisibleWatermarkEngine(
                 votedBytes[i] = b.toByte()
             }
 
-            val corrected = ReedSolomon.decode(votedBytes)
+            // ---- 每个比特的归一化确定性（0~1，越大越可靠）----
+            //
+            // 投票已把各副本的软值累加过，再除以权重和即得归一化值；
+            // 这样「副本多」不会天然显得更可靠（不同负载长度的副本数不同）。
+            val bitCertainty = FloatArray(bitCount)
+            for (i in 0 until bitCount) {
+                bitCertainty[i] =
+                    if (weightSum[i] > 0f) abs(softBits[i]) / weightSum[i] else 0f
+            }
+
+            // ---- 符号置信度 = 该符号 8 个比特里**最差**的那个 ----
+            //
+            // 一个符号只要有一个比特不可靠，整个符号就可能错，
+            // 所以取最小值而非平均 —— 这决定了谁是「擦除」的候选。
+            val symbolConfidence = FloatArray(encodedBytes.size)
+            for (i in encodedBytes.indices) {
+                var worst = Float.MAX_VALUE
+                for (j in 0 until 8) {
+                    val flat = i * 8 + j
+                    val c = if (flat < bitCount) bitCertainty[flat] else 0f
+                    if (c < worst) worst = c
+                }
+                symbolConfidence[i] = worst
+            }
+
+            // 交给 RS 做纠错 + **擦除译码**：置信度最低的符号会被优先
+            // 当作「已知坏了但不知道值」的擦除，纠错预算从
+            // 「2 个校验符号换 1 个错误」变成「1 个换 1 个」，
+            // 因此每块可修的范围从 4 个错误扩到最多 8 个擦除。
+            val corrected = ReedSolomon.decode(votedBytes, symbolConfidence)
             val text = WatermarkPayload.decode(corrected)
             if (text != null) {
                 var sum = 0f
@@ -453,7 +560,7 @@ class InvisibleWatermarkEngine(
      *
      * 步骤：
      * 1. 取该频点的标准 JPEG 量化步长 `Q`
-     * 2. 乘 [STRENGTH_OVER_QUANT]（默认 4）→ 保证质量 90 仍有裕量
+     * 2. 乘 [STRENGTH_OVER_QUANT]（当前为 6）→ 保证质量 90 仍有裕量
      * 3. 乘亮度因子（中灰区人眼敏感，适当降低；暗/亮部可提高）
      *
      * ## 为什么两端一定一致

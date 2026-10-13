@@ -286,6 +286,16 @@ class BatchViewModel(application: Application) :
                         BatchWatermarkWorker.KEY_INVISIBLE_STRENGTH,
                         state.invisibleConfig.strength
                     )
+                    // 两条通道各自独立，Worker 侧也要照做 ——
+                    // 否则「只开 DCT / 只开 EXIF」这类组合在批量导出时会失效
+                    putBoolean(
+                        BatchWatermarkWorker.KEY_INVISIBLE_EXIF,
+                        state.invisibleConfig.exifEnabled
+                    )
+                    putBoolean(
+                        BatchWatermarkWorker.KEY_INVISIBLE_DCT,
+                        state.invisibleConfig.dctEnabled
+                    )
                 }
             }
             .build()
@@ -602,6 +612,8 @@ class BatchViewModel(application: Application) :
 
     override fun updateInvisibleStrength(strength: Int) =
         updateInvisible { copy(strength = strength.coerceIn(1, 4)) }
+
+    override fun toggleInvisibleExif() = updateInvisible { copy(exifEnabled = !exifEnabled) }
 
     override fun toggleInvisibleDct() = updateInvisible { copy(dctEnabled = !dctEnabled) }
 

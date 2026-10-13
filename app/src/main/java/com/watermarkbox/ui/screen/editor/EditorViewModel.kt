@@ -411,23 +411,25 @@ class EditorViewModel(application: Application) :
                     format = settings.format
                 )
 
-                // ---- 隐藏水印：先解析内容，再决定是否做频域嵌入 ----
+                // ---- 隐藏水印：两条通道各自独立决定写不写 ----
                 val invisible = state.invisibleConfig
-                val invisibleContent = InvisibleContentResolver.resolve(
+                // 内容只解析一次 —— 两条通道嵌的是同一份内容
+                val resolved = InvisibleContentResolver.resolve(
                     getApplication<Application>(),
                     invisible
                 )
 
-                // 频域嵌入必须发生在「渲染完成后、写文件前」。
-                // 它对 rendered 做一次带噪声的复制，因此要回收原 rendered。
+                // 通道 1：EXIF 元数据（零画质代价，但不抗压缩）
+                val exifContent = resolved.takeIf { invisible.exifEnabled }
+
+                // 通道 2：DCT 频域（有画质代价，但能扛 JPEG）
                 //
-                // 注意：`dctEnabled` 只控制**是否写频域**。EXIF 那条通道
-                // 由下面的 saveBitmap(invisibleContent=...) 独立处理 ——
-                // 用户关掉 DCT 仍然保留 EXIF 溯源，只是不抗压缩了。
+                // 嵌入必须发生在「渲染完成后、写文件前」。
+                // 它对 rendered 做一次带噪声的复制，因此要回收原 rendered。
                 var toWrite = rendered
-                if (invisibleContent != null && invisible.enabled && invisible.dctEnabled) {
+                if (resolved != null && invisible.dctEnabled) {
                     val stamped = InvisibleWatermarkEngine(invisible.strength.toFloat())
-                        .embed(rendered, invisibleContent)
+                        .embed(rendered, resolved)
                     if (stamped != null) {
                         rendered.takeIf { it != fullBitmap && !it.isRecycled }?.recycle()
                         toWrite = stamped
@@ -443,7 +445,7 @@ class EditorViewModel(application: Application) :
                     albumPath = settings.customOutputDir,
                     sourceUri = uri,
                     preserveExif = settings.preserveExif,
-                    invisibleContent = invisibleContent
+                    invisibleContent = exifContent
                 )
 
                 if (result == null) {
@@ -555,7 +557,10 @@ class EditorViewModel(application: Application) :
     override fun updateInvisibleStrength(strength: Int) =
         updateInvisible { copy(strength = strength.coerceIn(1, 4)) }
 
-    /** 是否启用 DCT 频域嵌入（关闭 = 只写 EXIF，画质无损）。 */
+    /** 是否启用 EXIF 通道（零画质代价，但不抗压缩）。 */
+    override fun toggleInvisibleExif() = updateInvisible { copy(exifEnabled = !exifEnabled) }
+
+    /** 是否启用 DCT 频域嵌入（有画质代价，但抗压缩）。 */
     override fun toggleInvisibleDct() = updateInvisible { copy(dctEnabled = !dctEnabled) }
 
     // ------------------------------------------------------------------

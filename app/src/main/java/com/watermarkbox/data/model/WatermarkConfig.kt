@@ -202,6 +202,27 @@ data class InvisibleWatermarkConfig(
     val source: InvisibleSource = InvisibleSource.CUSTOM_TEXT,
     val strength: Int = 2,
     /**
+     * 是否启用 EXIF 通道（`UserComment`）。
+     *
+     * ## 和 DCT 开关的关系
+     *
+     * 隐藏水印有**两条独立通道**，取舍完全不同：
+     *
+     * | 通道 | 画质影响 | 抗压缩 | 暴露程度 |
+     * |---|---|---|---|
+     * | EXIF | **完全无损** | ❌ 一压就没 | 元数据明文，工具一看就见 |
+     * | DCT | ±3/255 | ✅ 能扛 JPEG | 藏在像素里，不易察觉 |
+     *
+     * 两者可任意组合：
+     * - **都开**（推荐）：不压缩时走 EXIF（绝对无损），被压过之后还有 DCT 兜底
+     * - **只开 EXIF**：画质零代价，但只对「未经处理的原图」有效
+     * - **只开 DCT**：不想在元数据里留下明文时用
+     * - **都关**：不会写入任何隐藏水印（等同于关闭总开关）
+     *
+     * 默认开启：它不付出任何画质代价，没有理由默认关掉。
+     */
+    val exifEnabled: Boolean = true,
+    /**
      * 是否启用 DCT 频域嵌入。
      *
      * ## 为什么单独给开关

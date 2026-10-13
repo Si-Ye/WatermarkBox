@@ -2,6 +2,7 @@ package com.watermarkbox.invisible
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -180,6 +181,122 @@ class InvisibleWatermarkInstrumentedTest {
             result is WatermarkExtraction.Found
         )
     }
+
+    /**
+     * 压缩**能力边界**诊断。
+     *
+     * 目的不是要求每一档都成功 —— 有边界是技术现实，不是 bug。
+     * 而是把实际边界**测出来并打印**，免得日后靠猜。
+     *
+     * - 已知能通过的组合：断言，防回归
+     * - 更狠的组合：只记录结果，不强制通过
+     */
+    @Test
+    fun diagnose_compression_boundary() {
+        // 已知通过 —— 断言守住
+        checkCompressionChain(listOf(90, 85), mustPass = true)
+
+        // 更狠 —— 只记录
+        checkCompressionChain(listOf(80, 80), mustPass = false)
+        checkCompressionChain(listOf(80, 70), mustPass = false)
+    }
+
+    /** 按给定质量序列做多轮 JPEG 往返，再尝试提取。 */
+    private fun checkCompressionChain(qualities: List<Int>, mustPass: Boolean) {
+        val source = makeTestBitmap()
+        val text = "WMB1:q" + qualities.joinToString("-")
+
+        var bmp = track(engine.embed(source, text)!!)
+        for (q in qualities) {
+            bmp = track(roundTripJpeg(bmp, q))
+        }
+
+        val result = engine.extract(bmp)
+        val ok = result is WatermarkExtraction.Found && result.text == text
+        val label = qualities.joinToString("→")
+        println("DIAG JPEG[$label] = " + (if (ok) "OK" else "FAIL"))
+
+        if (mustPass) {
+            assertTrue("已知应当通过的组合 $label 失败了，属回归：$result", ok)
+        }
+    }
+
+    /**
+     * 直角旋转（相册「旋转」按钮、多数图片工具）后仍可提取。
+     *
+     * 原理：DCT 水印依赖 8×8 块网格与固定洗牌的块序，
+     * 旋转会破坏这两者，但直角旋转是可逆的 —— 检测端把图转回去即可。
+     *
+     * 注意：任意角度（如 15°）不在此列，重采样会让块网格彻底错位。
+     */
+    @Test
+    fun survives_right_angle_rotations() {
+        val source = makeTestBitmap()
+        val text = "WMB1:rotated"
+
+        val stamped = track(engine.embed(source, text)!!)
+
+        for (angle in listOf(90f, 180f, 270f)) {
+            val rotated = track(rotateBitmap(stamped, angle))
+            val result = engine.extract(rotated)
+            assertEquals(
+                "旋转 ${angle.toInt()}° 后应仍能提取，实际: $result",
+                text,
+                (result as? WatermarkExtraction.Found)?.text
+            )
+        }
+    }
+
+    /**
+     * 旋转**能力边界**诊断。
+     *
+     * 分两类，难度天差地别，必须分开测：
+     * - **直角旋转**（90/180/270）：块网格仍然对齐，理论上能通过
+     *   「多试几个方向」救回来
+     * - **任意角度**（5°/15°/45°）：重采样会让 8×8 块网格彻底错位，
+     *   需要几何同步机制才能解决
+     */
+    @Test
+    fun diagnose_rotation_boundary() {
+        val source = makeTestBitmap()
+        val text = "WMB1:rotate"
+
+        val stamped = track(engine.embed(source, text)!!)
+
+        println("DIAG rotate[0] = " + okText(canExtract(stamped, text)))
+
+        // ---- 直角旋转 ----
+        // 除了测失败，还要验证「转回去能否救回」—— 这决定了
+        // 「检测时多试几个方向」这个方案到底可不可行
+        for (angle in listOf(90f, 180f, 270f)) {
+            val rotated = track(rotateBitmap(stamped, angle))
+            println("DIAG rotate[${angle.toInt()}] = " + okText(canExtract(rotated, text)))
+
+            val restored = track(rotateBitmap(rotated, -angle))
+            println(
+                "DIAG rotate[${angle.toInt()}]+restore = " + okText(canExtract(restored, text))
+            )
+        }
+
+        // ---- 任意角度 ----
+        for (angle in listOf(5f, 15f, 45f)) {
+            val rotated = track(rotateBitmap(stamped, angle))
+            println("DIAG rotate[${angle.toInt()}] = " + okText(canExtract(rotated, text)))
+        }
+    }
+
+    /** 用真实的 Matrix 旋转（与相册/编辑器同一条路径）。 */
+    private fun rotateBitmap(src: Bitmap, degrees: Float): Bitmap {
+        val m = Matrix().apply { postRotate(degrees) }
+        return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+    }
+
+    private fun canExtract(bmp: Bitmap, expected: String): Boolean {
+        val r = engine.extract(bmp)
+        return r is WatermarkExtraction.Found && r.text == expected
+    }
+
+    private fun okText(ok: Boolean) = if (ok) "OK" else "FAIL"
 
     @Test
     fun survives_png_round_trip() {

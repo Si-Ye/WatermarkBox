@@ -302,13 +302,14 @@
     <string name="editor_invisible_auto_hint">Writes "device ID + export time" automatically, formatted as WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss</string>
     <string name="editor_invisible_strength">Embedding strength</string>
     <string name="editor_invisible_strength_hint">Higher strength survives more compression, but changes more pixels (1 × is subtlest, 4 × is the most stubborn)</string>
+    <string name="editor_invisible_channels">Write channels (independent — combine freely)</string>
+    <string name="editor_invisible_exif">EXIF metadata</string>
+    <string name="editor_invisible_exif_pro">Completely lossless — not a single pixel changes</string>
+    <string name="editor_invisible_exif_con">Lost the moment the image is compressed or converted</string>
     <string name="editor_invisible_dct">DCT frequency embedding</string>
-    <string name="editor_invisible_dct_on">DCT is on: survives JPEG re-compression and format conversion, but slightly affects quality (pixels shift by ±3/255, virtually invisible to the eye).
-
-Best for images that need long-term tracing and may be compressed again.</string>
-    <string name="editor_invisible_dct_off">Only EXIF metadata is written: completely lossless, but the tracing data is lost as soon as the image is compressed or converted.
-
-Turn on DCT if you need tracing that survives compression.</string>
+    <string name="editor_invisible_dct_pro">Survives JPEG re-compression and format conversion</string>
+    <string name="editor_invisible_dct_con">Slightly alters quality (luma ±3/255, invisible to the eye)</string>
+    <string name="editor_invisible_no_channel">Both channels are off, so no invisible watermark will be written. Turn on at least one.</string>
     <string name="editor_invisible_strength_value">%1$d×</string>
     <string name="editor_text_section">Watermark text</string>
     <string name="editor_text_placeholder">Enter watermark text…</string>
@@ -524,4 +525,19 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="common_selected">Selected</string>
     <string name="invisible_error_too_small">Image is too small to carry a watermark</string>
     <string name="invisible_error_not_found">No watermark found (or the damage exceeds error-correction capacity)</string>
+
+    <!-- ==================== Detection settings ==================== -->
+    <string name="detect_options_title">Detection settings</string>
+    <string name="detect_option_exif">Check EXIF metadata</string>
+    <string name="detect_option_exif_hint">Fastest. Untouched images are recognised here without scanning pixels.</string>
+    <string name="detect_option_dct">Check DCT frequency</string>
+    <string name="detect_option_dct_hint">Survives compression, but requires a full pixel scan — noticeably slower.</string>
+    <string name="detect_option_strength">Try all embedding strengths</string>
+    <string name="detect_option_strength_hint">The strength used at export time is unknown here, so trying them all is more reliable (about 4× slower).</string>
+    <string name="detect_option_rotation">Try 4 rotation directions</string>
+    <string name="detect_option_rotation_hint">Turning this off is about 4× faster, but rotated images will no longer be recognised.</string>
+
+    <string name="detect_error_skipped_dct">Frequency check is off in settings, and nothing was found in EXIF</string>
+    <string name="detect_error_skipped_all">All detection channels are off in settings</string>
+    <string name="detect_options_apply_hint">After changing settings, pick the image again to re-run with the new options.</string>
 </resources>

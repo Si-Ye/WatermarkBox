@@ -221,49 +221,117 @@ private fun InvisibleWatermarkSection(
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
-    // ---- DCT 频域开关 ----
+    // ---- 两条写入通道（各自独立开关）----
     Spacer(Modifier.height(Spacing.Item))
-    DctToggle(config = config, viewModel = viewModel)
+    InvisibleChannels(config = config, viewModel = viewModel)
 }
 
 /**
- * DCT 频域嵌入开关 + 画质提示。
+ * 隐藏水印的两条**写入通道**。
  *
- * ## 为什么要把代价写在界面上
+ * ## 为什么把两条都摆出来
  *
- * 隐藏水印有两条通道，行为差异很大：
+ * 两条通道的取舍是正交互补的，只露一条容易让人误以为
+ * 「开了隐藏水印就万事大吉」：
  *
- * | 通道 | 画质影响 | 抗 JPEG 压缩 |
- * |---|---|---|
- * | EXIF 元数据 | **完全无损** | ❌ 一压缩就没 |
- * | DCT 频域 | 亮度中频被扰动（±3/255） | ✅ 抗重压缩 |
+ * | 通道 | 画质 | 抗压缩 | 暴露程度 |
+ * |---|---|---|---|
+ * | EXIF 元数据 | 完全无损 | ❌ 一压就没 | 明文，工具一看就见 |
+ * | DCT 频域 | ±3/255 | ✅ 能扛 JPEG | 藏在像素里，不易察觉 |
  *
- * 这是典型的「画质 ⇄ 耐久」取舍，**必须让用户知情后再决定**，
- * 不能替他默认勾上。所以这里用醒目的提示卡说明代价，
- * 而不是塞进一行小字里糊弄过去。
+ * 并列展示后，用户能一眼看清「这条给你什么、要你付什么」，
+ * 不必靠猜，也不用翻文档。
  */
 @Composable
-private fun DctToggle(
+private fun InvisibleChannels(
     config: com.watermarkbox.data.model.InvisibleWatermarkConfig,
     viewModel: WatermarkPanelHost
 ) {
-    ToggleRow(
+    Text(
+        text = stringResource(R.string.editor_invisible_channels),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+
+    Spacer(Modifier.height(Spacing.Item))
+
+    // ---- 通道 1：EXIF（零代价，但脆弱）----
+    ChannelToggle(
+        label = stringResource(R.string.editor_invisible_exif),
+        checked = config.exifEnabled,
+        onCheckedChange = { viewModel.toggleInvisibleExif() },
+        pro = stringResource(R.string.editor_invisible_exif_pro),
+        con = stringResource(R.string.editor_invisible_exif_con),
+        hasQualityCost = false
+    )
+
+    Spacer(Modifier.height(Spacing.Item))
+
+    // ---- 通道 2：DCT（有代价，但顽固）----
+    ChannelToggle(
         label = stringResource(R.string.editor_invisible_dct),
         checked = config.dctEnabled,
-        onCheckedChange = { viewModel.toggleInvisibleDct() }
+        onCheckedChange = { viewModel.toggleInvisibleDct() },
+        pro = stringResource(R.string.editor_invisible_dct_pro),
+        con = stringResource(R.string.editor_invisible_dct_con),
+        hasQualityCost = true
+    )
+
+    // ---- 两条都关：这不是「更隐蔽」，而是「没写」----
+    if (!config.exifEnabled && !config.dctEnabled) {
+        Spacer(Modifier.height(Spacing.Item))
+        Card(
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = stringResource(R.string.editor_invisible_no_channel),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+    }
+}
+
+/**
+ * 单条通道的开关 + 取舍说明卡。
+ *
+ * 卡片**无论开关都显示同样两条信息**（能得到什么 / 要付什么代价），
+ * 只用颜色区分当前是否启用 —— 这样用户不必「先打开再后悔」。
+ *
+ * @param hasQualityCost 开启后是否有画质代价，决定警示配色与符号
+ */
+@Composable
+private fun ChannelToggle(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: () -> Unit,
+    pro: String,
+    con: String,
+    hasQualityCost: Boolean
+) {
+    ToggleRow(
+        label = label,
+        checked = checked,
+        onCheckedChange = { onCheckedChange() }
     )
 
     Spacer(Modifier.height(6.dp))
 
-    // 开 / 关给不同颜色的说明卡，让代价与收益都一眼可见
-    val (container, content) = if (config.dctEnabled) {
-        // 开启：橙黄警示 —— 有画质代价
-        MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f) to
-            MaterialTheme.colorScheme.onTertiaryContainer
-    } else {
-        // 关闭：中性灰 —— 无损但标注局限
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) to
+    val (container, content) = when {
+        // 未启用：中性灰，不抢视觉
+        !checked -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) to
             MaterialTheme.colorScheme.onSurfaceVariant
+        // 启用且有画质代价：橙黄警示
+        hasQualityCost -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f) to
+            MaterialTheme.colorScheme.onTertiaryContainer
+        // 启用且零代价：平和的绿系
+        else -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f) to
+            MaterialTheme.colorScheme.onSecondaryContainer
     }
 
     Card(
@@ -271,24 +339,15 @@ private fun DctToggle(
         colors = CardDefaults.cardColors(containerColor = container),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                imageVector = if (config.dctEnabled) Icons.Filled.WarningAmber
-                else Icons.Filled.Info,
-                contentDescription = null,
-                tint = content,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = if (config.dctEnabled) {
-                    stringResource(R.string.editor_invisible_dct_on)
-                } else {
-                    stringResource(R.string.editor_invisible_dct_off)
-                },
+                text = "✓ $pro",
+                style = MaterialTheme.typography.bodySmall,
+                color = content
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                text = "${if (hasQualityCost) "⚠" else "✗"} $con",
                 style = MaterialTheme.typography.bodySmall,
                 color = content
             )

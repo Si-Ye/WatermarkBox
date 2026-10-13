@@ -145,9 +145,17 @@ interface WatermarkPanelHost {
     fun updateInvisibleStrength(strength: Int)
 
     /**
+     * 是否启用 EXIF 通道（元数据写入）。
+     *
+     * 零画质代价，但只在「图片未被压缩 / 转格式」时可读。
+     * 见 [com.watermarkbox.data.model.InvisibleWatermarkConfig.exifEnabled]。
+     */
+    fun toggleInvisibleExif()
+
+    /**
      * 是否启用 DCT 频域嵌入。
      *
-     * 关闭时只写 EXIF（无损画质），开启后能扛 JPEG 重压缩但会轻微改画质。
+     * 有画质代价（±3/255），但能扛 JPEG 重压缩。
      * 见 [com.watermarkbox.data.model.InvisibleWatermarkConfig.dctEnabled]。
      */
     fun toggleInvisibleDct()

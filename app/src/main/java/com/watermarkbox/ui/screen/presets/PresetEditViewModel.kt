@@ -316,5 +316,8 @@ class PresetEditViewModel(application: Application) : AndroidViewModel(applicati
     override fun updateInvisibleStrength(strength: Int) = Unit
 
     /** 本页不支持隐藏水印（见上方说明），空实现。 */
+    override fun toggleInvisibleExif() = Unit
+
+    /** 本页不支持隐藏水印（见上方说明），空实现。 */
     override fun toggleInvisibleDct() = Unit
 }

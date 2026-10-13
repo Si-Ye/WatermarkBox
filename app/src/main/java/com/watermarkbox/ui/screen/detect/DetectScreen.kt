@@ -26,6 +26,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +48,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.watermarkbox.R
+import com.watermarkbox.invisible.DetectOptions
 import com.watermarkbox.invisible.DetectResult
+import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
 import kotlin.math.roundToInt
 
@@ -146,6 +149,14 @@ fun DetectScreen(
 
             Spacer(Modifier.height(Spacing.Item))
 
+            // ---- 检测设置 ----
+            DetectOptionsCard(
+                options = state.options,
+                onChange = viewModel::updateOptions
+            )
+
+            Spacer(Modifier.height(Spacing.Item))
+
             // ---- 检测中 ----
             if (state.isDetecting) {
                 Box(
@@ -174,6 +185,96 @@ fun DetectScreen(
             Spacer(Modifier.height(32.dp))
         }
     }
+}
+
+/**
+ * 检测设置卡片。
+ *
+ * 把「多花时间换更高检出率」的决定权交给用户：
+ * 默认全开（**正确性优先** —— 宁可慢，也别给出可能是误判的「没有水印」），
+ * 想快就逐项关掉，代价自己承担。
+ *
+ * DCT 关闭时，它下面的两个加速项会一并隐藏 —— 没有 DCT 检测，
+ * 「强度」和「方向」都没有意义。
+ */
+@Composable
+private fun DetectOptionsCard(
+    options: DetectOptions,
+    onChange: (DetectOptions) -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.detect_options_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // ---- 通道 1：EXIF ----
+            ToggleRow(
+                label = stringResource(R.string.detect_option_exif),
+                checked = options.checkExif,
+                onCheckedChange = { onChange(options.copy(checkExif = !options.checkExif)) }
+            )
+            OptionHint(stringResource(R.string.detect_option_exif_hint))
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+            // ---- 通道 2：DCT ----
+            ToggleRow(
+                label = stringResource(R.string.detect_option_dct),
+                checked = options.checkDct,
+                onCheckedChange = { onChange(options.copy(checkDct = !options.checkDct)) }
+            )
+            OptionHint(stringResource(R.string.detect_option_dct_hint))
+
+            if (options.checkDct) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+                ToggleRow(
+                    label = stringResource(R.string.detect_option_strength),
+                    checked = options.autoStrength,
+                    onCheckedChange = { onChange(options.copy(autoStrength = !options.autoStrength)) }
+                )
+                OptionHint(stringResource(R.string.detect_option_strength_hint))
+
+                Spacer(Modifier.height(10.dp))
+
+                ToggleRow(
+                    label = stringResource(R.string.detect_option_rotation),
+                    checked = options.autoRotation,
+                    onCheckedChange = { onChange(options.copy(autoRotation = !options.autoRotation)) }
+                )
+                OptionHint(stringResource(R.string.detect_option_rotation_hint))
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = stringResource(R.string.detect_options_apply_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+/** 选项下方的一行小字说明。 */
+@Composable
+private fun OptionHint(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 2.dp)
+    )
 }
 
 /** 检测结果卡片。 */
@@ -278,5 +379,7 @@ private fun ResultCardImpl(
 private fun localizedReason(reason: String): String = when (reason) {
     "图片过小，无法承载水印" -> stringResource(R.string.invisible_error_too_small)
     "未检测到水印（或损坏超出纠错能力）" -> stringResource(R.string.invisible_error_not_found)
+    "已按设置跳过频域检测，EXIF 中也没有" -> stringResource(R.string.detect_error_skipped_dct)
+    "已按设置跳过全部检测通道" -> stringResource(R.string.detect_error_skipped_all)
     else -> reason
 }
