@@ -33,8 +33,10 @@
     <string name="onboarding_p2_body">Up to 100 images per run, with the exact same panel as single-image editing.</string>
     <string name="onboarding_p3_title">Check a watermark</string>
     <string name="onboarding_p3_body">Wondering if an image came from you? Pick it and detection runs automatically — signature included.</string>
-    <string name="onboarding_p4_title">More lives here</string>
-    <string name="onboarding_p4_body">Language, export defaults, the tutorial, update checks — all in Settings.</string>
+    <string name="onboarding_p4_title">Presets</string>
+    <string name="onboarding_p4_body">Save a tuning combo as a preset and apply it in one tap — no more re-tuning.</string>
+    <string name="onboarding_p5_title">More lives here</string>
+    <string name="onboarding_p5_body">Language, export defaults, the tutorial, update checks — all in Settings.</string>
     <string name="onboarding_presets_title">Import / export lives here</string>
     <string name="onboarding_presets_body">This menu exports your presets to a file (for a new phone, or to share) and imports them back.</string>
     <string name="common_whats_this">View description</string>

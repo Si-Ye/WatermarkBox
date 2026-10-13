@@ -120,11 +120,11 @@ object OnboardingSteps {
     /**
      * 首页的新手引导。
      *
-     * ## 为什么只讲 4 步
+     * ## 为什么是这 5 步
      *
-     * 每一步都要用户「读 + 点」，超过 4 步绝大多数人直接跳过 ——
-     * 那就等于没做。这里只覆盖**第一次打开最该知道的事**：
-     * 三个入口各是干什么的 + 设置里能找到更多。
+     * 每一步都要用户「读 + 点」，步数越多跳过率越高 ——
+     * 这里只覆盖**第一次打开最该知道的事**：
+     * 三个入口各是干什么的 + 右上角两个图标（预设 / 设置）。
      *
      * 细节留在「设置 → 其他 → 使用教程」，两边不重复。
      */
@@ -148,9 +148,15 @@ object OnboardingSteps {
             side = BubbleSide.AUTO
         ),
         SpotlightStep(
-            target = OnboardingTarget.ENTRY_SETTINGS,
+            target = OnboardingTarget.ENTRY_PRESETS,
             titleRes = R.string.onboarding_p4_title,
             bodyRes = R.string.onboarding_p4_body,
+            side = BubbleSide.BOTTOM
+        ),
+        SpotlightStep(
+            target = OnboardingTarget.ENTRY_SETTINGS,
+            titleRes = R.string.onboarding_p5_title,
+            bodyRes = R.string.onboarding_p5_body,
             side = BubbleSide.BOTTOM
         )
     )
