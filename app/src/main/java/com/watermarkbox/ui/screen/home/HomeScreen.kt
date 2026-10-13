@@ -136,6 +136,14 @@ fun HomeScreen(
                 textAlign = TextAlign.Center
             )
 
+            // ============ 两个弹性间隔 ============
+            //
+            // 用 weight 而不是固定高度：卡片数量/字号变化时，
+            // 间距会自适应地把内容推向中间。
+            //
+            // ⚠️ 但 weight 会把「剩余空间」全部吃掉 —— 前提是**其它子项的高度是确定的**。
+            // 上面 AppLogo / 文字高度固定，卡片现在也有 min+max 兜住，
+            // 所以这里算出来的剩余空间是稳定的，不会出现「某个卡片膨胀」的连锁反应。
             Spacer(Modifier.weight(0.6f))
 
             // ---- 两个主入口 ----
@@ -227,12 +235,21 @@ private fun EntryCard(
             .fillMaxWidth()
             // 用 heightIn 而不是 height：系统字号调大后卡片能长高，
             // 否则标题 + 副标题会被 104dp 裁掉（无障碍：不只是读屏，字号也算）
-            .heightIn(min = 104.dp)
+            //
+            // ⚠️ 必须**同时给上限**。只写 min 的话卡片高度变成「父容器给多少就多高」，
+            // 配合下面 Row 的 fillMaxSize 会一路撑满可用空间 ——
+            // 实测后果是第一个卡片吃掉整屏，后面两个被顶出屏幕。
+            // 上限取 min 的 2 倍：足够容纳「大字号 + 两行副标题」，
+            // 又不会让卡片在正常字号下离谱地高。
+            .heightIn(min = 104.dp, max = 208.dp)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
+                // 用 fillMaxWidth 而不是 fillMaxSize：
+                // 高度交给 Row 自己按内容测量（它内部是垂直居中的图标 + 文字列），
+                // 这样 Card 的 min/max 才真正决定卡片高度。
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
