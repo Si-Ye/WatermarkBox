@@ -365,6 +365,28 @@ class InvisibleWatermarkEngine(
             coeffConfs[blockIndex] = Qim.confidence(coeffs[idx], q)
         }
 
+        // ---- 枚举循环之前：把**与候选长度无关**的量算一次 ----
+        //
+        // ## 为什么必须提到外面（性能关键，别再塞回循环里）
+        //
+        // 下面那个循环会跑最多 255 轮（枚举 1..MAX_DATA_BYTES 个候选长度）。
+        // 但其中有两件事**只依赖块本身、与 dataBytes 完全无关**：
+        //
+        // 1. `bitSlotOrder(totalBlocks)` —— 一次 Fisher-Yates 洗牌，
+        //    复杂度 O(totalBlocks)。它是**确定性**的（固定种子），
+        //    255 轮里结果逐位相同。放循环里 = 白洗 254 次。
+        //    4000×3000 的图约 18 万块 → 白做约 4600 万次交换。
+        //
+        // 2. 每个块的**判决比特** —— `Qim.extract(coeff, q)` 只读第一遍
+        //    已缓存好的系数与步长，同样与 dataBytes 无关。
+        //
+        // 提出来之后，内层循环只剩「累加」这一件真正随 dataBytes 变的事。
+        // **语义完全不变**（被提出来的都是纯函数重复计算），只是不再重复算。
+        val slotOrder = bitSlotOrder(totalBlocks)
+        val blockBits = IntArray(totalBlocks) { i ->
+            Qim.extract(coeffValues[i], coeffQs[i])
+        }
+
         // ---- 第二遍：枚举候选负载长度，做软判决投票 + RS 解码 ----
         var bestText: String? = null
         var bestConfidence = 0f
@@ -377,16 +399,14 @@ class InvisibleWatermarkEngine(
             val bitCount = encodedBytes.size * 8
             if (bitCount > totalBlocks) continue
 
-            val slotOrder = bitSlotOrder(totalBlocks)
             val softBits = FloatArray(bitCount)
             val weightSum = FloatArray(bitCount)
 
             for (blockIndex in 0 until totalBlocks) {
                 val bitIndex = slotOrder[blockIndex] % bitCount
                 val conf = coeffConfs[blockIndex]
-                val bit = Qim.extract(coeffValues[blockIndex], coeffQs[blockIndex])
                 // 软判决：bit=1 → +conf，bit=0 → -conf
-                softBits[bitIndex] += if (bit == 1) conf else -conf
+                softBits[bitIndex] += if (blockBits[blockIndex] == 1) conf else -conf
                 weightSum[bitIndex] += conf
             }
 

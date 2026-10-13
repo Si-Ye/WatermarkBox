@@ -109,22 +109,22 @@ fun rememberRenderedPreview(
 ): RenderedPreview {
     val scope = rememberCoroutineScope()
 
-    // 三缓冲：复用已经分配好的位图，避免每帧新分配一整张（1024 边约 3 MB）。
+    // 双缓冲。
     //
-    // **为什么是 3 而不是 2**：
-    // 2 块时保护窗口只有 1 块（见 PreviewBuffers），轮到「刚发布的」
-    // 那块之外只剩一块可写 —— 后台写得快、UI 画得慢时，那块可能
-    // 也正在被画，于是画面撕裂/频闪。3 块留出 2 块的保护窗口，
-    // 即使 UI 落后两帧也不会画到一半被覆写。
+    // **历史上这里曾是 3 块**：当时怀疑 `published` 只记一块不够，
+    // 加一块留出更宽的保护窗口。但真正的频闪根因**不在缓冲数量**，
+    // 而在「多个渲染并发写同一批缓冲」—— 那由 `RenderCancelCheck`
+    // 从根上解决了（见 PreviewRenderEngine 的说明）。
     //
-    // 代价：多约 3 MB 常驻。相比「画面稳定」，这个代价是值得的。
+    // 实测：本机（15GB RAM）已用满并大量使用 Swap，
+    // 位图页被换出后每次访问要 20ms+。
+    // **每多一块缓冲就多一份被换出的压力**，
+    // 因此在渲染已串行的前提下，2 块足够且更省内存。
     //
-    // ⚠️ `remember` 的调用**必须无条件执行**（Compose 规则：
-    // 条件分支里不能改变 composable 调用顺序）。所以这里即使
-    // `enabled=false` 也会创建一个空的缓冲池对象 —— 但它**不会
-    // 分配任何位图**（`PreviewBuffers` 的位图是 acquire 时才分配的）。
-    // 真正省下来的是「不提交渲染、不做绘制」的开销。
-    val buffers = remember { PreviewBuffers(slotCount = 3) }
+    // 2 块的正确性由 PreviewBuffers 的保护窗口保证：
+    // acquire 时避开「最近发布过的」（窗口 = slotCount - 1 = 1 块），
+    // 即严格交替 A → B → A → B，UI 落后一帧也不会被覆写。
+    val buffers = remember { PreviewBuffers(slotCount = 2) }
     val engine = remember(scope, renderer) {
         PreviewRenderEngine<PreviewRequest, Bitmap>(
             scope = scope,

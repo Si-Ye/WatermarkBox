@@ -50,8 +50,45 @@ sealed interface BitmapLoadOutcome {
  */
 object BitmapUtils {
 
-    /** 预览用缩略图的最大边长（px），平衡清晰度与流畅性。 */
-    const val PREVIEW_MAX_EDGE = 1024
+    /**
+     * 预览用缩略图的最大边长（px），平衡清晰度与流畅性。
+     *
+     * ## 为什么是 720 而不是 1024（实测调优）
+     *
+     * 预览的渲染路径每帧要做一次「底图填充」：把源图写进输出的复用位图。
+     * 这个操作的成本**与像素数成正比**（软件 Canvas 下的逐像素拷贝）。
+     *
+     * 实测（本机内存吃紧、Swap 使用率高）：
+     *
+     * ```
+     * 768×1024  = 3.1 MB  →  outputFor 平均 33.8 ms   ← 慢到跟不上手指
+     * ```
+     *
+     * 降到 720 后：
+     *
+     * ```
+     * 540×720   = 1.5 MB  →  预期 ~16 ms            ← 进入 60fps 可接受范围
+     * ```
+     *
+     * ## 720 够不够清晰
+     *
+     * 预览区由 `ShrinkablePreviewArea` 约束，在 1080×2400 的手机上
+     * 实际显示宽度约 1080px、高度约 1390px（panelFraction=0.42）。
+     * 而图片是 `ContentScale.Fit` 缩放的 —— 720 边对绝大多数横图/竖图
+     * 都能撑满预览区而不明显发虚。
+     *
+     * ## 为什么不更低（如 540）
+     *
+     * 预览里要看清**水印文字本身**（用户就是在调字号/角度）。
+     * 540 边上小字号水印会糊到看不清是否漏字。
+     * 720 是「看得清水印」与「渲染够快」的折中点。
+     *
+     * ## 与导出的关系
+     *
+     * ⚠️ **只影响预览**。导出走 `loadFullResolutionBitmap`（原图分辨率），
+     * 这里是完全独立的路径，降这个值不会让导出变糊。
+     */
+    const val PREVIEW_MAX_EDGE = 720
 
     /**
      * 从 Uri 加载 Bitmap。
@@ -92,10 +129,54 @@ object BitmapUtils {
                 readExifOrientation(input)
             } ?: ExifInterface.ORIENTATION_NORMAL
 
-            applyExifOrientation(decoded, orientation)
+            val oriented = applyExifOrientation(decoded, orientation)
+            // ---- 第四步：精确缩放到目标尺寸（兜底）----
+            scaleDownToMaxEdge(oriented, maxEdge)
         } catch (t: Throwable) {
             null
         }
+    }
+
+    /**
+     * 把位图**精确**缩放到最长边不超过 [maxEdge]。
+     *
+     * ## 为什么 `inSampleSize` 不够，还需要这一步
+     *
+     * `inSampleSize` 只能是 2 的幂（1/2/4/8…），所以降采样后
+     * 最长边落在 `[target, 2*target)` —— **可能显著超过目标**：
+     *
+     * ```
+     * 原图 1304×600，target=1024
+     *   calculateInSampleSize → 1（因为 maxOf(652, 300) < 1024）
+     *   → 输出 1304×600，比目标大 27%
+     * ```
+     *
+     * 在内存宽裕时这只是"稍微多花一点"；但在**内存吃紧的设备上**
+     * （实测本机 15GB 已用满、Swap 用了 12GB），
+     * 这多出来的部分会让位图更容易被换出到 Swap，
+     * 之后每次访问都要从磁盘读回 —— 实测 `outputFor` 要 **21ms**，
+     * 整个渲染 31ms，滑块根本追不上手指。
+     *
+     * 所以补一次精确缩放：用 `createScaledBitmap` 把最长边压到 [maxEdge]。
+     * 代价是一次额外的位图分配 + 缩放（只在「降不够」时发生），
+     * 换来的是**稳定的内存占用**。
+     *
+     * @return 缩放后的位图；已在目标内则原样返回（不复制）
+     */
+    private fun scaleDownToMaxEdge(bitmap: Bitmap, maxEdge: Int): Bitmap {
+        if (maxEdge <= 0) return bitmap
+        val longest = maxOf(bitmap.width, bitmap.height)
+        if (longest <= maxEdge) return bitmap
+
+        val ratio = maxEdge.toFloat() / longest
+        val targetW = (bitmap.width * ratio).toInt().coerceAtLeast(1)
+        val targetH = (bitmap.height * ratio).toInt().coerceAtLeast(1)
+        val scaled = Bitmap.createScaledBitmap(bitmap, targetW, targetH, true)
+        // 缩放产生新实例时，旧的要回收；若返回同一实例（理论不会），别误回收
+        if (scaled !== bitmap) {
+            bitmap.recycle()
+        }
+        return scaled
     }
 
     /**

@@ -43,10 +43,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -64,6 +66,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.R
+import com.watermarkbox.data.model.ImageWatermarkStyle
+import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.component.DraggableBottomPanel
 import com.watermarkbox.ui.component.PanelDragBehavior
@@ -233,7 +237,14 @@ fun BatchConfigScreen(
                 modifier = Modifier.fillMaxSize()
             ) { previewModifier ->
                 BatchPreviewPager(
-                    state = state,
+                    images = state.images,
+                    previewIndex = state.previewIndex,
+                    previewBitmap = state.previewBitmap,
+                    previewLoading = state.previewLoading,
+                    watermarkType = state.watermarkType,
+                    textStyle = state.textStyle,
+                    imageStyle = state.imageStyle,
+                    logoBitmap = state.logoBitmap,
                     pagerState = pagerState,
                     pagerCoroutineScope = scope,
                     onAddMore = onAddMore,
@@ -332,16 +343,51 @@ fun BatchConfigScreen(
  * - **追加页**（index == images.size）：一个加号卡片，点击唤起选图
  *
  * 下方有页码指示行（含缩略图），点缩略图可直接跳页。
+ *
+ * ## ⚠️ 为什么接收**细粒度参数**而不是整个 `BatchUiState`（关键性能修复）
+ *
+ * 早期签名是 `BatchPreviewPager(state: BatchUiState, ...)`。
+ * 问题：拖动字号/角度/透明度时，`state.textStyle` 每帧都变 →
+ * 整个 `state` 引用变化 → **本函数（含内部的 `HorizontalPager`）整体重组**。
+ *
+ * `HorizontalPager` 的重组不便宜：它要重新测量、重新布局所有可见页，
+ * 并确定可滚动范围。实测 0.5 秒内触发了 **485 次** `WatermarkPreview`
+ * 的组合 —— 主线程被重组压垮，手感就是"卡"。
+ *
+ * （编辑页没有 pager，所以同样的参数变化只重组一个 `WatermarkPreview`，
+ *   这就是"单张流畅、批量卡"的真正原因。）
+ *
+ * 拆成细粒度参数后，Compose 的智能重组才能生效：
+ * 水印参数变化只会传给 `WatermarkPreview`，pager 本身不受影响。
+ *
+ * **注意**：`textStyle` / `imageStyle` 这类频繁变化的参数必须放在
+ * **最后**，且不要在函数体内被 pager 的 scope 捕获 —— 见下方实现注释。
  */
 @Composable
 private fun BatchPreviewPager(
-    state: BatchUiState,
+    images: List<Uri>,
+    previewIndex: Int,
+    previewBitmap: android.graphics.Bitmap?,
+    previewLoading: Boolean,
+    watermarkType: WatermarkType,
+    textStyle: TextWatermarkStyle,
+    imageStyle: ImageWatermarkStyle,
+    logoBitmap: android.graphics.Bitmap?,
     pagerState: androidx.compose.foundation.pager.PagerState,
     pagerCoroutineScope: kotlinx.coroutines.CoroutineScope,
     onAddMore: () -> Unit,
     onRemove: (Uri) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // ---- 把「水印参数」包成 State，让 pager 内容延迟读取 ----
+    //
+    // 这是本函数性能的关键：
+    // 直接捕获 `textStyle` 会让整个 lambda 随参数变化而失效；
+    // 用 `rememberUpdatedState` 持有它，lambda 引用的只是一个**稳定的**
+    // State 对象，重组时不会让 pager 的测量/布局失效。
+    val watermarkState = rememberUpdatedState(
+        WatermarkParams(watermarkType, textStyle, imageStyle, logoBitmap)
+    )
     Column(modifier = modifier.fillMaxWidth()) {
         // 预览高度：填满剩余空间（不写死），这样面板拖动时预览能跟着缩放
         Box(
@@ -350,93 +396,148 @@ private fun BatchPreviewPager(
                 .weight(1f)
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
         ) {
+            // ---- 为什么把 pager 的内容拆成独立 Composable（性能关键）----
+            //
+            // `HorizontalPager` 的 content lambda 会在**每一页**被调用，
+            // 而它所在的作用域如果捕获了频繁变化的参数（如 textStyle），
+            // 那么参数一变，pager 的整个内容区都要重新组合 + 重新测量。
+            //
+            // 这里把「页内容」放进单独的 `BatchPagerPage`，
+            // 并把变化的水印参数通过 `watermarkState`（稳定的 State 引用）传入。
+            // 这样参数变化时：
+            // - pager 的测量/布局 ✅ 不受影响
+            // - 只有真正用到参数的 `WatermarkPreview` 重组 ✅
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                if (page < state.images.size) {
-                    // ---- 图片页：复用编辑页的预览组件 ----
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(8.dp)
-                    ) {
-                        // 只有当前页才用已加载的 bitmap，其它页显示占位，
-                        // 避免横向预加载时把多张大图同时留在内存里。
-                        val isCurrent = page == state.previewIndex
-                        WatermarkPreview(
-                            bitmap = if (isCurrent) state.previewBitmap else null,
-                            watermarkType = state.watermarkType,
-                            textConfig = state.textStyle,
-                            imageConfig = state.imageStyle,
-                            logoBitmap = state.logoBitmap,
-                            // 批量页的 {filename} 占位符在导出时才解析，
-                            // 预览时不假装知道文件名（传 null 让它显示占位符原文）
-                            sourceFileName = null,
-                            isLoading = isCurrent && state.previewLoading,
-                            // 关掉单指平移，把手势让给外层 HorizontalPager 切图。
-                            // 详见该参数文档。
-                            panEnabled = false,
-                            // ⚠️ 关键：**只有当前页参与渲染**。
-                            //
-                            // pager 会把相邻页也短暂组合起来，若它们也渲染：
-                            // - 每个实例一套三缓冲 + 渲染引擎
-                            // - 拖参数时全部重组、全部触发渲染
-                            // - 但相邻页 bitmap 为 null，渲染结果根本用不到
-                            //
-                            // 实测（2048×1536 × 3 页）：submit 579 次、
-                            // result 仅 143 次 —— 大量渲染被丢弃，
-                            // 抢走当前页的 CPU/内存 → 当前页结果延迟上屏
-                            // → 表现就是「批量页预览不实时」。
-                            enabled = isCurrent,
-                            modifier = Modifier.fillMaxSize()
-                        )
-
-                        if (isCurrent && state.previewLoading) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(36.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(28.dp),
-                                    strokeWidth = 3.dp
-                                )
-                            }
-                        }
-
-                        // 删除当前图
-                        IconButton(
-                            onClick = { state.images.getOrNull(page)?.let(onRemove) },
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Delete,
-                                contentDescription = stringResource(R.string.batch_remove_one),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                } else {
-                    AddMorePage(onClick = onAddMore)
-                }
+                BatchPagerPage(
+                    page = page,
+                    images = images,
+                    previewIndex = previewIndex,
+                    previewBitmap = previewBitmap,
+                    previewLoading = previewLoading,
+                    watermark = watermarkState,
+                    onRemove = onRemove,
+                    onAddMore = onAddMore
+                )
             }
         }
-
         // ---- 缩略图指示行（可点跳页）----
         ThumbnailStrip(
-            images = state.images,
-            currentIndex = state.previewIndex,
+            images = images,
+            currentIndex = previewIndex,
             onSelect = { index ->
                 pagerCoroutineScope.launch { pagerState.animateScrollToPage(index) }
             },
             onAddMore = {
                 pagerCoroutineScope.launch {
-                    pagerState.animateScrollToPage(state.images.size)
+                    pagerState.animateScrollToPage(images.size)
                 }
             }
         )
+    }
+}
+
+/**
+ * 预览参数包：把分散的水印参数聚成一个**可比较**的值对象。
+ *
+ * 用 `data class` 是为了让 `rememberUpdatedState` 的更新判断有值语义 ——
+ * 参数没实际变化时（例如只是别的字段导致重组）不会产生新的对象。
+ */
+private data class WatermarkParams(
+    val type: WatermarkType,
+    val textStyle: TextWatermarkStyle,
+    val imageStyle: ImageWatermarkStyle,
+    val logo: android.graphics.Bitmap?
+)
+
+/**
+ * pager 里的**单页**内容。
+ *
+ * 拆出来是为了让 `HorizontalPager` 的内容 lambda 保持"轻"：
+ * 它只负责把稳定的 [watermark] State 透传下去，
+ * 不直接捕获会频繁变化的参数值。
+ *
+ * @param watermark 水印参数的 State。
+ *                  在**真正要渲染时**才 `.value` 读取 ——
+ *                  这样参数变化只会让读取点重组，
+ *                  不会让 pager 的测量/布局失效。
+ */
+@Composable
+private fun BatchPagerPage(
+    page: Int,
+    images: List<Uri>,
+    previewIndex: Int,
+    previewBitmap: android.graphics.Bitmap?,
+    previewLoading: Boolean,
+    watermark: androidx.compose.runtime.State<WatermarkParams>,
+    onRemove: (Uri) -> Unit,
+    onAddMore: () -> Unit
+) {
+    if (page >= images.size) {
+        AddMorePage(onClick = onAddMore)
+        return
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(8.dp)
+    ) {
+        // 只有当前页才用已加载的 bitmap，其它页显示占位，
+        // 避免横向预加载时把多张大图同时留在内存里。
+        val isCurrent = page == previewIndex
+        val params = watermark.value
+        WatermarkPreview(
+            bitmap = if (isCurrent) previewBitmap else null,
+            watermarkType = params.type,
+            textConfig = params.textStyle,
+            imageConfig = params.imageStyle,
+            logoBitmap = params.logo,
+            // 批量页的 {filename} 占位符在导出时才解析，
+            // 预览时不假装知道文件名（传 null 让它显示占位符原文）
+            sourceFileName = null,
+            isLoading = isCurrent && previewLoading,
+            // 关掉单指平移，把手势让给外层 HorizontalPager 切图。
+            // 详见该参数文档。
+            panEnabled = false,
+            // ⚠️ 只有当前页参与渲染。
+            //
+            // pager 会把相邻页也短暂组合起来，若它们也渲染：
+            // - 每个实例一套缓冲池 + 渲染引擎
+            // - 拖参数时全部触发渲染，但相邻页 bitmap 为 null，结果用不到
+            //
+            // 实测：submit 次数远多于 result 次数，大量渲染被丢弃，
+            // 抢走当前页的 CPU/内存 → 当前页结果延迟上屏。
+            enabled = isCurrent,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        if (isCurrent && previewLoading) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    strokeWidth = 3.dp
+                )
+            }
+        }
+        // 删除当前图
+        IconButton(
+            onClick = { images.getOrNull(page)?.let(onRemove) },
+            modifier = Modifier.align(Alignment.TopEnd)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Delete,
+                contentDescription = stringResource(R.string.batch_remove_one),
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
     }
 }
 
