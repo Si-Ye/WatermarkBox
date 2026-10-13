@@ -109,10 +109,10 @@ image, with 100% confidence.</sub>
 
 | Channel | Carrier | Visual impact | Survives compression |
 |---|---|---|---|
-| L1 | EXIF `UserComment` | **None** (pixels untouched) | ❌ Gone after any re-encode |
+| L1 | Metadata: EXIF `UserComment` + **XMP** | **None** (pixels untouched) | ❌ Gone after any re-encode |
 | L2 | DCT mid-band coefficients | Peaks at ±40/255, average < 5 | ✅ Survives JPEG 80–90 |
 
-Both channels are written together. EXIF is the *overt* path — precise but
+Both channels can be **switched on and off independently**. Metadata is the *overt* path — precise but
 fragile; DCT is the *covert* path — fuzzy but stubborn.
 
 **Measured** (512×512 test image):
@@ -130,13 +130,17 @@ fragile; DCT is the *covert* path — fuzzy but stubborn.
   (if the file is not re-encoded, the EXIF copy is still there)
 - ❌ Solid-color or very smooth images can carry little data
 
-DCT costs some image quality, so the app exposes a **toggle** — the trade-off
-is yours to make.
+DCT costs some image quality (strength is **adaptive per block**, cutting the
+worst-case change by ~70%), so the app exposes **toggles** — the trade-off is
+yours to make. Right-angle rotations (90/180/270 degrees) are still detected.
 
 ### Detection
 
 Given an image, the app reports whether it carries a payload written by this
-app, along with the content, the channel it came from, and a confidence score.
+app — with the content, the source channel, the signature state and a confidence
+score. Metadata first, then the frequency domain. You can also pick what to check:
+metadata only (fastest), plus frequency, all strengths, all four rotations, or
+DCT-based signature verification.
 
 Two-stage strategy: **EXIF first, frequency domain as fallback**.
 
@@ -324,7 +328,7 @@ Apache-2.0 — see [LICENSE](LICENSE).
 
 <br>
 
-**WatermarkBox**　`v1.6.1`
+**WatermarkBox**　`v2.0.1`
 
 Made with 🐺 by [Si-Ye](https://github.com/Si-Ye)
 
@@ -334,7 +338,7 @@ Made with 🐺 by [Si-Ye](https://github.com/Si-Ye)
 
 <br>
 
-<sub>Apache-2.0 License · Collects no data · Works offline</sub>
+<sub>Apache-2.0 License · Collects no data · Downloads only, never uploads</sub>
 
 <br>
 <br>

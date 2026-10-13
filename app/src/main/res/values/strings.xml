@@ -238,6 +238,12 @@
     <string name="release_1_6_0_c5">修复：单个模式在四角位置旋转时会甩出画面</string>
 
     <!-- ==================== v1.6.1 ==================== -->
+    <string name="release_2_0_1_title">文案更准、无障碍可用、关于页加了构建信息</string>
+    <string name="release_2_0_1_c1">关于页底部显示 Debug / Release 版与实际安装包名</string>
+    <string name="release_2_0_1_c2">主创头像与昵称改为从 GitHub 实时获取（不必发版即可更新）</string>
+    <string name="release_2_0_1_c3">无障碍：面板把手播报展开状态、页签播报选中、翻页圆点可读且更好点</string>
+    <string name="release_2_0_1_c4">代码质量：lint 历史欠账从 42 条清到 1 条</string>
+    <string name="release_2_0_1_c5">文案改正：统一为「只下载、不上传」</string>
     <string name="release_2_0_0_title">隐藏水印大升级，交互全面做顺</string>
     <string name="release_2_0_0_c1">隐藏水印新增 XMP 通道（EXIF 之外的第二个元数据容器）</string>
     <string name="release_2_0_0_c2">隐藏水印带签名，检测时可验证「是否本应用导出」</string>

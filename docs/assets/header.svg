@@ -106,7 +106,7 @@
       <rect x="506" y="216" width="132" height="38" rx="19"
             fill="#FFFFFF" fill-opacity="0.12"
             stroke="#FFFFFF" stroke-opacity="0.24"/>
-      <text x="572" y="241" fill="#E8EAF6" text-anchor="middle">不联网</text>
+      <text x="572" y="241" fill="#E8EAF6" text-anchor="middle">不上传</text>
     </g>
 
   </g>
