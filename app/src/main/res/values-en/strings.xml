@@ -41,11 +41,7 @@
     <string name="onboarding_presets_body">This menu exports your presets to a file (for a new phone, or to share) and imports them back.</string>
     <string name="common_whats_this">View description</string>
     <string name="common_clear">Clear</string>
-    <string name="common_select">Select</string>
-    <string name="common_open">Open</string>
-    <string name="common_copy">Copy</string>
     <string name="common_current">Current</string>
-    <string name="common_none_set">Not set</string>
 
     <!-- Accessibility -->
     <string name="a11y_settings">Settings</string>
@@ -53,7 +49,6 @@
     <string name="a11y_app_icon">WatermarkBox</string>
     <string name="a11y_app_logo">WatermarkBox icon</string>
     <string name="a11y_avatar">Avatar of %1$s</string>
-    <string name="a11y_copied">Copied</string>
 
     <!-- ==================== Home ==================== -->
     <string name="home_brand_name">WatermarkBox</string>
@@ -116,7 +111,6 @@
     <string name="settings_change_image">Change</string>
 
     <!-- ==================== Update check ==================== -->
-    <string name="update_section_title">Updates</string>
 
     <!-- Setting: auto check -->
     <string name="update_auto_check_title">Check for updates automatically</string>
@@ -148,7 +142,6 @@
     <string name="update_btn_download_inapp">Download in-app</string>
     <string name="update_btn_later">Later</string>
     <string name="update_btn_cancel">Cancel</string>
-    <string name="update_btn_open_settings">Open settings</string>
 
     <!-- Errors and fallbacks -->
     <string name="update_error_network">Network connection failed — check your connection and try again</string>
@@ -156,14 +149,10 @@
     <string name="update_error_not_found">No published release found</string>
     <string name="update_error_parse">Failed to parse version info</string>
     <string name="update_error_unknown">Update check failed (%1$s)</string>
-    <string name="update_error_open_browser">Could not open a browser</string>
-    <string name="update_error_install_blocked">System blocked app installation — grant the permission first</string>
 
     <!-- In-app download -->
     <string name="update_downloading">Downloading… %1$d%%</string>
     <string name="update_downloading_unknown">Downloading…</string>
-    <string name="update_download_done">Download complete — opening the installer…</string>
-    <string name="update_download_failed">Download failed: %1$s</string>
     <string name="update_install_confirm_title">Install new version</string>
     <string name="update_install_confirm_desc">The download is complete. The system will open the install screen — follow the prompts to finish.\n\nThe system may ask to confirm the permission again.</string>
     <string name="update_install_go">Install now</string>

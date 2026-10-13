@@ -58,15 +58,12 @@ object ApkInstaller {
     /**
      * 当前是否已获得「安装未知应用」权限。
      *
-     * Android 8.0+ 用 `canRequestPackageInstalls()`；
-     * 低版本（本项目 minSdk=26，恰好 8.0 起）无需检查，直接 true。
+     * 直接用 `canRequestPackageInstalls()`：它从 API 26 起才有，
+     * 而本项目 minSdk 就是 26 —— 原先那层 `SDK_INT >= O` 判断永远为真，
+     * 属于死代码（lint 报 `ObsoleteSdkInt`）。
      */
     fun canInstall(context: Context): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.packageManager.canRequestPackageInstalls()
-        } else {
-            true
-        }
+        context.packageManager.canRequestPackageInstalls()
 
     /**
      * 跳转到「安装未知应用」授权设置页。
@@ -76,7 +73,7 @@ object ApkInstaller {
      * 可能从非 Activity 上下文调用。
      */
     fun openInstallPermissionSettings(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        // 同上：minSdk=26，ACTION_MANAGE_UNKNOWN_APP_SOURCES 一定可用
         val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
             data = Uri.parse("package:${context.packageName}")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

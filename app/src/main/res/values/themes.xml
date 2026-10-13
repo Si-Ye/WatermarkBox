@@ -24,6 +24,4 @@
         <item name="windowNoTitle">true</item>
     </style>
 
-    <!-- 启动屏主题（Android 12+ 走 SplashScreen API 时用） -->
-    <style name="Theme.WatermarkBox.Splash" parent="Theme.WatermarkBox" />
 </resources>

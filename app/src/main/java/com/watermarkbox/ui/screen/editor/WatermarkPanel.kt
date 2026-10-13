@@ -55,6 +55,7 @@ import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
 import com.watermarkbox.ui.theme.WatermarkPresetColors
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -604,7 +605,9 @@ private fun TextWatermarkPanelContent(
             value = config.strokeWidth,
             onValueChange = viewModel::updateStrokeWidth,
             valueRange = 0.5f..10f,
-            valueText = String.format("%.1f px", config.strokeWidth)
+            // 显式给 Locale：默认 Locale 下阿拉伯语等区域会把数字格式化成
+            // 阿拉伯-印度数字，与界面其它数字不一致（lint: DefaultLocale）
+            valueText = String.format(Locale.getDefault(), "%.1f px", config.strokeWidth)
         )
         Text(
             text = stringResource(R.string.editor_stroke_color),
@@ -627,7 +630,7 @@ private fun TextWatermarkPanelContent(
             value = config.shadowRadius,
             onValueChange = viewModel::updateShadowRadius,
             valueRange = 0f..20f,
-            valueText = String.format("%.1f px", config.shadowRadius)
+            valueText = String.format(Locale.getDefault(), "%.1f px", config.shadowRadius)
         )
     }
 }
