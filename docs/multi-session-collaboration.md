@@ -128,9 +128,9 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 | 项 | 值 |
 |---|---|
-| 本地 HEAD | `bb1c7c1` |
-| 远端 | `origin/main`（落后 19 个提交）|
-| **ahead** | **19（未推送）** |
+| 本地 HEAD | `d43eaf0` |
+| 远端 | `origin/main`（落后 20 个提交）|
+| **ahead** | **20（未推送）** |
 | 单测基线 | **391 个用例，全绿** |
 | lint | 0 错误（6 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
@@ -323,13 +323,20 @@ git log --oneline --since='2 hours ago'
 > 格式：时间 + 会话干了什么 + 留下什么未决。
 
 ```
+[2026-10-13 23:3x] 建立多会话协作机制
+  - 提交 d43eaf0，ahead 20
+  - 新增 docs/multi-session-collaboration.md（本文档）
+  - 修复：docs/build-artifacts.md 含本机路径却已被跟踪
+    → 停止跟踪 + 加 .gitignore（文件保留在磁盘）
+  - **新会话请先读本文档 §0 的「必做 3 件事」**
+
 [2026-10-13 23:2x] 修复预览频闪真根因（协程取消无法中断同步渲染）
   - 提交 bb1c7c1，ahead 19
   - 新增 RenderCancelCheck，透传至 WatermarkRenderer 平铺循环
   - 顺带：reuseTarget 加 try/finally、新增 onRendered 回调
   - ⏳ 等人类验证四个滑块是否还闪
   - ⏳ 批量失败：logcat 已清空，代码已加诊断日志，等人类复现
-  - 遗留：ahead 19 个提交待人类明示后推送
+  - 遗留：ahead 20 个提交待人类明示后推送
 ```
 
 ---
