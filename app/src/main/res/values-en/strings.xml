@@ -555,6 +555,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="detect_field_reason">Details</string>
     <string name="detect_field_error">Reason</string>
     <string name="detect_field_signature">Signature</string>
+    <string name="detect_field_hint">Hint</string>
     <string name="detect_signature_valid">Verified · issued by this app</string>
     <string name="detect_signature_invalid">Invalid · possibly forged</string>
     <string name="detect_signature_unknown">Not verifiable (no signature, or from an older version)</string>
@@ -606,6 +607,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="common_selected">Selected</string>
     <string name="invisible_error_too_small">Image is too small to carry a watermark</string>
     <string name="invisible_error_not_found">No watermark found (or the damage exceeds error-correction capacity)</string>
+    <string name="invisible_error_old_version_hint">Possibly exported by an older version</string>
 
     <!-- ==================== Detection settings ==================== -->
     <string name="detect_options_title">Detection settings</string>

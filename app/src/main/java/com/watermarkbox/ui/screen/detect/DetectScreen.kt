@@ -51,6 +51,7 @@ import coil.compose.AsyncImage
 import com.watermarkbox.R
 import com.watermarkbox.invisible.DetectOptions
 import com.watermarkbox.invisible.DetectResult
+import com.watermarkbox.invisible.WatermarkDetector
 import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
 import kotlin.math.roundToInt
@@ -321,9 +322,34 @@ private fun ResultCard(result: DetectResult) {
             icon = Icons.Filled.CloudOff,
             iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
             title = stringResource(R.string.detect_not_found_title),
-            lines = listOf(
-                stringResource(R.string.detect_field_reason) to localizedReason(result.reason)
-            )
+            lines = buildList {
+                add(
+                    stringResource(R.string.detect_field_reason) to
+                        localizedReason(result.reason)
+                )
+                // 「可能旧版本导出」这行只在**真的可能是旧版本**时才加。
+                //
+                // 为什么这么判：
+                //
+                // 引擎返回的 reason 是一组固定字符串（见 localizedReason）。
+                // 其中「图片过小」「跳过检测通道」这两类是**确定的技术原因** ——
+                // 图和版本无关，加了只会误导用户以为换新版导出就能解决。
+                //
+                // 只有「未检测到水印」这一类是**含糊的**：可能是图被平台
+                // 重压缩过、被裁剪过，也可能是本应用在修复「浅色背景写不进去」
+                // 之前导出的（那时水印确实没嵌进像素里）。这种情况下，
+                // 提示「可能旧版本导出」才是有用且不误导的。
+                //
+                // 这里引用 [WatermarkDetector.REASON_NOT_FOUND] 而非再写一遍
+                // 字面量 —— 两处字面量一旦改文案就会**静默失配**（提示不再
+                // 显示，且无编译错误）。引用常量把失配变成编译错误。
+                if (result.reason == WatermarkDetector.REASON_NOT_FOUND) {
+                    add(
+                        stringResource(R.string.detect_field_hint) to
+                            stringResource(R.string.invisible_error_old_version_hint)
+                    )
+                }
+            }
         )
         is DetectResult.Error -> ResultCardImpl(
             icon = Icons.Filled.Cancel,

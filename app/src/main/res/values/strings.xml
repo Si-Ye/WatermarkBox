@@ -554,6 +554,8 @@
     <string name="detect_field_reason">说明</string>
     <string name="detect_field_error">原因</string>
     <string name="detect_field_signature">签名</string>
+    <!-- 失败结果里的「提示」行标签（与「原因」并列，但语义是"下一步"） -->
+    <string name="detect_field_hint">提示</string>
     <string name="detect_signature_valid">已验证 · 本应用签发</string>
     <string name="detect_signature_invalid">无效 · 可能被伪造</string>
     <string name="detect_signature_unknown">无法验证（无签名或来自旧版本）</string>
@@ -605,6 +607,14 @@
     <string name="common_selected">已选中</string>
     <string name="invisible_error_too_small">图片过小，无法承载水印</string>
     <string name="invisible_error_not_found">未检测到水印（或损坏超出纠错能力）</string>
+    <!--
+      检测失败时的补充提示。
+      为什么不直接并进上面的原因里：
+      上面那句是「技术上发生了什么」，这句是「你该怎么办」——
+      两者对用户的意义不同，混成一句会又长又难读。
+      而且它不是所有失败场景都适用（如图片过小就不必提旧版本）。
+    -->
+    <string name="invisible_error_old_version_hint">可能旧版本导出</string>
 
     <!-- ==================== 检测设置 ==================== -->
     <string name="detect_options_title">检测设置</string>
