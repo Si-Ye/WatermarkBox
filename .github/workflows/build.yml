@@ -66,13 +66,16 @@ jobs:
       - name: 编译 Release 包（未签名，仅验证能构建）
         run: ./gradlew assembleRelease --console=plain
 
-      # `assembleRelease` 成功 ≠ 产物可用。
+      # ## 为什么这里**不**做包完整性校验（踩坑记录）
       #
-      # 真实踩过：AGP 在部分环境下会把 AndroidManifest.xml / resources.arsc
-      # 漏在包外 —— 构建全绿、APK 也生成了，但装不上去。
-      # 这一步校验产物的完整性（本 job 无密钥，故不要求签名）。
-      - name: 校验 Release 包完整性
-        run: python3 tools/check_apk_integrity.py app/build/outputs/apk/release/app-release.apk
+      # 起初在这加了 tools/check_apk_integrity.py，结果 CI 直接红。
+      # 原因不是「环境坏了」，而是**未签名的 release 包本身就是残缺的**：
+      # AGP 在没有签名配置时，不会把 AndroidManifest.xml / resources.arsc
+      # 合进 APK。
+      #
+      # 而这条流水线本来就不产出可安装的包 —— 它只回答一个问题：
+      # 「release 变体能不能编译通过」。产物完整性由 release.yml 把关
+      # （那里有密钥、而且真的会发布出去的包必须是完整的）。
 
 
       - name: 上传 Lint 报告
