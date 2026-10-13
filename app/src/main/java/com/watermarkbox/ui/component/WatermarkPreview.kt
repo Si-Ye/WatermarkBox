@@ -15,6 +15,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -44,6 +45,7 @@ import com.watermarkbox.data.model.ImageWatermarkStyle
 import com.watermarkbox.data.model.LayoutMode
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkType
+import com.watermarkbox.watermark.PreviewBuffers
 import com.watermarkbox.watermark.PreviewRenderEngine
 import com.watermarkbox.watermark.PreviewRenderer
 import com.watermarkbox.watermark.PreviewRequest
@@ -95,11 +97,18 @@ fun rememberRenderedPreview(
     renderer: WatermarkRenderer = remember { WatermarkRenderer() }
 ): RenderedPreview {
     val scope = rememberCoroutineScope()
+    // 双缓冲：复用已经分配好的位图，避免每帧新分配一整张（1024 边约 3 MB）。
+    // 详见 PreviewBuffers 的说明。
+    val buffers = remember { PreviewBuffers() }
     val engine = remember(scope, renderer) {
         PreviewRenderEngine<PreviewRequest, Bitmap>(
             scope = scope,
             render = { request ->
-                PreviewRenderer.render(
+                renderer.reuseTarget = buffers.acquire(
+                    request.source.width,
+                    request.source.height
+                )
+                val rendered = PreviewRenderer.render(
                     renderer = renderer,
                     bitmap = request.source,
                     watermarkType = request.watermarkType,
@@ -108,8 +117,17 @@ fun rememberRenderedPreview(
                     logoBitmap = request.logoBitmap,
                     sourceFileName = request.sourceFileName
                 )
+                // 用完就摘掉：这个渲染器不归缓冲池，别让它长期握着复用目标
+                renderer.reuseTarget = null
+                buffers.onPublished(rendered)
+                rendered
             }
         )
+    }
+
+    // 离开页面时主动归还两块缓冲，不必等 GC
+    DisposableEffect(buffers) {
+        onDispose { buffers.release() }
     }
 
     val rendered by engine.result.collectAsStateWithLifecycle()

@@ -115,6 +115,48 @@ class WatermarkRenderer {
         }
     }
 
+    /**
+     * 预览渲染时可选的**复用目标**（默认 `null` = 每次新分配）。
+     *
+     * ## 为什么需要它
+     *
+     * 预览每帧都要渲染一次，而每帧 `source.copy()` 一张 1024 边的
+     * ARGB_8888 位图约 3 MB。拖动时 60 帧/秒 ≈ **180 MB/s 的原生分配** ——
+     * 这类大块原生分配会通过 NativeAllocationRegistry 触发 GC，
+     * 表现就是「拖起来偶尔一顿」。
+     *
+     * 复用后：内存不再每帧申请归还，只做一次位块传送。
+     *
+     * ## ⚠️ 设置者的义务
+     *
+     * 传进来的这张**绝不能是当前正在显示的那张**：写它的时候 UI 可能
+     * 正在画它，用户会看到「画到一半」的撕裂画面。
+     * 预览侧用 [PreviewBuffers] 的双缓冲来保证这一点。
+     *
+     * 其他调用方（导出、批量、预设页）不要设置它 —— 那些路径需要
+     * 「返回的位图归调用方所有」，复用会破坏这个约定。
+     */
+    var reuseTarget: Bitmap? = null
+
+    /**
+     * 取得本次渲染要画的位图：能复用就复用，否则新分配一张。
+     *
+     * 复用分支做的事等价于 `source.copy(...)`：
+     * 先擦透明，再把原图垫上去。
+     */
+    private fun outputFor(source: Bitmap): Bitmap {
+        val reuse = reuseTarget
+        if (reuse == null || reuse.isRecycled || !reuse.isMutable ||
+            reuse.width != source.width || reuse.height != source.height ||
+            reuse.config != Bitmap.Config.ARGB_8888
+        ) {
+            return source.copy(Bitmap.Config.ARGB_8888, true)
+        }
+        reuse.eraseColor(0)
+        Canvas(reuse).drawBitmap(source, 0f, 0f, null)
+        return reuse
+    }
+
     // ---------------------------------------------------------------------
     // 模式一：单个水印（九宫格定位 + 边距）
     // ---------------------------------------------------------------------
@@ -127,7 +169,7 @@ class WatermarkRenderer {
             source.width, source.height, source.width, source.height
         )
     ): Bitmap {
-        val output = source.copy(Bitmap.Config.ARGB_8888, true)
+        val output = outputFor(source)
         val canvas = Canvas(output)
 
         val paint = buildPaint(config, ctx)
@@ -215,7 +257,7 @@ class WatermarkRenderer {
             source.width, source.height, source.width, source.height
         )
     ): Bitmap {
-        val output = source.copy(Bitmap.Config.ARGB_8888, true)
+        val output = outputFor(source)
         val canvas = Canvas(output)
 
         val paint = buildPaint(config, ctx)
@@ -288,7 +330,7 @@ class WatermarkRenderer {
             source.width, source.height, source.width, source.height
         )
     ): Bitmap {
-        val output = source.copy(Bitmap.Config.ARGB_8888, true)
+        val output = outputFor(source)
         val canvas = Canvas(output)
 
         val paint = buildPaint(config, ctx)
@@ -528,7 +570,7 @@ class WatermarkRenderer {
         config: ImageWatermarkStyle,
         ctx: RenderContext
     ): Bitmap {
-        val output = source.copy(Bitmap.Config.ARGB_8888, true)
+        val output = outputFor(source)
         val canvas = Canvas(output)
         val paint = buildLogoPaint(config)
 
@@ -579,7 +621,7 @@ class WatermarkRenderer {
         config: ImageWatermarkStyle,
         ctx: RenderContext
     ): Bitmap {
-        val output = source.copy(Bitmap.Config.ARGB_8888, true)
+        val output = outputFor(source)
         val canvas = Canvas(output)
         val paint = buildLogoPaint(config)
 
@@ -627,7 +669,7 @@ class WatermarkRenderer {
         config: ImageWatermarkStyle,
         ctx: RenderContext
     ): Bitmap {
-        val output = source.copy(Bitmap.Config.ARGB_8888, true)
+        val output = outputFor(source)
         val canvas = Canvas(output)
         val paint = buildLogoPaint(config)
 
