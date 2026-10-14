@@ -205,4 +205,31 @@ class BitmapUtilsSampleSizeTest {
         assertTrue("sampleSize 应为正", s > 0)
         assertTrue("最长边应仍 ≥ 目标", 10000 / s >= 1000)
     }
+
+    /**
+     * **渐进式加载的前提**：占位分辨率必须**明显小于**高清。
+     *
+     * 预览的加载策略是「先低清占位 → 再高清替换」（见 `EditorViewModel.loadImage`），
+     * 它的收益完全建立在「低清解得更快」上。
+     *
+     * 若哪天有人把两者调成相等（或占位更大），策略就**失去意义** ——
+     * 变成「解两遍同一张图」，白白多花一倍时间，而界面上看不出任何异常。
+     * 这条断言就是为了拦住这种**静默退化**。
+     */
+    @Test
+    fun `占位分辨率必须明显小于高清`() {
+        val placeholder = BitmapUtils.PREVIEW_PLACEHOLDER_MAX_EDGE
+        val hiRes = BitmapUtils.PREVIEW_MAX_EDGE
+        assertTrue(
+            "占位($placeholder) 应小于高清($hiRes)，否则渐进式加载没有意义",
+            placeholder < hiRes
+        )
+        // 像素数至少差 4 倍 —— 否则「更快」的收益不明显
+        val placeholderPixels = placeholder.toLong() * placeholder
+        val hiResPixels = hiRes.toLong() * hiRes
+        assertTrue(
+            "占位图像素数($placeholderPixels) 应不足高清的 1/4（$hiResPixels）",
+            placeholderPixels * 4 <= hiResPixels
+        )
+    }
 }

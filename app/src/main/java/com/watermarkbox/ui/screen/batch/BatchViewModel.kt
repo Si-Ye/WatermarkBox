@@ -12,6 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.watermarkbox.R
+import com.watermarkbox.util.BitmapUtils
 import com.watermarkbox.util.UiMessage
 import com.watermarkbox.data.model.BatchLimits
 import com.watermarkbox.data.model.ExportSettings
@@ -610,26 +611,42 @@ class BatchViewModel(application: Application) :
         }
         _uiState.update { it.copy(previewLoading = true) }
         viewModelScope.launch {
-            val bitmap = imageRepository.loadPreviewBitmap(uri)
-            // 竞态保护：加载期间用户可能已经滑走了，丢弃过期结果
-            if (token != previewToken) {
-                // ⚠️ 这里**不要** recycle 这张位图。
-                //
-                // `loadPreviewBitmap` 命中缓存时直接返回缓存对象，未命中则
-                // **已经把它放进了**仓库的 LRU 缓存 —— 两种情况下的所有权
-                // 都不在本轮请求手上：
-                //   - 当场 recycle → 缓存里留下"僵尸条目"占着槽位，
-                //     后续 peekPreview 只能靠 isRecycled 兜住；
-                //   - 若它正被某一帧绘制，还会直接崩在 Canvas 上。
-                // 交给 LRU 淘汰与 GC 即可，这也与 `LruCacheMap`「淘汰不 recycle」
-                // 的设计保持一致。
-                return@launch
-            }
-            _uiState.update {
-                it.copy(
-                    previewBitmap = bitmap,
-                    previewLoading = false
+            // ---- 渐进式加载：先低清占位 → 再高清替换（同编辑页）----
+            //
+            // 批量页的图同样是原图分辨率（≈48 MB），解码 + 上传纹理要几百毫秒。
+            // 先给一张低清版，滑过去**立刻有图**；高清在后台替换。
+            val cached = imageRepository.peekPreview(uri)
+            val lowRes = if (cached == null) {
+                imageRepository.loadPreviewBitmap(
+                    uri,
+                    maxEdge = BitmapUtils.PREVIEW_PLACEHOLDER_MAX_EDGE,
+                    // ⚠️ 低清不写缓存 —— 否则会把高清挤出 LRU（容量只有 2 张）
+                    cache = false
                 )
+            } else {
+                null
+            }
+
+            // 竞态保护：加载期间用户可能已经滑走了，丢弃过期结果。
+            //
+            // ⚠️ 丢弃时**不要** recycle 位图：`loadPreviewBitmap` 命中缓存时
+            // 直接返回缓存对象，未命中则**已经把它放进了**仓库的 LRU 缓存 ——
+            // 两种情况下的所有权都不在本轮请求手上。交给 LRU 淘汰与 GC 即可
+            // （与 `LruCacheMap`「淘汰不 recycle」的设计一致）。
+            if (token != previewToken) return@launch
+
+            val first = cached ?: lowRes
+            if (first != null) {
+                _uiState.update { it.copy(previewBitmap = first, previewLoading = false) }
+            }
+
+            // ---- 没命中缓存 → 后台解高清并替换 ----
+            if (cached == null) {
+                val hiRes = imageRepository.loadPreviewBitmap(uri)   // 默认即高清 + 写缓存
+                if (token != previewToken) return@launch
+                if (hiRes != null && hiRes !== lowRes) {
+                    _uiState.update { it.copy(previewBitmap = hiRes) }
+                }
             }
             // 当前这张好了，顺手把左右两张也解码好 —— 用户下一滑就是瞬时的
             prefetchNeighbours()
