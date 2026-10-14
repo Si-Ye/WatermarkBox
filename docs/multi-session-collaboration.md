@@ -149,23 +149,25 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 | 任务 | 负责 | 说明 |
 |---|---|---|
-| **更新说明「远端化」** | 另一会话 | 工作区有进展、**尚未同步到 git 仓库**：新增 `ChangelogRepository` / `ChangelogJson` / `ChangelogEntry` / `ChangelogViewModel`，配套 `docs/changelog.json`、`tools/check_release_consistency.py`（CI 三方比对版本号）、`tools/export_changelog.py`。`ReleaseHistory` 退化为「离线兜底快照，不再要求随版本同步」|
 | **导出内存预算修复的验证** | 等人类验证 | 见 §5.9，大图导出是否不再报「图片过大」|
 
-### 📋 待办（需要人类拍板才能动）
+### 📋 待办（需要人类拍板或处理）
 
 | 任务 | 阻塞点 |
 |---|---|
+| **`docs/rust-migration-feasibility.md` 待脱敏** | 内含**本机绝对路径**，**pre-commit 钩子会拦**。需改成占位符（如 `$ANDROID_HOME`）后才能入库。该文档由其他会话产出，**未越权改写**，故本次提交时排除了它 —— 文件仍完整留在工作区。见 §5.13 |
 | README 截图 | 等人类提供真机截图 |
 | Baseline Profile | 收益评估偏小，优先级低 |
-| **是否发 2.1.1** | 等人类决定（`ac812bb` 已补上 2.1.0 的更新日志遗漏，可考虑小版本补发）|
-| **推送 ahead 1 个提交** | **必须等人类明示** |
+| **推送本地提交** | **必须等人类明示** |
 
 ### ✅ 近期完成（别惊讶于这些改动）
 
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
 
+- **（本轮）更新说明改为在线获取 + 发布流程文档 + 发布 2.1.1**
+  （`docs/changelog.json` 成为唯一数据源；CI 加发版一致性校验。
+  提交 hash 见 `git log --oneline -3`）
 - `ac812bb` 补 v2.1.0 更新日志 + 预览基准 EXIF 换算 + 批量预览竞态（详见 §8）
 - `b1a254e` 发布 2.1.0（tag `v2.1.0`）
 - `5bec32c` 描边颜色重叠 + 隐藏水印过渡动画 + 导出对话框作用域语义 + 字符串里的假 Markdown
@@ -354,6 +356,96 @@ EXPORT_COPIES   = 3       ← 固定按 3 份算
 若将来出现"后台被杀频繁"的反馈，可以考虑只在导出流程临时申请，
 但**不要**因为这条顾虑就退回不开 —— 那是拿"必然失败"换"可能被杀"。
 
+### 5.11 ⚠️ 终端不能用 heredoc（会卡住）
+
+$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{多行命令会停在续行模式，\textbf{命令不执行}}}}}$$
+
+```bash
+# ❌ 这样写会卡住（shell 停在 ">" 续行提示符，永远等不到结尾）
+cat > /tmp/msg.txt <<'EOF'
+第一行
+第二行
+EOF
+```
+
+**原因**：终端工具在传递含换行的命令时，换行被当成"用户还在继续输入"，
+于是 shell 一直等你输入结束标记 —— 而那个标记已经被当作普通文本处理了。
+
+**怎么判断卡住了**：工具返回的输出里有 `>` 开头的提示符，且**没有命令结果**。
+
+**怎么脱困**：用 `terminal_input` 发 Ctrl+C（`control=ctrl, input=c`）。
+
+**正确写法**：
+
+| 想做的事 | ❌ 别用 | ✅ 改用 |
+|---|---|---|
+| 写多行文件 | `cat > f <<'EOF'` | `create_file` 工具，或 `printf 'a\nb\n' > f` |
+| 提交信息 | `cat > msg <<'EOF'` | 多次 `-m`，或先写文件再 `git commit -F` |
+| 多行 Python | `python3 - <<'PY'` | `python3 -c "…"` 单行（用 `;` 分隔）|
+| git 多行 message | heredoc | `git commit -m A -m B` |
+
+> 这条**与平台无关**，纯工具链行为 —— 人类在真实终端里 heredoc 是正常的，
+> 但**通过 AI 会话执行时必须避开**。
+> 发版流程里的命令已全部改为单行形式，见 `docs/RELEASE_PROCESS.md`。
+
+### 5.13 文档里别写本机绝对路径（钩子会拦）
+
+$$\fcolorbox{orange}{#FFF8E1}{\textcolor{#E65100}{\textbf{\text{pre-commit 钩子的第 [3/5] 项专查本机路径，含它就别想提交}}}}}$$
+
+**真实案例**：一份技术调研文档记录了本机实测环境，
+里面有写死的 SDK 绝对路径 —— 提交时被钩子拦下，输出形如：
+
+```
+[3/5] 本机路径与内网地址
+  ✗ 无类 Unix 本机绝对路径
+      docs/<文件名>.md:62:ANDROID_HOME  → <一段绝对路径>
+```
+
+**为什么拦**：本机路径泄露环境结构，且换台机器就失效 ——
+对读文档的人没有价值，只有风险。
+
+**怎么改**：换成变量或占位符。
+
+| 写的形态 | 改成 |
+|---|---|
+| 写死的 SDK 绝对路径 | `$ANDROID_HOME/...` |
+| 工作区绝对路径 | `$WORKSPACE`（见 §1 的占位符约定）|
+| 临时目录绝对路径 | `$TMPDIR/...` |
+
+**本机实际取值**统一记在 `docs/build-artifacts.md`（该文件已在 `.gitignore` 里，
+专放这类"本机专用"信息）。
+
+> ⚠️ 别用 `git commit --no-verify` 绕过 —— 那会把本机信息永久写进公开历史。
+> 正确做法是脱敏后再提交。
+
+> 🪞 **本节自己踩过这个坑**：初版在「反例」表格里直接写了**真实的**绝对路径，
+> 于是**这一节本身也被钩子拦了**（写"不要写 X"的文章里写了 X）。
+>
+> **教训**：讲"不要写某类内容"时，**举例也不能写出真正的那类内容** ——
+> 要用通用描述或虚构占位符。同理，**引用被拦的报错输出时要去掉敏感片段**，
+> 否则引用一次又被拦一次。
+
+### 5.14 更新说明已改为「在线获取」
+
+应用内的更新说明（`ChangelogScreen`）**不再硬编码在 APK 里**：
+
+```
+① 网络：docs/changelog.json（raw.githubusercontent.com，最新）
+     ↓ 失败
+② 本地缓存：上次拉到的
+     ↓ 没有
+③ 内置兜底：ReleaseHistory（随 APK 发布，可能滞后）
+```
+
+**这对会话的影响**：
+
+- **新版本说明写在 `docs/changelog.json`**，不是 `ReleaseHistory.kt`
+- `ReleaseHistory.kt` 已退化为「离线兜底快照」，**不必随版本更新**
+- 漏写会被 `tools/check_release_consistency.py` 在 CI 拦下
+  （这是 2.1.0 发布漏写更新说明的根治措施）
+
+详见 `docs/RELEASE_PROCESS.md`。
+
 ---
 
 ## 6. 资源共享与冲突预案
@@ -453,7 +545,7 @@ git log --oneline --since='2 hours ago'
        他们已删除 ReleaseHistoryTest 那条失效测试，防线搬到
        tools/check_release_consistency.py（CI 读 versionName 三方比对）
        —— 本提交里对 VERSION_NAME 的改动已被该方案取代，属正常演进
-  - 教训：Ubuntu proot 访问不了 /data/local/tmp，构建日志要写 /tmp
+  - 教训：Ubuntu proot 访问不了设备端的临时目录（`$TMPDIR`），构建日志要写到 Ubuntu 侧的临时目录
 
 [2026-10-13 23:5x] 导出「图稍大就失败」—— 内存预算三重保守
   - 提交 ac7bfca，ahead 25，单测 406

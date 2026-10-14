@@ -31,18 +31,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.watermarkbox.BuildConfig
 import com.watermarkbox.R
 import com.watermarkbox.data.model.ChangeKind
+import com.watermarkbox.data.model.ChangelogEntry
 import com.watermarkbox.data.model.ReleaseHistory
 import com.watermarkbox.data.model.ReleaseNote
 import com.watermarkbox.data.model.ReleaseType
+import com.watermarkbox.data.model.totalChanges
 import com.watermarkbox.ui.theme.Spacing
 
 /**
@@ -72,8 +79,28 @@ import com.watermarkbox.ui.theme.Spacing
 @Composable
 fun ChangelogScreen(
     onBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: ChangelogViewModel = viewModel()
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // 当前界面语言：决定从远端文档里取中文还是英文那一段。
+    // 与 TutorialScreen 用同一套判断（"en" 之外一律中文），避免两处规则不一致。
+    val lang = LocalConfiguration.current.locales[0].language
+    // 语言变化时重新解析（内部不会重复联网，见 ChangelogViewModel.load）
+    LaunchedEffect(lang) { viewModel.load(lang) }
+
+    // ---- 三级数据源的最后一级 ----
+    //
+    // 远端与本地缓存都拿不到时，回退到随 APK 发布的内置说明。
+    // 它一定存在（不用联网），只是可能滞后于最新版本。
+    //
+    // 这个回退放在 UI 层而不是 ViewModel：内置数据用的是 `@StringRes`，
+    // 必须在 Composable 上下文里经 `stringResource` 解析。
+    val entries = state.entries.ifEmpty {
+        ReleaseHistory.releases.map { it.toEntry() }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -107,14 +134,14 @@ fun ChangelogScreen(
         ) {
             // ---- 顶部概览 ----
             item {
-                SummaryCard()
+                SummaryCard(entries)
             }
 
             // ---- 各版本 ----
-            items(ReleaseHistory.releases, key = { it.version }) { note ->
+            items(entries, key = { it.version }) { entry ->
                 ReleaseCard(
-                    note = note,
-                    isCurrent = note.version == BuildConfig.VERSION_NAME
+                    entry = entry,
+                    isCurrent = entry.version == BuildConfig.VERSION_NAME
                 )
             }
         }
@@ -123,7 +150,7 @@ fun ChangelogScreen(
 
 /** 顶部概览：当前版本 + 总版本数 + 总变更数。 */
 @Composable
-private fun SummaryCard() {
+private fun SummaryCard(entries: List<ChangelogEntry>) {
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
@@ -142,8 +169,8 @@ private fun SummaryCard() {
             Text(
                 text = stringResource(
                     R.string.changelog_summary,
-                    ReleaseHistory.releases.size,
-                    ReleaseHistory.totalChanges
+                    entries.size,
+                    entries.totalChanges
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
@@ -154,7 +181,7 @@ private fun SummaryCard() {
 
 /** 单个版本的卡片。 */
 @Composable
-private fun ReleaseCard(note: ReleaseNote, isCurrent: Boolean) {
+private fun ReleaseCard(entry: ChangelogEntry, isCurrent: Boolean) {
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
@@ -167,29 +194,33 @@ private fun ReleaseCard(note: ReleaseNote, isCurrent: Boolean) {
             // ---- 标题行：版本号 + 徽章 + 日期 ----
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = note.version,
+                    text = entry.version,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(Modifier.width(8.dp))
-                VersionBadge(note.type)
+                VersionBadge(entry.type)
                 if (isCurrent) {
                     Spacer(Modifier.width(6.dp))
                     CurrentBadge()
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = note.date,
+                    text = entry.date,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             // ---- 主题 ----
+            //
+            // 文案已是**解析好的字符串**（远端 JSON 按语言选过一份，
+            // 内置数据则在 toEntry() 里用 stringResource 解析过）——
+            // 这里不再需要 stringResource。
             Spacer(Modifier.height(6.dp))
             Text(
-                text = stringResource(note.titleRes),
+                text = entry.title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
@@ -202,7 +233,7 @@ private fun ReleaseCard(note: ReleaseNote, isCurrent: Boolean) {
             )
             Spacer(Modifier.height(10.dp))
 
-            note.changes.forEach { change ->
+            entry.changes.forEach { change ->
                 ChangeRow(change)
                 Spacer(Modifier.height(8.dp))
             }
@@ -212,7 +243,7 @@ private fun ReleaseCard(note: ReleaseNote, isCurrent: Boolean) {
 
 /** 单条变更：彩色圆点符号 + 文字。 */
 @Composable
-private fun ChangeRow(change: ReleaseNote.Change) {
+private fun ChangeRow(change: ChangelogEntry.Item) {
     val color = when (change.kind) {
         ChangeKind.ADDED -> MaterialTheme.colorScheme.primary
         ChangeKind.FIXED -> MaterialTheme.colorScheme.tertiary
@@ -237,13 +268,43 @@ private fun ChangeRow(change: ReleaseNote.Change) {
         }
         Spacer(Modifier.width(8.dp))
         Text(
-            text = stringResource(change.textRes),
+            text = change.text,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
             modifier = Modifier.weight(1f)
         )
     }
 }
+
+/**
+ * 内置更新记录 → UI 模型。
+ *
+ * ## 为什么需要它
+ *
+ * 内置数据（[ReleaseHistory]）用的是 `@StringRes` 资源 ID，
+ * 而远端 JSON 给的已经是**解析好的字符串**。两者要渲染成同一种东西，
+ * 就必须在这里把资源 ID 解掉 —— 这需要 Composable 上下文，
+ * 所以本函数也只能是 `@Composable`。
+ *
+ * ## 它是**兜底路径**
+ *
+ * 正常情况（能联网或有过缓存）根本不会走到这里。
+ * 只有在「刚装好、从未联网成功过」时才用内置数据 ——
+ * 那份数据随 APK 发布，一定存在，只是可能滞后于最新版本。
+ */
+@Composable
+private fun ReleaseNote.toEntry(): ChangelogEntry = ChangelogEntry(
+    version = version,
+    date = date,
+    type = type,
+    title = stringResource(titleRes),
+    changes = changes.map { change ->
+        ChangelogEntry.Item(
+            kind = change.kind,
+            text = stringResource(change.textRes)
+        )
+    }
+)
 
 /** 「大版本 / 小版本」徽章。 */
 @Composable

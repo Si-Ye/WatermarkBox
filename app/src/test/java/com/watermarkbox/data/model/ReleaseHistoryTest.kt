@@ -7,13 +7,34 @@ import org.junit.Test
 /**
  * 更新日志的数据一致性测试。
  *
- * ## 为什么值得测
+ * ## 这个类只测「内置兜底数据自身」的一致性
  *
- * [ReleaseHistory] 是纯数据，写错不会编译失败、也不会崩 ——
+ * `ReleaseHistory` 是纯数据，写错不会编译失败、也不会崩 ——
  * 只会在用户打开「更新说明」时表现为"某个版本不见了"或"顺序乱了"。
  * 这类错误一旦发出去就没人回头查，所以用测试兜住。
  *
- * 另外 `versionCode` 校验能防止「改了版本号却忘了记一笔」。
+ * ## ⚠️ 这里**不再**校验「当前版本是否在列表中」（重要变更）
+ *
+ * 曾经有一条 `更新日志覆盖当前版本`：拿一个手写的版本号常量
+ * 去比对列表，本意是"改了版本号就要加一条记录"。
+ *
+ * **它失败过一次**：那个常量长期停在 `1.4.1`，而 `versionName`
+ * 早已升到 `2.1.0` —— 于是断言校验的是 1.4.1（列表里确实有），
+ * **永远通过**。结果 2.1.0 发布时漏加了条目，测试完全没能拦住，
+ * 用户在新版里看不到本版说明了什么。
+ *
+ * 这是「把现状写成断言，让测试失去发现能力」的又一例
+ * （同类教训见 `docs/multi-session-collaboration.md` §5.9）。
+ *
+ * ## 现在这条防线搬到了哪里
+ *
+ * 更新说明已改为**从 GitHub 拉取**（`docs/changelog.json`），
+ * `ReleaseHistory` 退化为「离线兜底快照」，**不再要求随版本同步**。
+ *
+ * 「发版必须要更新说明」这件事改由 `tools/check_release_consistency.py`
+ * 在 **CI** 里守 —— 它直接读 `app/build.gradle.kts` 的 `versionName`，
+ * 与 `docs/changelog.json`、`docs/releases/vX.Y.Z.md` 三方比对。
+ * 那里的版本号**没有第二份手写副本**，所以不会再出现"校验了个寂寞"。
  */
 class ReleaseHistoryTest {
 
@@ -100,47 +121,7 @@ class ReleaseHistoryTest {
         )
     }
 
-    /**
-     * 当前打包版本**应当**出现在更新日志里。
-     *
-     * 这条规则的实际作用：以后改 `versionName` 时必须同步加一条日志，
-     * 否则这里会红。属于"防忘记"而非"防错误"。
-     */
-    @Test
-    fun `更新日志覆盖当前版本`() {
-        val declared = BuildConfigForTest.VERSION_NAME
-        val exists = ReleaseHistory.releases.any { it.version == declared }
-        assertTrue(
-            "当前版本 $declared 不在更新日志里 —— 改了版本号就要加一条记录",
-            exists
-        )
-    }
-
     /** 把 "1.4.0" 解析成 [1,4,0]，用于排序比较。 */
     private fun parse(version: String): IntArray =
         version.split(".").map { it.toInt() }.toIntArray()
-}
-
-/**
- * 测试里拿不到的 `BuildConfig` 的替身。
- *
- * 单元测试运行在 JVM 上，`com.watermarkbox.BuildConfig` 由 AGP 生成、
- * 不在单元测试的类路径里（它是 `androidTest`/`assemble` 的产物）。
- * 所以这里显式声明当前版本，**改版本号时这里也要改**。
- *
- * ## ⚠️ 这份「手动同步」已经失败过一次（真实事故，别再重演）
- *
- * 本常量曾长期停在 `1.4.1`，而 `versionName` 早已升到 `2.1.0` ——
- * 于是下面「更新日志覆盖当前版本」那条测试**永远通过**：
- * 它校验的其实是 1.4.1（列表里确实有），而不是真正的当前版本。
- * 结果 2.1.0 发布时 `ReleaseHistory` **漏加了条目**，测试完全没能拦住。
- *
- * 这与 `docs/multi-session-collaboration.md` §5.9 的教训同一类：
- * **把「现状」写成断言，会让测试失去发现问题的能力。**
- *
- * 若要根治，可改为读 `app/build.gradle.kts` 的文本（正则提取 `versionName`）。
- * 早期注释担心「改格式就假失败」—— 但相比「防线彻底失效」，那个代价小得多。
- */
-private object BuildConfigForTest {
-    const val VERSION_NAME = "2.1.0"
 }

@@ -40,6 +40,23 @@ jobs:
       - name: 赋予 gradlew 执行权限
         run: chmod +x ./gradlew
 
+      - name: 校验发版一致性
+        # 校验三处版本信息是否同步：
+        #   ① app/build.gradle.kts 的 versionName（唯一权威源）
+        #   ② docs/changelog.json          —— 应用内「更新说明」的数据源
+        #   ③ docs/releases/vX.Y.Z.md      —— GitHub Release 页面正文
+        #
+        # ## 为什么需要这道关卡
+        #
+        # 2.1.0 发布时漏了 ②，用户在新版里看不到本版说明了什么。
+        # 当时**测试也拦不住** —— 相关断言的版本号常量早已过期。
+        #
+        # 本步骤的版本号只从 build.gradle.kts 取，没有第二份手写副本，
+        # 所以「改了版本号却忘了写说明」会在这里**直接让构建失败**。
+        #
+        # 见 docs/RELEASE_PROCESS.md
+        run: python3 tools/check_release_consistency.py
+
       - name: 跑单元测试
         run: ./gradlew testDebugUnitTest --console=plain
 

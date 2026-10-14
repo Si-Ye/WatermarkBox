@@ -1,0 +1,605 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-13",
+  "releases": [
+    {
+      "version": "2.1.1",
+      "date": "2026-10-13",
+      "type": "MINOR",
+      "title": {
+        "zh": "补完两处遗漏，更新说明改为在线获取",
+        "en": "Two follow-up fixes, and the changelog now comes from the web"
+      },
+      "changes": [
+        {
+          "kind": "FIXED",
+          "zh": "修复：手机竖拍照片的水印仍偏小约三分之一（EXIF 旋转后基准尺寸的行列取反了，上一版没修透）",
+          "en": "Fixed: watermarks on portrait photos were still about a third too small (EXIF rotation swapped the baseline dimensions - the previous fix did not go far enough)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：批量页连续滑动切换图片时，预览的水印大小偶尔按上一张照片的基准渲染",
+          "en": "Fixed: in batch mode the preview occasionally sized the watermark using the previous photo"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：更新说明改为从 GitHub 在线获取，今后补充说明不必等应用更新",
+          "en": "Added: the changelog is now fetched online from GitHub, so new entries no longer wait for an app update"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "说明：无网络时，更新说明页显示随应用内置的快照（可能不是最新）",
+          "en": "Note: without a network connection the changelog page shows the snapshot bundled with the app, which may be out of date"
+        }
+      ]
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-10-13",
+      "type": "MAJOR",
+      "title": {
+        "zh": "预览所见，就是导出所得",
+        "en": "What you preview is what you export"
+      },
+      "changes": [
+        {
+          "kind": "FIXED",
+          "zh": "修复：预览里调好的水印，导出后大小差出 7 倍以上（渲染基准坐标系没接上）",
+          "en": "Fixed: a watermark tuned in the preview came out over 7× smaller on export (the rendering base coordinate system was not linked up)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：浅色背景图片的隐藏水印写进去了却读不出来（写入算法把改动抹平了）",
+          "en": "Fixed: hidden watermarks in light-background images were written but could not be read back (the write algorithm averaged the change away)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：拖动字号 / 角度 / 密度 / 透明度时预览画面频闪",
+          "en": "Fixed: the preview flickered while dragging size, rotation, density or opacity"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：批量页预览卡顿、不跟手",
+          "en": "Fixed: the batch preview was laggy and did not keep up with the finger"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：图片稍大就提示「图片过大」而无法导出",
+          "en": "Fixed: slightly large images were rejected as too large and could not be exported"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：描边颜色的选择控件错位、相互重叠",
+          "en": "Fixed: the outline colour picker was misaligned and overlapping"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：批量导出前可先设定本次参数，不影响全局默认值",
+          "en": "Added: set per-run export parameters before a batch, without touching your global defaults"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：隐藏水印 DC-QIM 失真补偿，画质提升约 4.3 dB，提取率不降",
+          "en": "Added: DC-QIM distortion compensation for hidden watermarks — about 4.3 dB better quality at the same read rate"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：检测页「重新检测」，不必回相册重新选图",
+          "en": "Added: re-run detection on the Detect screen without picking the image again"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：检测不到水印时提示「这张图可能是用旧版本导出的」",
+          "en": "Added: when no watermark is found, a hint that the image may have been exported by an older version"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：导出设置区分「全局默认」与「本次参数」，并说明各自的作用范围",
+          "en": "Added: export settings now distinguish global defaults from per-export parameters, with the scope of each explained"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：预览分辨率自适应，内存占用约降一半，拖动更跟手",
+          "en": "Improved: adaptive preview resolution — roughly half the memory, and dragging keeps up"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：检测设置两两并排，文案精简（完整说明见各项 ⓘ）",
+          "en": "Improved: detection options paired two-per-row with tighter wording (full descriptions in the i popovers)"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：批量失败结果按原因分类展示，不再只有一个数字",
+          "en": "Improved: batch failures are grouped by reason instead of just a count"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "说明：旧版本导出的图片可能检测不到水印 —— 那是写入缺陷，用新版本重新导出一次即可",
+          "en": "Note: images exported by older versions may not be detectable — that was a write-side defect; re-export with the new version and the watermark will be there"
+        }
+      ]
+    },
+    {
+      "version": "2.0.1",
+      "date": "2026-10-13",
+      "type": "MINOR",
+      "title": {
+        "zh": "文案更准、无障碍可用、关于页加了构建信息",
+        "en": "Clearer wording, accessible controls, build info in About"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "关于页底部显示 Debug / Release 版与实际安装包名",
+          "en": "About page now shows the Debug / Release build type and the actual package name"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "主创头像与昵称改为从 GitHub 实时获取（不必发版即可更新）",
+          "en": "Author avatar and nickname are fetched from GitHub at runtime"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "无障碍：面板把手播报展开状态、页签播报选中、翻页圆点可读且更好点",
+          "en": "Accessibility: the panel handle announces its state, tabs announce selection, page dots are labelled and easier to tap"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "代码质量：lint 历史欠账从 42 条清到 1 条",
+          "en": "Lint debt cut from 42 issues to 1"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "文案改正：统一为「只下载、不上传」",
+          "en": "Wording corrected to downloads-only, never-uploads"
+        }
+      ]
+    },
+    {
+      "version": "2.0.0",
+      "date": "2026-10-13",
+      "type": "MAJOR",
+      "title": {
+        "zh": "隐藏水印大升级，交互全面做顺",
+        "en": "A big invisible-watermark upgrade — and a smoother app all round"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "隐藏水印新增 XMP 通道（EXIF 之外的第二个元数据容器）",
+          "en": "Invisible watermark gains an XMP channel (a second metadata container beside EXIF)"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "隐藏水印带签名，检测时可验证「是否本应用导出」",
+          "en": "Invisible watermark is now signed — detection can tell whether the app wrote it"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "两条隐藏水印通道可各自开关，按需取舍",
+          "en": "The two invisible channels can be switched on and off independently"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "支持直角旋转：转过 90°/180°/270° 后仍能检出",
+          "en": "Right-angle rotation is handled: still detected after 90/180/270 degrees"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "检测页可自选检测项：想快就快、想全就全",
+          "en": "Detection options: go fast or go thorough, your call"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增使用教程（设置 → 其他 → 使用教程）",
+          "en": "New in-app tutorial (Settings → More → Tutorial)"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增首页新手引导，可随时「重新过一遍」",
+          "en": "New home-screen onboarding that can be replayed any time"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "隐藏水印按块自适应强度：同样抗压缩，画质更好",
+          "en": "Block-adaptive strength: same compression resistance, better image quality"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "大图保护：内存放不下时明确提示，不再卡住",
+          "en": "Large-image guard: a clear message instead of freezing when memory is short"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "界面说明统一收进 ⓘ 图标，参数面板更清爽",
+          "en": "Long explanations moved into the i icon — cleaner panels"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "全面流畅度优化：拖动、翻页、切图、页面转场",
+          "en": "Smoother everywhere: dragging, paging, image switching, screen transitions"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "导出设置拆分为「全局默认值」与「本次参数」",
+          "en": "Export settings split into global defaults and per-export parameters"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复教程文档的 Markdown 渲染错误",
+          "en": "Fixed Markdown rendering errors in the tutorial"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复拖动水印与参数面板时的卡顿感",
+          "en": "Fixed stutter when dragging the watermark and the parameter panel"
+        }
+      ]
+    },
+    {
+      "version": "1.6.1",
+      "date": "2026-10-13",
+      "type": "MINOR",
+      "title": {
+        "zh": "预设可导出为文件 · 从文件导入",
+        "en": "Presets as files: export & import"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "预设页右上角新增菜单：可把全部预设导出成一个文件，或从文件导入预设",
+          "en": "New menu on the Presets screen: export all presets to a single file, or import presets from a file"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "每个预设卡片新增导出按钮，可单独导出某一个预设",
+          "en": "Every preset card has an export button, so a single preset can be shared on its own"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "导入时若名称重复会自动改名，不会覆盖已有预设",
+          "en": "Duplicate names are renamed automatically on import — existing presets are never overwritten"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "导入完成后会提示结果（新增数量、自动改名数量）",
+          "en": "A summary reports how many presets were added and how many were renamed"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "导出文件不含本机图片，导入图片预设后需重新选择一张 logo 图，其他参数均保留",
+          "en": "Exported files do not contain device-local images; image presets need a new logo after import (all other settings are preserved)"
+        }
+      ]
+    },
+    {
+      "version": "1.6.0",
+      "date": "2026-10-13",
+      "type": "MAJOR",
+      "title": {
+        "zh": "拖动定位水印 · 下载校验",
+        "en": "Drag to position · Download verification"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "单个水印可以直接在预览图上拖动定位，不再局限于九宫格",
+          "en": "In single mode you can drag the watermark directly on the preview, no longer limited to the 3×3 grid"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "应用内下载后校验安装包（SHA-256 + 包名 + 签名），不通过则拒绝安装",
+          "en": "In-app downloads are verified (SHA-256 + package name + signature); installation is refused if any check fails"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：对角线水印在长方形图片上覆盖不全",
+          "en": "Fixed: diagonal watermarks did not cover the whole of a landscape image"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：对角线改为整体斜铺、平铺改为逐字旋转，两个模式的旋转逻辑互换",
+          "en": "Fixed: diagonal now rotates the whole grid, tiled rotates each item — the two modes had their rotation logic swapped"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：单个模式在四角位置旋转时会甩出画面",
+          "en": "Fixed: in single mode, rotating a watermark placed at a corner threw it off-screen"
+        }
+      ]
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-10-12",
+      "type": "MAJOR",
+      "title": {
+        "zh": "中英双语 · 应用内检查更新",
+        "en": "Bilingual · In-app update check"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "支持中英文界面切换，可在「设置 → 其他 → 语言」中随时切换",
+          "en": "Chinese and English interface, switchable anytime under Settings → Other → Language"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增「检查更新」：自动检测新版本，可直接跳转下载页",
+          "en": "Added \"Check for updates\": detects new versions and links to the download page"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "支持应用内下载安装新版本（实验性，默认关闭，可在设置中开启）",
+          "en": "In-app download and install for new versions (experimental, off by default)"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "更新说明现在能正确渲染 Markdown 格式（标题、列表、表格、代码块）",
+          "en": "Release notes now render Markdown correctly (headings, lists, tables, code blocks)"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "导出目录统一为 Pictures/WatermarkBox（旧目录中的图片仍可正常读取）",
+          "en": "Export folder unified as Pictures/WatermarkBox (images in the old folder still readable)"
+        }
+      ]
+    },
+    {
+      "version": "1.4.1",
+      "date": "2026-10-12",
+      "type": "MINOR",
+      "title": {
+        "zh": "更新说明页",
+        "en": "Changelog screen"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "设置 → 其他 新增「更新说明」，可查看从 1.0.0 至今的全部变更",
+          "en": "Added a changelog under Settings → Other, listing every change since 1.0.0"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "设置里「更新说明」与「关于」归入同一分组，样式统一",
+          "en": "Grouped Changelog and About together in Settings for a consistent look"
+        }
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-10-12",
+      "type": "MAJOR",
+      "title": {
+        "zh": "预设可独立编辑 · 批量页大改",
+        "en": "Editable presets · Batch screen rework"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "首页右上角新增「水印预设」入口，可集中管理预设",
+          "en": "Added a presets entry in the top-right of the home screen for centralised management"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增预设参数编辑页：不选图片也能直接改预设的名称与全部水印参数",
+          "en": "Added a preset editor: rename a preset and tweak every watermark parameter without picking an image first"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "预设卡片新增编辑图标，重命名并入编辑页（少一个入口，少一次跳转）",
+          "en": "Added an edit icon on preset cards; renaming now lives in the editor (one less entry point and one less tap)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复保存同名预设时静默覆盖旧预设的问题（属数据丢失），现在会先询问保留 / 替换 / 取消",
+          "en": "Fixed presets being silently overwritten when saving under an existing name — a data-loss bug. You are now asked whether to keep both, replace, or cancel"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "批量处理页整体重做，界面与单张编辑保持一致：同样的参数面板、可拖拽抽屉、同一套预设与导出设置",
+          "en": "Reworked the batch screen so it matches single-image editing: same parameter panel, draggable sheet, presets and export settings"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "批量预览支持左右滑动切换图片，末页为「添加更多」，可继续追加图片",
+          "en": "Batch preview now supports swiping between images, with an \"add more\" page at the end"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复批量预览无法滑动的问题：预览组件的手势会拦截横滑，现已在批量页让出手势",
+          "en": "Fixed batch preview not swiping at all — the preview component was swallowing horizontal gestures; it now yields them on the batch screen"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "隐藏水印新增 DCT 频域开关：可单独控制是否写入频域，并明确标注其对画质的影响，由用户按场景自行取舍",
+          "en": "Added a DCT toggle for hidden watermarks, so frequency-domain embedding can be controlled separately; the effect on image quality is stated explicitly and left to your judgement"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "设置中新增「开启隐藏水印时默认启用 DCT」选项",
+          "en": "Added a setting to enable DCT by default when turning on a hidden watermark"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "设置页顶部新增分类菜单：水印 / 导出 / 其他",
+          "en": "Added category tabs at the top of Settings: Watermark / Export / Other"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增「默认水印文字」设置：选图进编辑页时自动填入",
+          "en": "Added a default watermark text setting, prefilled when you open the editor"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增「默认水印图」设置：选图进编辑页时自动载入该 logo",
+          "en": "Added a default watermark image setting, loaded automatically when you open the editor"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增独立「关于」页：应用图标、版本、制作人（含头像与 QQ）、开源许可",
+          "en": "Added a standalone About screen: app icon, version, credits (avatar and QQ), and open-source license"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增本次「更新说明」页",
+          "en": "Added this changelog screen"
+        }
+      ]
+    },
+    {
+      "version": "1.3.1",
+      "date": "2026-10-12",
+      "type": "MINOR",
+      "title": {
+        "zh": "预设重名保护",
+        "en": "Duplicate-name protection for presets"
+      },
+      "changes": [
+        {
+          "kind": "FIXED",
+          "zh": "保存预设遇到重名时，弹出「保留两者 / 替换 / 取消」确认框，替代此前的静默覆盖",
+          "en": "Saving a preset under an existing name now asks whether to keep both, replace, or cancel, instead of overwriting silently"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "输入预设名称时实时检测重名并提示，不用点保存才知道",
+          "en": "Duplicate names are detected as you type, rather than only when you press save"
+        }
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-10-11",
+      "type": "MAJOR",
+      "title": {
+        "zh": "隐藏水印溯源 · EXIF 保留",
+        "en": "Hidden watermark tracing · EXIF preserved"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "新增隐藏水印功能：把溯源信息写入图片，包含 EXIF 元数据与 DCT 频域两条通道",
+          "en": "Added hidden watermarks: tracing data is written into the image through two channels — EXIF metadata and DCT frequency domain"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增隐藏水印检测：可判断图片是否含本应用写入的隐藏水印",
+          "en": "Added hidden watermark detection to check whether an image carries one written by this app"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "支持自定义隐藏水印内容，或自动使用「设备 ID + 时间戳」",
+          "en": "The hidden watermark content can be customised, or generated automatically from a device ID and timestamp"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "导出时可选保留原图 EXIF 信息（拍摄时间、机型、GPS 等 35 项）",
+          "en": "Export can now preserve the original EXIF data (35 fields including capture time, camera model and GPS)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复隐藏水印使用中文时检测结果变成 ? 的问题（EXIF UserComment 的字符集编码限制）",
+          "en": "Fixed hidden watermarks containing Chinese characters being detected as \"?\" (a character-encoding limitation in the EXIF UserComment field)"
+        }
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-10-11",
+      "type": "MAJOR",
+      "title": {
+        "zh": "批量处理 · 自定义字体",
+        "en": "Batch processing · Custom fonts"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "新增批量处理：一次最多 50 张，后台处理并显示进度",
+          "en": "Added batch processing: up to 50 images at once, running in the background with a progress indicator"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "支持导入自定义字体（ttf / otf / ttc）用于文字水印",
+          "en": "Added support for importing custom fonts (ttf / otf / ttc) for text watermarks"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增水印预设：可保存常用配置并快速套用",
+          "en": "Added watermark presets for saving and reapplying common configurations"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "文字水印支持 {filename} 等占位符",
+          "en": "Text watermarks now support placeholders such as {filename}"
+        }
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-10-11",
+      "type": "MAJOR",
+      "title": {
+        "zh": "参数完善 · 导出设置",
+        "en": "More parameters · Export settings"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "文字水印支持字号、字体、加粗、斜体、描边、阴影、颜色",
+          "en": "Text watermarks gained size, font, bold, italic, stroke, shadow and colour"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "支持单个 / 平铺 / 对角线三种布局，可调旋转与透明度",
+          "en": "Added single, tiled and diagonal layouts with adjustable rotation and opacity"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "支持九宫格定位与边距调整",
+          "en": "Added 3×3 grid positioning with adjustable margins"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "图片水印：可选择 logo、调整大小与位置",
+          "en": "Image watermarks: pick a logo and adjust its size and position"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增导出设置：格式（PNG / JPEG）、质量、文件名模板、输出目录",
+          "en": "Added export settings: format (PNG / JPEG), quality, filename template and output folder"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "参数面板支持上下拖拽调整高度",
+          "en": "The parameter panel can be dragged up and down to resize"
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-10-11",
+      "type": "MAJOR",
+      "title": {
+        "zh": "首个版本",
+        "en": "First release"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "水印盒诞生：单张图片添加水印，实时预览",
+          "en": "WatermarkBox is born: add a watermark to a single image with live preview"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "支持文字水印与图片水印",
+          "en": "Supports text and image watermarks"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "导出到相册",
+          "en": "Exports to the gallery"
+        }
+      ]
+    }
+  ]
+}
