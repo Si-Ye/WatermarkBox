@@ -662,6 +662,42 @@ EOF
 > 同理：`grep_code` / `find_files` 等工具**不支持** `environment=linux`，
 > 在 ext4 上定位行号要用终端 `grep -n`。
 
+### 5.16 merge 被「未跟踪文件」拒绝：主仓库有同名未跟踪副本
+
+> ⚠️ **症状：`session.sh merge` 报 `Merge with strategy ort failed`，但「冲突文件」是空的**
+
+真实踩到（2026-10-14，入库 Rust 调研文档时）：
+
+```
+error: The following untracked working tree files would be overwritten by merge:
+	docs/rust-migration-feasibility.md
+Please move or remove them before you merge.
+Aborting
+Merge with strategy ort failed.
+```
+
+**根因**：待入库的文件在**主仓库里已存在一份未跟踪的副本**
+（例如之前被手动 `cp` 过去"等脱敏"）。git 合并要写入同一路径时，
+**拒绝覆盖未跟踪文件** → abort。
+
+**为什么有迷惑性**：
+
+- 脚本把它归为「合并冲突」，但 `git diff --name-only --diff-filter=U` 是**空的**
+  —— 因为根本不是内容冲突
+- 容易误判成「两个会话改了同一文件」
+
+**怎么处理**：
+
+1. 先确认那份未跟踪副本的内容（`diff` 比一下）
+2. 确认无害后**移走**（`mv` 到 `/tmp` 备份，别硬删）
+3. 重新 merge
+
+**怎么预防**：把「待入库文件」放进 **worktree**（`session.sh new` 后 cp 进去提交），
+不要往主仓库丢未跟踪副本 —— 那正是 merge 的绊脚石。
+
+> 🔧 `session.sh merge` 已加友好提示：合并失败且无内容冲突时，
+> 直接列出主仓库的未跟踪文件并指向本节。
+
 ---
 
 ## 6. 资源共享与冲突预案
