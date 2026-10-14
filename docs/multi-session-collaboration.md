@@ -340,6 +340,8 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
   - 性能：每帧**只画水印**（不再整块拷贝底图）→ 拖动跟手
   - 画质：预览改用**原图分辨率**（`PREVIEW_MAX_EDGE` 720 → 4096）
   - 回归修复：水印层 `clipRect` 到图片区域（否则溢出画到图片外）
+  - **渐进式加载**（§5.18.1）：先低清占位（720）→ 再高清替换（4096）——
+    解决「上原图分辨率后首屏变慢」；低清**不写缓存**、命中缓存时跳过占位
   - 顺带清理：删 `rememberRenderedPreview` / `PreviewRequest` /
     `sourceWidth`/`sourceHeight` 参数链（新架构 base == target，不再需要传参）；
     `PreviewRenderEngine` / `PreviewBuffers` **保留但预览不再使用**
@@ -775,6 +777,36 @@ pm install -r -d --user 0 /data/local/tmp/wmb.apk
 **副作用**：`sourceWidth` / `sourceHeight` 参数链（含 `queryImageSize` 调用）已删 ——
 新架构 base == target，scale 恒为 1，「预览所见 = 导出所得」是**结构上保证**的，
 不再依赖传参。`queryImageSize` 函数**保留**（通用工具 + 有测试覆盖）。
+
+#### 5.18.1 渐进式加载：先低清占位 → 再高清替换
+
+上原图分辨率后有个新代价：**首屏变慢**。
+一张 1200 万像素的图解码出来约 **48 MB**，再加 GPU 纹理上传，
+**要等几百毫秒** —— 这段时间界面上只有加载圈。
+
+所以分两步（**编辑页 + 批量页都做了**）：
+
+```
+① 先解 720 边（约 1.5 MB，几十毫秒）  → 立刻上屏，用户马上看到图
+② 后台解 4096 边（约 48 MB，几百毫秒）→ 完成后无缝替换
+```
+
+**三条取舍（别改错）**：
+
+| 取舍 | 理由 |
+|---|---|
+| **低清不写 LRU 缓存**（`cache = false`）| 它只是"先看一眼"的临时物；缓存它会把**高清挤出去**（容量只有 2 张），下一帧又得重解，**反而更慢** |
+| **高清已缓存 → 跳过占位**（`peekPreview` 命中）| 没必要先降级显示一遍 |
+| **替换后不 recycle 低清** | 它可能正被某一帧绘制（与 `LruCacheMap`「淘汰不 recycle」的取舍一致）|
+
+**相关常量 / 方法**：
+- `BitmapUtils.PREVIEW_PLACEHOLDER_MAX_EDGE = 720`（占位）
+- `BitmapUtils.PREVIEW_MAX_EDGE = 4096`（高清）
+- `ImageRepository.loadPreviewBitmap(uri, maxEdge, cache)`
+
+> ⚠️ 有一条测试钉住「**占位必须明显小于高清**」（`BitmapUtilsSampleSizeTest`）——
+> 若两者被调成相等，策略就退化成「解两遍同一张图」：
+> **白白多花一倍时间，而界面上看不出任何异常**。
 
 ## 6. 资源共享与冲突预案
 
