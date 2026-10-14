@@ -60,8 +60,55 @@ object InvisibleContentResolver {
         }
 
         val full = WatermarkPayload.TAG_PREFIX + body
-        // 超出负载上限时截断，保证「一定能嵌入」而不是静默失败
-        return full.takeIf { it.toByteArray(Charsets.UTF_8).size <= WatermarkPayload.MAX_DATA_BYTES }
+        // 超出负载上限时**按字符安全截断**，保证「一定能嵌入」而不是静默失败。
+        //
+        // ⚠️ 早期写的是 `takeIf { ... }` —— 那在超长时返回 **null**
+        // （等于"什么都不写"），与注释声称的"截断"**完全相反**：
+        // 用户输入超长内容时，EXIF 与 DCT 两条通道都静默不写。
+        // 现在真的截断，且**不切断多字节字符**（否则 UTF-8 会解出乱码）。
+        return truncateToBytes(full, WatermarkPayload.MAX_DATA_BYTES)
+    }
+
+    /**
+     * 按**字符**安全截断到不超过 [maxBytes] 个 UTF-8 字节。
+     *
+     * ## 为什么不能直接 `take(n)`
+     *
+     * `take(n)` 按**字符数**截，而负载上限是按**字节**算的 ——
+     * 一个汉字 3 字节，`take(255)` 可能产出 765 字节，照样超限。
+     *
+     * ## 为什么也不能直接按字节切
+     *
+     * 取前 N 个字节会把多字节字符**切成两半**，解码得到替换字符（`�`）
+     * —— 溯源信息就损坏了。
+     *
+     * 因此逐字符累加字节数，超出即停：宁可少几个字，也不产出乱码。
+     *
+     * 抽成 `internal` 纯函数便于单测（见 `InvisibleContentResolverTest`）。
+     */
+    internal fun truncateToBytes(s: String, maxBytes: Int): String {
+        if (s.toByteArray(Charsets.UTF_8).size <= maxBytes) return s
+        var used = 0
+        val sb = StringBuilder(s.length)
+        // ⚠️ 按**码点**遍历，不能按 `Char`（`for (c in s)`）。
+        //
+        // Kotlin 的 `String` 是 UTF-16：emoji 等增补平面字符由**两个**
+        // `Char`（代理对）组成。单独取其中一个 Char 去编码，会得到
+        // 一个**替换字符**（U+FFFD，3 字节）—— 于是：
+        //   · 字节数算错（4 字节的 emoji 被当成 3+3=6，或只 append 一半）
+        //   · 结果被切成半个字符 → 解码出乱码
+        // 按码点取（`codePointAt` + `Character.charCount`）则天然成对处理。
+        var i = 0
+        while (i < s.length) {
+            val cp = s.codePointAt(i)
+            val chars = Character.charCount(cp)
+            val n = String(Character.toChars(cp)).toByteArray(Charsets.UTF_8).size
+            if (used + n > maxBytes) break
+            used += n
+            sb.append(s, i, i + chars)
+            i += chars
+        }
+        return sb.toString()
     }
 
     /**
