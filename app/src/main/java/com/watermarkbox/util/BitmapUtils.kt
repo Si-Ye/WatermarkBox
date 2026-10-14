@@ -189,7 +189,17 @@ object BitmapUtils {
      * 但为了拿尺寸去解码整张原图显然荒谬 —— 用 `inJustDecodeBounds`
      * 只读文件头，开销可以忽略（几 KB 的读取）。
      *
-     * @return (width, height)；探测失败返回 null
+     * ## ⚠️ 返回值是「**旋正后**」的尺寸（契约，别退回 bounds 原值）
+     *
+     * 它必须与 [loadBitmap] / [loadFullResolution] 的产物处在**同一坐标系**
+     * —— 那两者都会经 [applyExifOrientation] 旋正，90°/270° 时行列互换。
+     *
+     * 早期直接返回 `bounds.out*`（文件原始尺寸），于是带 EXIF 旋转的
+     * 手机竖拍照片会出现「预览 baseWidth 与导出不同源」，水印视觉占比
+     * 相差约 1.33 倍。**只对竖拍照片发作、横图完全正常**，极难发现。
+     * 详细推演见函数体内的注释。
+     *
+     * @return (width, height)，**已按 EXIF 方向换算**；探测失败返回 null
      */
     fun queryImageSize(context: Context, uri: Uri): Pair<Int, Int>? {
         return try {

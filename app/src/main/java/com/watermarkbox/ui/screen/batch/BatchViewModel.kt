@@ -692,6 +692,11 @@ class BatchViewModel(application: Application) :
      *
      * 命中预览缓存时走这条路 —— 位图已经有了，但原图尺寸还不知道。
      * 只读文件头，开销可忽略。
+     *
+     * @param token 本轮的竞态令牌，**必须由调用方在切页时递增后传入**
+     *   （见 [newPreviewToken]）。早期这里自己读 `previewToken` 而不自增，
+     *   于是连续两次「缓存命中」切页共用同一个值 →
+     *   `token != previewToken` 恒为 false → 保护形同虚设。
      */
     private fun loadSourceSizeForCurrent(token: Int) {
         val uri = _uiState.value.previewUri ?: return
