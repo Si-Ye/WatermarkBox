@@ -192,8 +192,17 @@ data class ImageWatermarkStyle(
  * @param enabled    是否启用
  * @param content    水印内容（用户自定义）
  * @param source     内容来源：自定义 / 设备 ID+时间戳自动生成
- * @param strength   嵌入强度倍数（1~8）。1 = 最隐蔽，8 = 最顽固。
- *                   实际量化步长 = 该频点的 JPEG 量化步长 × 强度 × 4
+ * @param strength   嵌入强度倍数（**1~2**）。1 = 最隐蔽，2 = 更顽固。
+ *                   实际量化步长 = 该频点的 JPEG 量化步长 × 6 × 强度
+ *                   （另有 MAX_STEP=60 硬上限封顶）。
+ *
+ *                   ## 为什么只有两档
+ *
+ *                   3、4 档在数学上会被 MAX_STEP 吃掉：对多数频点
+ *                   （JPEG 量化步长 ≥ 10），1~4 档算出的步长全部被压到 60，
+ *                   **完全等价** —— 给用户两档无效选择只会造成困惑。
+ *                   且实测（见 `Dct.kt`）步长更大时提取成功率**反而下降**，
+ *                   所以"更顽固"并非"更好"。
  */
 @Serializable
 data class InvisibleWatermarkConfig(

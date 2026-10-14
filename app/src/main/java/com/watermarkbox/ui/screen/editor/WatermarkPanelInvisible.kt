@@ -111,7 +111,10 @@ internal fun InvisibleWatermarkSection(
         label = stringResource(R.string.editor_invisible_strength),
         value = config.strength.toFloat(),
         onValueChange = { viewModel.updateInvisibleStrength(it.roundToInt()) },
-        valueRange = 1f..4f,
+        // 只保留 1~2 两档：3、4 档在数学上会被 MAX_STEP 封顶吃掉，
+        // 与 1、2 档**完全等价**（详见 WatermarkConfig.strength 的说明）。
+        valueRange = 1f..2f,
+        steps = 1,
         valueText = stringResource(R.string.editor_invisible_strength_value, config.strength),
         hint = stringResource(R.string.editor_invisible_strength_hint)
     )

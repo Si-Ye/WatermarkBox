@@ -646,9 +646,9 @@ class EditorViewModel(application: Application) :
     /** 切换内容来源（自定义 / 设备ID+时间戳）。 */
     override fun updateInvisibleSource(source: InvisibleSource) = updateInvisible { copy(source = source) }
 
-    /** 更新嵌入强度倍数（1~4）。步长本身另有 MAX_STEP 硬上限兜底。 */
+    /** 更新嵌入强度倍数（1~2）。3、4 档会被 MAX_STEP 封顶吃掉、与 1~2 等价，故不提供。 */
     override fun updateInvisibleStrength(strength: Int) =
-        updateInvisible { copy(strength = strength.coerceIn(1, 4)) }
+        updateInvisible { copy(strength = strength.coerceIn(1, 2)) }
 
     /** 是否启用 EXIF 通道（零画质代价，但不抗压缩）。 */
     override fun toggleInvisibleExif() = updateInvisible { copy(exifEnabled = !exifEnabled) }

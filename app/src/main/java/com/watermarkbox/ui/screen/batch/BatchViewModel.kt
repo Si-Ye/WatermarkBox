@@ -916,7 +916,7 @@ class BatchViewModel(application: Application) :
         updateInvisible { copy(source = source) }
 
     override fun updateInvisibleStrength(strength: Int) =
-        updateInvisible { copy(strength = strength.coerceIn(1, 4)) }
+        updateInvisible { copy(strength = strength.coerceIn(1, 2)) }
 
     override fun toggleInvisibleExif() = updateInvisible { copy(exifEnabled = !exifEnabled) }
 

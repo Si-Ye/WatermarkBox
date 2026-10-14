@@ -452,6 +452,10 @@ class InvisibleWatermarkInstrumentedTest {
         // 由于 adaptiveStrength 有 MAX_STEP=60 硬上限兜底，
         // 即使 strengthScale 很大也不会产生过大的像素改动，
         // 因此 1~4 都能自洽提取。
+        //
+        // 注意：这是**引擎层**能力测试。UI 只暴露 1~2 档
+        // （3、4 档在多数频点上被 MAX_STEP 压成与 1~2 相同的步长，
+        // 给用户无效选项只会造成困惑）—— 引擎本身仍接受任意 scale。
         for (scale in listOf(1f, 2f, 4f)) {
             val e = InvisibleWatermarkEngine(scale)
             val src = makeTestBitmap()
