@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
@@ -559,27 +560,41 @@ private fun DrawScope.drawWatermarkLayer(
     val left = (size.width - drawW) / 2f
     val top = (size.height - drawH) / 2f
 
-    // 把画布坐标系映射成「原图坐标系」——
-    // 于是下面可以直接用原图尺寸作为基准（base == target，scale = 1）
-    withTransform({
-        translate(left, top)
-        scale(fitScale, fitScale, pivot = Offset.Zero)
-    }) {
-        drawIntoCanvas { canvas ->
-            val ctx = WatermarkRenderer.RenderContext(
-                baseWidth = bitmap.width,
-                baseHeight = bitmap.height,
-                targetWidth = bitmap.width,
-                targetHeight = bitmap.height
-            )
-            when (watermarkType) {
-                WatermarkType.TEXT ->
-                    renderer.drawInto(canvas.nativeCanvas, textConfig, sourceFileName, ctx)
+    // ⚠️ **裁剪到图片区域** —— 必须与导出的行为一致。
+    //
+    // ## 为什么需要它（新架构引入的回归）
+    //
+    // 导出时水印画在与图片**同尺寸**的位图上，超出边界的部分被位图边界
+    // **自然裁掉**。而这里画在 Compose 的 Canvas 上，它的尺寸是**容器**
+    // —— Fit 缩放后图片四周还有留白，不裁剪的话水印会溢出到留白区。
+    //
+    // 表现：把单个水印拖到边缘、或平铺/对角线的边缘格子，
+    // 会有一截画到图片外面（黑底上）。
+    //
+    // 裁剪矩形就是上面算出的「图片实际绘制矩形」。
+    clipRect(left = left, top = top, right = left + drawW, bottom = top + drawH) {
+        // 把画布坐标系映射成「原图坐标系」——
+        // 于是下面可以直接用原图尺寸作为基准（base == target，scale = 1）
+        withTransform({
+            translate(left, top)
+            scale(fitScale, fitScale, pivot = Offset.Zero)
+        }) {
+            drawIntoCanvas { canvas ->
+                val ctx = WatermarkRenderer.RenderContext(
+                    baseWidth = bitmap.width,
+                    baseHeight = bitmap.height,
+                    targetWidth = bitmap.width,
+                    targetHeight = bitmap.height
+                )
+                when (watermarkType) {
+                    WatermarkType.TEXT ->
+                        renderer.drawInto(canvas.nativeCanvas, textConfig, sourceFileName, ctx)
 
-                WatermarkType.IMAGE -> {
-                    val logo = logoBitmap
-                    if (logo != null && !logo.isRecycled) {
-                        renderer.drawImageInto(canvas.nativeCanvas, logo, imageConfig, ctx)
+                    WatermarkType.IMAGE -> {
+                        val logo = logoBitmap
+                        if (logo != null && !logo.isRecycled) {
+                            renderer.drawImageInto(canvas.nativeCanvas, logo, imageConfig, ctx)
+                        }
                     }
                 }
             }
