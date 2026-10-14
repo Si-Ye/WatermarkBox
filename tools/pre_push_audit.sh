@@ -275,8 +275,14 @@ scan_content "无通用密钥字段赋值" \
 # ===========================================================================
 head_ "[3/5] 本机路径与内网地址"
 # ===========================================================================
+# ⚠️ 注意：`/data/local/tmp/`、`/sdcard/`、`/storage/` 是 **Android 通用路径**
+# （任何设备都一样），不泄露「本机环境结构」—— 因此**不在**拦截范围。
+#
+# 它们曾误伤过（2026-10-14）：`tools/install_debug.sh` 与协作文档 §5.17
+# 提到 `/data/local/tmp/` 就被这条规则拦下，而同一份脚本在 [4/5] 里
+# 又把 `/data/local/tmp/` 列为**白名单** —— 自相矛盾。
 scan_content "无类 Unix 本机绝对路径" \
-    '(/root/|/home/[a-z]|/Users/[A-Za-z]|/data/user/0/|/data/local/tmp/)' \
+    '(/root/|/home/[a-z]|/Users/[A-Za-z]|/data/user/0/)' \
     '示例|example|README|LICENSE'
 
 scan_content "无 Windows 本机路径" \

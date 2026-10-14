@@ -698,6 +698,36 @@ Merge with strategy ort failed.
 > 🔧 `session.sh merge` 已加友好提示：合并失败且无内容冲突时，
 > 直接列出主仓库的未跟踪文件并指向本节。
 
+### 5.17 装机：`pm install` 读不了 /sdcard（SELinux）
+
+> ⚠️ **症状：`pm install /sdcard/xxx.apk` 报 `Can't open file`，但文件明明存在**
+
+真实踩到（2026-10-14，装机验证 UI 改动时）：
+
+```
+avc: denied { read } for scontext=u:r:system_server:s0 tcontext=u:object_r:fuse:s0
+System server has no access to read file context u:object_r:fuse:s0
+Error: Unable to open file: /sdcard/.../WatermarkBox-2.1.1-debug.apk
+Consider using a file under /data/local/tmp/
+```
+
+**根因**：`pm install` 由 **system_server** 执行，而它**无权读 FUSE 挂载**（`/sdcard`）——
+这是 SELinux 策略，不是「权限没给够」。
+
+**正确做法**：先把 APK 放到 `/data/local/tmp/`（system_server 能读），再装：
+
+```sh
+# ① 复制过去（这步需要能读 /sdcard —— shell / root 可以）
+cp /sdcard/.../app-debug.apk /data/local/tmp/wmb.apk
+# ② 安装
+pm install -r -d --user 0 /data/local/tmp/wmb.apk
+```
+
+> ⚠️ **proot（Ubuntu 终端）访问不了 `/data/local/tmp`**（Permission denied）——
+> 所以「复制到 tmp」这一步要用 **shell 工具（Shizuku / Root）**，别在 proot 里试。
+
+**已固化**：`tools/install_debug.sh`（做 proot 段：校验包名 + 归档 + 打印待执行的 shell 命令）。
+
 ---
 
 ## 6. 资源共享与冲突预案
