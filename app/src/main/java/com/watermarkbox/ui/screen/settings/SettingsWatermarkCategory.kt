@@ -22,6 +22,7 @@ import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.watermark.WatermarkRenderer
 import kotlin.math.roundToInt
 
 /** 「水印」分类：决定新图片的默认水印长什么样。 */
@@ -70,7 +71,8 @@ internal fun WatermarkCategory(
         label = stringResource(R.string.settings_default_opacity_desc),
         value = settings.defaultAlpha,
         onValueChange = viewModel::updateDefaultAlpha,
-        valueRange = 0.01f..1f,
+        // 下限引用常量，理由同编辑页的透明度滑块
+        valueRange = WatermarkRenderer.MIN_ALPHA..1f,
         valueText = "${(settings.defaultAlpha * 100).roundToInt()}%"
     )
 

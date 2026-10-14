@@ -47,6 +47,7 @@ import com.watermarkbox.ui.component.ColorPalette
 import com.watermarkbox.ui.component.GravityGrid
 import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
+import com.watermarkbox.watermark.WatermarkRenderer
 import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ToggleRow
 import com.watermarkbox.ui.theme.Spacing
@@ -280,7 +281,10 @@ internal fun TextWatermarkPanelContent(
         label = stringResource(R.string.editor_layout_alpha),
         value = config.alpha,
         onValueChange = viewModel::updateAlpha,
-        valueRange = 0.01f..1f,
+        // ⚠️ 下限**必须引用** [WatermarkRenderer.MIN_ALPHA]，不要写死 0.01f ——
+        // 否则改常量时滑块不会跟着变，用户能拖到常量允许范围之外
+        // （拖到 0.01 却被 `coerceIn` 抬到 0.05，界面与实际不符）。
+        valueRange = WatermarkRenderer.MIN_ALPHA..1f,
         valueText = "${(config.alpha * 100).roundToInt()}%"
     )
 
@@ -502,7 +506,8 @@ internal fun ImageWatermarkPanelContent(
         label = stringResource(R.string.editor_layout_alpha),
         value = config.alpha,
         onValueChange = viewModel::updateImageAlpha,
-        valueRange = 0.01f..1f,
+        // 下限引用常量，理由同上方文字透明度滑块
+        valueRange = WatermarkRenderer.MIN_ALPHA..1f,
         valueText = "${(config.alpha * 100).roundToInt()}%"
     )
 

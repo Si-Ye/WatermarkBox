@@ -387,7 +387,7 @@
     <string name="editor_invisible_source_device">Device ID + time</string>
     <string name="editor_invisible_content">Watermark content</string>
     <string name="editor_invisible_content_placeholder">e.g. © 2026 Your Studio</string>
-    <string name="editor_invisible_content_limit">Up to 255 bytes</string>
+    <string name="editor_invisible_content_limit">Up to %1$d bytes (about %2$d characters)</string>
     <string name="editor_invisible_auto_hint">Writes "device ID + export time" automatically, formatted as WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss</string>
     <string name="editor_invisible_strength">Embedding strength</string>
     <string name="editor_invisible_strength_hint">Higher strength survives more compression, but changes more pixels (1 × is subtlest, 2 × is more stubborn)</string>

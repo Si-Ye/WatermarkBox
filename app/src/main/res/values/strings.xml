@@ -394,7 +394,7 @@
     <string name="editor_invisible_source_device">设备ID+时间戳</string>
     <string name="editor_invisible_content">水印内容</string>
     <string name="editor_invisible_content_placeholder">例如：© 2026 某某工作室</string>
-    <string name="editor_invisible_content_limit">最多 255 字节（约 85 个汉字）</string>
+    <string name="editor_invisible_content_limit">最多 %1$d 字节（约 %2$d 个汉字）</string>
     <string name="editor_invisible_auto_hint">将自动写入「设备短 ID + 导出时间」，格式：WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss</string>
     <string name="editor_invisible_strength">嵌入强度</string>
     <string name="editor_invisible_strength_hint">强度越高越抗压缩，但对像素的改动也越大（1 × 最隐蔽，2 × 更顽固）</string>
