@@ -102,11 +102,22 @@ fun deviceShortId(context: Context): String {
      * 保证同样的输入永远得到同样的输出（跨版本、跨进程一致）。
      */
     private fun stableHash(input: String): Int {
-        var hash = -0x7ee3623b // FNV offset basis (32bit)
+        // FNV-1a 32 位。
+        //
+        // 常量用**标准十六进制**而非负数：`0x811C9DC5` 与旧写法 `-0x7ee3623b`
+        // 在 32 位补码下**数值等价**（行为完全不变），但前者能一眼对上 FNV 规范，
+        // 后者要读者自己换算 —— 可读性差，还容易被误当成"特殊魔数"。
+        var hash = FNV_OFFSET_BASIS
         for (b in input.toByteArray(Charsets.UTF_8)) {
             hash = hash xor (b.toInt() and 0xFF)
-            hash *= 0x01000193
+            hash *= FNV_PRIME
         }
         return hash
     }
+
+    /** FNV-1a 32 位偏移基（标准值 `0x811C9DC5`）。 */
+    private const val FNV_OFFSET_BASIS: Int = 0x811C9DC5.toInt()
+
+    /** FNV-1a 32 位质数（标准值 `0x01000193`）。 */
+    private const val FNV_PRIME: Int = 0x01000193
 }
