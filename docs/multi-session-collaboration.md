@@ -128,13 +128,14 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 | 项 | 值 |
 |---|---|
-| 本地 HEAD | 见 `git log`（本轮为 `ac812bb` 代码修复 + 紧随其后的文档提交）|
-| 远端 | `origin/main`（= `b1a254e`，tag `v2.1.0`）|
-| **ahead** | **2（未推送）** |
-| 单测基线 | **416 个用例，全绿** |
-| lint | 0 错误（6 条 baseline + 1 条既有 warning）|
+| **发版流程** | **`docs/RELEASE_PROCESS.md`（发版必须照它做）** |
+| 本地 HEAD | 见 `git log`（本轮为 `6e7848b` 功能提交 + 紧随其后的文档提交）|
+| 远端 | `origin/main`（与本轮推送同步）|
+| **ahead** | **0（已同步）** |
+| 单测基线 | **433 个用例，全绿** |
+| lint | 0 错误（6 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
-| 版本 | 2.1.0 (versionCode 12) |
+| 版本 | 2.1.1 (versionCode 13) |
 
 **更新约定**：任何会话在一轮工作结束时，如果 HEAD 变了，
 **顺手更新上表的 HEAD 与 ahead**（一行的事，但对下一个人很关键）。
@@ -526,6 +527,21 @@ git log --oneline --since='2 hours ago'
 > 格式：时间 + 会话干了什么 + 留下什么未决。
 
 ```
+[2026-10-14 00:07] 更新说明改为在线获取 + 发布流程文档 + 发布 2.1.1
+  - 提交 6e7848b，**已推送**（ahead 0），tag `v2.1.1` 已推
+  - 新增 docs/changelog.json（14 个版本）—— 应用从 GitHub 拉取更新说明
+  - 新增 docs/RELEASE_PROCESS.md —— **发版唯一依据**，命令均已实测
+  - 新增 tools/check_release_consistency.py —— CI 三方校验版本号，
+    漏写更新说明会让构建失败（这是 2.1.0 漏写的根治措施）
+  - ChangelogScreen 改为三级回退：网络 → 本地缓存 → 内置快照
+  - 收录了 code-review-2026-10.md（另一会话的审查报告）
+  - 三个新教训：
+      ① heredoc 在本项目终端会卡住 → 见 §5.11
+      ② 「反例」里也不能写真实本机路径（本节自己踩过）→ 见 §5.13
+      ③ 提交前先 grep 本机路径自检，比等钩子拦快一倍
+  - ⏳ 遗留：docs/rust-migration-feasibility.md 含本机路径**未入库**
+       （需脱敏后才能提交，见 §4 待办；文件完整留在工作区）
+
 [2026-10-13 23:50] 2.1.0 交付后审阅：补更新日志 + 修 2 处遗留缺陷
   - 提交 ac812bb，ahead 1，单测 416（411 → +5，新增 BitmapUtilsExifOrientationTest）
   - ① 2.1.0 发布漏了 ReleaseHistory（b1a254e 只动了 README 与 docs/releases/v2.1.0.md）
