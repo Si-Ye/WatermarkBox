@@ -584,7 +584,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="detect_field_error">Reason</string>
     <string name="detect_field_signature">Signature</string>
     <string name="detect_field_hint">Hint</string>
-    <string name="detect_signature_valid">Verified · issued by this app</string>
+    <string name="detect_signature_valid">Passed built-in key check</string>
     <string name="detect_signature_invalid">Invalid · possibly forged</string>
     <string name="detect_signature_unknown">Not verifiable (no signature, or from an older version)</string>
     <string name="detect_found_suspicious_title">Watermark found, but the signature is invalid</string>
@@ -648,7 +648,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="detect_option_rotation">4 rotations</string>
     <string name="detect_option_rotation_hint">Turning this off is about 4× faster, but rotated images will no longer be recognised.</string>
     <string name="detect_option_verify_sig">Verify sign.</string>
-    <string name="detect_option_verify_sig_hint">EXIF is plain text and carries no signature. Turn this on to re-check via the frequency channel so it can report "Verified".</string>
+    <string name="detect_option_verify_sig_hint">EXIF is plain text and carries no signature. Turn this on to re-check via the frequency channel and get a signature verdict (uses the built-in, source-visible key).</string>
 
     <string name="detect_error_skipped_dct">Frequency check is off in settings, and nothing was found in EXIF</string>
     <string name="detect_error_skipped_all">All detection channels are off in settings</string>
