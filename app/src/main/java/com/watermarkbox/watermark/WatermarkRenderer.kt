@@ -127,10 +127,71 @@ class WatermarkRenderer {
             targetWidth = source.width,
             targetHeight = source.height
         )
-        return when (config.layoutMode) {
-            LayoutMode.SINGLE -> renderSingle(source, config, sourceFileName, ctx)
-            LayoutMode.TILED -> renderTiled(source, config, sourceFileName, ctx, cancel)
-            LayoutMode.DIAGONAL -> renderDiagonal(source, config, sourceFileName, ctx, cancel)
+        val output = outputFor(source)
+        drawInto(Canvas(output), config, sourceFileName, ctx, cancel)
+        return output
+    }
+
+    /**
+     * **只把水印绘制到传入的 Canvas** —— 不创建位图、不碰底图。
+     *
+     * ## 为什么需要它（预览性能的关键）
+     *
+     * 旧路径 [render] 每次都要 `outputFor(source)`：**擦除 + 整块拷贝底图**，
+     * 成本与像素数成正比。文档实测 768×1024（78 万像素）就要 33.8ms ——
+     * 也就是说「按原图分辨率预览」需要约 **520ms/帧**，根本不可能跟手。
+     *
+     * 但拖动参数时**底图一个像素都没变**，变的只有水印。
+     * 所以预览改走这条路：
+     *
+     * ```
+     * Box {
+     *     Image(baseBitmap)          ← 底图：GPU 纹理，只上传一次，之后零拷贝
+     *     Canvas { drawInto(...) }   ← 水印：每帧只画水印（几十条绘制命令）
+     * }
+     * ```
+     *
+     * 两层由 Compose（GPU）合成 → **既省掉拷贝、又能上原图分辨率**。
+     *
+     * ## 坐标系约定（重要）
+     *
+     * 调用方负责把 Canvas 变换到「[ctx] 的 target 坐标系」——
+     * 预览侧用 `withTransform` 把画布映射成**原图坐标系**，
+     * 于是这里所有绘制逻辑（字号、边距、旋转、平铺）**一行都不用改**，
+     * 且与导出**天然一致**（同一个坐标系、同一套绘制代码）。
+     *
+     * ## 取消检查仍然有效
+     *
+     * [cancel] 照旧透传到平铺循环 —— 预览在 UI 线程绘制时，
+     * 参数每帧都在变，取消能让上一帧的循环尽早退出。
+     */
+    fun drawInto(
+        canvas: Canvas,
+        config: TextWatermarkStyle,
+        sourceFileName: String? = null,
+        ctx: RenderContext,
+        cancel: RenderCancelCheck = RenderCancelCheck.Never
+    ) {
+        when (config.layoutMode) {
+            LayoutMode.SINGLE -> drawSingle(canvas, config, sourceFileName, ctx)
+            LayoutMode.TILED -> drawTiled(canvas, config, sourceFileName, ctx, cancel)
+            LayoutMode.DIAGONAL -> drawDiagonal(canvas, config, sourceFileName, ctx, cancel)
+        }
+    }
+
+    /**
+     * **只把图片水印绘制到传入的 Canvas** —— 与 [drawInto] 同理，供预览用。
+     */
+    fun drawImageInto(
+        canvas: Canvas,
+        logo: Bitmap,
+        config: ImageWatermarkStyle,
+        ctx: RenderContext
+    ) {
+        when (config.layoutMode) {
+            LayoutMode.SINGLE -> drawImageSingle(canvas, logo, config, ctx)
+            LayoutMode.TILED -> drawImageTiled(canvas, logo, config, ctx)
+            LayoutMode.DIAGONAL -> drawImageDiagonal(canvas, logo, config, ctx)
         }
     }
 
@@ -216,8 +277,17 @@ class WatermarkRenderer {
         )
     ): Bitmap {
         val output = outputFor(source)
-        val canvas = Canvas(output)
+        drawSingle(Canvas(output), config, sourceFileName, ctx)
+        return output
+    }
 
+    /** 单个水印的**纯绘制**部分（不创建位图）—— 见 [drawInto]。 */
+    private fun drawSingle(
+        canvas: Canvas,
+        config: TextWatermarkStyle,
+        sourceFileName: String?,
+        ctx: RenderContext
+    ) {
         val paint = buildPaint(config, ctx)
         val text = resolveText(config, sourceFileName)
 
@@ -239,8 +309,8 @@ class WatermarkRenderer {
         val blockLeft: Float
         val topY: Float
         if (config.gravity == GravityPosition.CUSTOM) {
-            val cx = config.customX.coerceIn(0f, 1f) * output.width
-            val cy = config.customY.coerceIn(0f, 1f) * output.height
+            val cx = config.customX.coerceIn(0f, 1f) * ctx.targetWidth
+            val cy = config.customY.coerceIn(0f, 1f) * ctx.targetHeight
             blockLeft = cx - blockWidth / 2f
             topY = cy - blockHeight / 2f
         } else {
@@ -248,15 +318,15 @@ class WatermarkRenderer {
                 GravityPosition.TOP_LEFT, GravityPosition.CENTER_LEFT, GravityPosition.BOTTOM_LEFT ->
                     margin
                 GravityPosition.TOP_CENTER, GravityPosition.CENTER, GravityPosition.BOTTOM_CENTER ->
-                    (output.width - blockWidth) / 2f
-                else -> output.width - blockWidth - margin
+                    (ctx.targetWidth - blockWidth) / 2f
+                else -> ctx.targetWidth - blockWidth - margin
             }
             topY = when (config.gravity) {
                 GravityPosition.TOP_LEFT, GravityPosition.TOP_CENTER, GravityPosition.TOP_RIGHT ->
                     margin
                 GravityPosition.CENTER_LEFT, GravityPosition.CENTER, GravityPosition.CENTER_RIGHT ->
-                    (output.height - blockHeight) / 2f
-                else -> output.height - blockHeight - margin
+                    (ctx.targetHeight - blockHeight) / 2f
+                else -> ctx.targetHeight - blockHeight - margin
             }
         }
 
@@ -287,8 +357,6 @@ class WatermarkRenderer {
                 y += lineHeight
             }
         }
-
-        return output
     }
 
     // ---------------------------------------------------------------------
@@ -305,8 +373,18 @@ class WatermarkRenderer {
         cancel: RenderCancelCheck = RenderCancelCheck.Never
     ): Bitmap {
         val output = outputFor(source)
-        val canvas = Canvas(output)
+        drawTiled(Canvas(output), config, sourceFileName, ctx, cancel)
+        return output
+    }
 
+    /** 平铺模式的**纯绘制**部分（不创建位图）—— 见 [drawInto]。 */
+    private fun drawTiled(
+        canvas: Canvas,
+        config: TextWatermarkStyle,
+        sourceFileName: String?,
+        ctx: RenderContext,
+        cancel: RenderCancelCheck
+    ) {
         val paint = buildPaint(config, ctx)
         val text = resolveText(config, sourceFileName).replace("\n", " ")
         val textWidth = paint.measureText(text)
@@ -317,11 +395,11 @@ class WatermarkRenderer {
         // 数量越多 → 间距越小。这里用 count 在宽度上等分，得到 cellWidth，
         // 再通过纵横比（1.6）推导 cellHeight，保证视觉近似正方形网格。
         val count = config.tileCount.coerceIn(1, 20)
-        val cellWidth = output.width.toFloat() / count
+        val cellWidth = ctx.targetWidth.toFloat() / count
         val cellHeight = max(cellWidth / 1.6f, lineHeight * 1.4f)
 
-        val cols = ceil(output.width / cellWidth).toInt() + 1
-        val rows = ceil(output.height / cellHeight).toInt() + 1
+        val cols = ceil(ctx.targetWidth / cellWidth).toInt() + 1
+        val rows = ceil(ctx.targetHeight / cellHeight).toInt() + 1
 
         // ---- 旋转：逐字旋转（与「对角线」的整体旋转相反）----
         //
@@ -377,10 +455,7 @@ class WatermarkRenderer {
                 }
             }
         }
-
-        return output
     }
-
     // ---------------------------------------------------------------------
     // 模式三：对角线平铺（在平铺基础上叠加 45° 旋转）
     // ---------------------------------------------------------------------
@@ -395,8 +470,18 @@ class WatermarkRenderer {
         cancel: RenderCancelCheck = RenderCancelCheck.Never
     ): Bitmap {
         val output = outputFor(source)
-        val canvas = Canvas(output)
+        drawDiagonal(Canvas(output), config, sourceFileName, ctx, cancel)
+        return output
+    }
 
+    /** 对角线模式的**纯绘制**部分（不创建位图）—— 见 [drawInto]。 */
+    private fun drawDiagonal(
+        canvas: Canvas,
+        config: TextWatermarkStyle,
+        sourceFileName: String?,
+        ctx: RenderContext,
+        cancel: RenderCancelCheck
+    ) {
         val paint = buildPaint(config, ctx)
         val text = resolveText(config, sourceFileName).replace("\n", " ")
         val textWidth = paint.measureText(text)
@@ -412,7 +497,7 @@ class WatermarkRenderer {
         // 用**图片对角线长度**做密度基准：对角线上放 count 个水印。
         // 这样横图竖图密度观感一致（都按「最长方向」衡量）。
         val diagonal = kotlin.math.sqrt(
-            (output.width * output.width + output.height * output.height).toDouble()
+            (ctx.targetWidth * ctx.targetWidth + ctx.targetHeight * ctx.targetHeight).toDouble()
         ).toFloat()
         val step = diagonal / count
         val cellWidth = step
@@ -439,9 +524,9 @@ class WatermarkRenderer {
         //
         // 所以这里按**旋转后包围盒**的尺寸铺网格，再整体旋转坐标系。
         // 网格本身仍然轴对齐（在旋转坐标系里），但因为整体转了，视觉上就是斜纹。
-        val bounds = rotatedBounds(output.width.toFloat(), output.height.toFloat(), angle)
-        val originX = output.width / 2f
-        val originY = output.height / 2f
+        val bounds = rotatedBounds(ctx.targetWidth.toFloat(), ctx.targetHeight.toFloat(), angle)
+        val originX = ctx.targetWidth / 2f
+        val originY = ctx.targetHeight / 2f
 
         // 在旋转坐标系里，画布包围盒是 [originX + left, originX + left + width] × ...
         // 从包围盒左上角再外扩一格开始铺，保证四角都被覆盖。
@@ -465,8 +550,6 @@ class WatermarkRenderer {
                 }
             }
         }
-
-        return output
     }
 
     /** 旋转后矩形（相对中心）的包围盒，left/top 为负值表示在原矩形左/上方向。 */
@@ -592,11 +675,9 @@ class WatermarkRenderer {
             targetWidth = source.width,
             targetHeight = source.height
         )
-        return when (config.layoutMode) {
-            LayoutMode.SINGLE -> renderImageSingle(source, logo, config, ctx)
-            LayoutMode.TILED -> renderImageTiled(source, logo, config, ctx)
-            LayoutMode.DIAGONAL -> renderImageDiagonal(source, logo, config, ctx)
-        }
+        val output = outputFor(source)
+        drawImageInto(Canvas(output), logo, config, ctx)
+        return output
     }
 
     /** 计算 logo 的目标绘制尺寸（按宽度百分比 + 可选保持宽高比）。 */
@@ -631,14 +712,12 @@ class WatermarkRenderer {
         }
     }
 
-    private fun renderImageSingle(
-        source: Bitmap,
+    private fun drawImageSingle(
+        canvas: Canvas,
         logo: Bitmap,
         config: ImageWatermarkStyle,
         ctx: RenderContext
-    ): Bitmap {
-        val output = outputFor(source)
-        val canvas = Canvas(output)
+    ) {
         val paint = buildLogoPaint(config)
 
         val (w, h) = computeLogoSize(logo, config, ctx)
@@ -648,8 +727,8 @@ class WatermarkRenderer {
         val left: Float
         val top: Float
         if (config.gravity == GravityPosition.CUSTOM) {
-            val cx = config.customX.coerceIn(0f, 1f) * output.width
-            val cy = config.customY.coerceIn(0f, 1f) * output.height
+            val cx = config.customX.coerceIn(0f, 1f) * ctx.targetWidth
+            val cy = config.customY.coerceIn(0f, 1f) * ctx.targetHeight
             left = cx - w / 2f
             top = cy - h / 2f
         } else {
@@ -657,15 +736,15 @@ class WatermarkRenderer {
                 GravityPosition.TOP_LEFT, GravityPosition.CENTER_LEFT, GravityPosition.BOTTOM_LEFT ->
                     margin
                 GravityPosition.TOP_CENTER, GravityPosition.CENTER, GravityPosition.BOTTOM_CENTER ->
-                    (output.width - w) / 2f
-                else -> output.width - w - margin
+                    (ctx.targetWidth - w) / 2f
+                else -> ctx.targetWidth - w - margin
             }
             top = when (config.gravity) {
                 GravityPosition.TOP_LEFT, GravityPosition.TOP_CENTER, GravityPosition.TOP_RIGHT ->
                     margin
                 GravityPosition.CENTER_LEFT, GravityPosition.CENTER, GravityPosition.CENTER_RIGHT ->
-                    (output.height - h) / 2f
-                else -> output.height - h - margin
+                    (ctx.targetHeight - h) / 2f
+                else -> ctx.targetHeight - h - margin
             }
         }
 
@@ -676,26 +755,23 @@ class WatermarkRenderer {
         canvas.withRotation(config.rotationDegrees, left + w / 2f, top + h / 2f) {
             canvas.drawBitmap(logo, null, dst, paint)
         }
-        return output
     }
 
-    private fun renderImageTiled(
-        source: Bitmap,
+    private fun drawImageTiled(
+        canvas: Canvas,
         logo: Bitmap,
         config: ImageWatermarkStyle,
         ctx: RenderContext
-    ): Bitmap {
-        val output = outputFor(source)
-        val canvas = Canvas(output)
+    ) {
         val paint = buildLogoPaint(config)
 
         val (w, h) = computeLogoSize(logo, config, ctx)
         val count = config.tileCount.coerceIn(1, 20)
-        val cellWidth = output.width.toFloat() / count
+        val cellWidth = ctx.targetWidth.toFloat() / count
         val cellHeight = max(cellWidth / 1.6f, h * 1.4f)
 
-        val cols = ceil(output.width / cellWidth).toInt() + 1
-        val rows = ceil(output.height / cellHeight).toInt() + 1
+        val cols = ceil(ctx.targetWidth / cellWidth).toInt() + 1
+        val rows = ceil(ctx.targetHeight / cellHeight).toInt() + 1
 
         // 旋转：逐格旋转（与「对角线」的整体旋转相反，与文字平铺保持一致）
         val rotateEach = config.rotationDegrees
@@ -723,17 +799,14 @@ class WatermarkRenderer {
                 }
             }
         }
-        return output
     }
 
-    private fun renderImageDiagonal(
-        source: Bitmap,
+    private fun drawImageDiagonal(
+        canvas: Canvas,
         logo: Bitmap,
         config: ImageWatermarkStyle,
         ctx: RenderContext
-    ): Bitmap {
-        val output = outputFor(source)
-        val canvas = Canvas(output)
+    ) {
         val paint = buildLogoPaint(config)
 
         val (w, h) = computeLogoSize(logo, config, ctx)
@@ -743,7 +816,7 @@ class WatermarkRenderer {
 
         // 网格尺寸：对角线等分（与文字对角线一致）
         val diagonal = kotlin.math.sqrt(
-            (output.width * output.width + output.height * output.height).toDouble()
+            (ctx.targetWidth * ctx.targetWidth + ctx.targetHeight * ctx.targetHeight).toDouble()
         ).toFloat()
         val step = diagonal / count
         val cellWidth = step
@@ -751,9 +824,9 @@ class WatermarkRenderer {
 
         // 铺开方式：与文字对角线一致 —— 整体旋转坐标系，
         // 并按「旋转后包围盒」铺满网格。原因见 renderDiagonal 的踩坑记录。
-        val bounds = rotatedBounds(output.width.toFloat(), output.height.toFloat(), angle)
-        val originX = output.width / 2f
-        val originY = output.height / 2f
+        val bounds = rotatedBounds(ctx.targetWidth.toFloat(), ctx.targetHeight.toFloat(), angle)
+        val originX = ctx.targetWidth / 2f
+        val originY = ctx.targetHeight / 2f
 
         val startX = originX + bounds.left - cellWidth
         val startY = originY + bounds.top - cellHeight
@@ -774,7 +847,6 @@ class WatermarkRenderer {
                 }
             }
         }
-        return output
     }
 
     // ---------------------------------------------------------------------
