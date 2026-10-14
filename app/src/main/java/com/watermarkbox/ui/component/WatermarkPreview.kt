@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.component
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -32,7 +33,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -348,22 +353,18 @@ fun WatermarkPreview(
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
 
-    // ---- 核心：预览渲染结果（渲染在后台线程做，见 rememberRenderedPreview）----
-    val preview = rememberRenderedPreview(
-        bitmap = bitmap,
-        watermarkType = watermarkType,
-        textConfig = textConfig,
-        imageConfig = imageConfig,
-        logoBitmap = logoBitmap,
-        sourceFileName = sourceFileName,
-        enabled = enabled,
-        // 原图尺寸：让预览的渲染 scale 与导出一致（见该参数文档）
-        sourceWidth = sourceWidth,
-        sourceHeight = sourceHeight
-    )
-    // 取出来当局部值：下面的 when 与手势换算都要用，
-    // 也顺带保住了「非空分支里渲染位图必然非空」的智能转换
-    val renderedBitmap = preview.bitmap
+    // ---- 核心：水印渲染器 ----
+    //
+    // ⚠️ 这里**不再**走 rememberRenderedPreview —— 那会把「底图 + 水印」
+    // 合成到**一张新位图**，每帧都要整块拷贝底图：720 边约 17ms，
+    // 原图分辨率下要 500ms+，根本没法跟手。
+    //
+    // 现在分两层，由 Compose（GPU）合成：
+    //   层 1  Image(baseBitmap)    —— GPU 纹理，只上传一次，之后零拷贝
+    //   层 2  Canvas { drawInto }  —— 每帧只画水印（几十条绘制命令）
+    //
+    // 于是**既能上原图分辨率、又跟手**。详见 WatermarkRenderer.drawInto。
+    val renderer = remember { WatermarkRenderer() }
 
     // ---- 拖动水印：只在「单个模式」且提供回调时启用 ----
     //
@@ -409,14 +410,8 @@ fun WatermarkPreview(
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
             }
 
-            // 首次渲染还没算出来 → 也是加载圈。
-            // ⚠️ 只有「一张结果都还没有」时才这样：已经有上一帧结果时
-            // 继续显示它（走下面的 else），否则每次重渲染都会闪一下圈
-            renderedBitmap == null && preview.isRendering -> {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
-            }
-
-            renderedBitmap == null -> {
+            // 没有底图 → 占位提示
+            bitmap == null -> {
                 Text(
                     text = stringResource(R.string.preview_no_image),
                     color = Color.White.copy(alpha = 0.7f),
@@ -425,17 +420,16 @@ fun WatermarkPreview(
             }
 
             else -> {
-                // ⚠️ 关键：这里不能套 Column 或任何会「包裹内容」的容器。
-                // 必须让 Image 直接 fillMaxSize()，这样 ContentScale.Fit
+                // ⚠️ 关键：外层 Box 不能套 Column 或任何会「包裹内容」的容器。
+                // 里面的 Image 必须直接 fillMaxSize()，这样 ContentScale.Fit
                 // 才会同时受限于【父容器的高度】—— 从而在父容器变矮时真实缩小。
                 //
                 // 历史 Bug：原先套了 Column（默认 wrapContentHeight），
                 // Image 的高度约束被解开，Fit 只按宽度撑满 →
                 // 拖面板时图片尺寸完全不变。
-                Image(
-                    bitmap = renderedBitmap.asImageBitmap(),
-                    contentDescription = stringResource(R.string.preview_desc),
-                    contentScale = ContentScale.Fit,
+                //
+                // 两层：底图（GPU 纹理，零拷贝）+ 水印（每帧重绘，只画水印）。
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(8.dp)
@@ -469,13 +463,35 @@ fun WatermarkPreview(
                                     // 拖动水印：**放在图片平移之后**，
                                     // 这样只有在 scale≈1（没有平移缩放）时才会真正响应
                                     // —— 那时用户显然是在拖水印，不是在拖图片。
-                                    .watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback)
+                                    .watermarkDragModifier(dragEnabled, bitmap, containerSize, dragCallback)
                             } else {
                                 Modifier
-                                    .watermarkDragModifier(dragEnabled, renderedBitmap, containerSize, dragCallback)
+                                    .watermarkDragModifier(dragEnabled, bitmap, containerSize, dragCallback)
                             }
                         )
-                )
+                ) {
+                    // 层 1：底图（原图分辨率，GPU 纹理只上传一次）
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = stringResource(R.string.preview_desc),
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    // 层 2：水印（enabled=false 的页看不到，跳过绘制）
+                    if (enabled) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawWatermarkLayer(
+                                renderer = renderer,
+                                bitmap = bitmap,
+                                watermarkType = watermarkType,
+                                textConfig = textConfig,
+                                imageConfig = imageConfig,
+                                logoBitmap = logoBitmap,
+                                sourceFileName = sourceFileName
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -493,6 +509,78 @@ fun WatermarkPreview(
                         style = MaterialTheme.typography.labelSmall
                     )
                     Spacer(Modifier.height(2.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 在 Compose 的 [DrawScope] 上绘制**水印层**。
+ *
+ * ## 为什么是「一层」而不是「合成后的整图」
+ *
+ * 底图由 Compose `Image` 单独绘制（GPU 纹理，零拷贝）。
+ * 这里只画水印 —— 每帧几十条绘制命令，与图片像素数**无关**。
+ * 两者由 GPU 合成，于是**原图分辨率也能跟手**。
+ *
+ * ## 坐标映射（关键）
+ *
+ * 底图用 `ContentScale.Fit` 绘制：等比缩放到刚好放进容器、居中。
+ * 水印必须落在**同一位置**，所以先按 Fit 规则算出实际绘制矩形，
+ * 再用 `withTransform` 把画布坐标系**变成「原图坐标系」**。
+ *
+ * 变换之后，[WatermarkRenderer] 里所有绘制逻辑（字号、边距、旋转、平铺）
+ * **一行都不用改**，且与导出**天然一致**（同一个坐标系、同一套代码）。
+ *
+ * ## 与拖动手势的关系
+ *
+ * 拖动回调给出的归一化坐标（0~1，相对图片）由 `normalizeToImageSpace`
+ * 算出 —— 它用的是同一套 Fit 换算，因此「拖到哪、水印就画到哪」。
+ */
+private fun DrawScope.drawWatermarkLayer(
+    renderer: WatermarkRenderer,
+    bitmap: Bitmap,
+    watermarkType: WatermarkType,
+    textConfig: TextWatermarkStyle,
+    imageConfig: ImageWatermarkStyle,
+    logoBitmap: Bitmap?,
+    sourceFileName: String?
+) {
+    val bw = bitmap.width.toFloat()
+    val bh = bitmap.height.toFloat()
+    if (bw <= 0f || bh <= 0f) return
+
+    // ContentScale.Fit：等比缩放到刚好放进容器，然后居中
+    val fitScale = minOf(size.width / bw, size.height / bh)
+    if (fitScale <= 0f) return
+    val drawW = bw * fitScale
+    val drawH = bh * fitScale
+    val left = (size.width - drawW) / 2f
+    val top = (size.height - drawH) / 2f
+
+    // 把画布坐标系映射成「原图坐标系」——
+    // 于是下面可以直接用原图尺寸作为基准（base == target，scale = 1）
+    withTransform({
+        translate(left, top)
+        scale(fitScale, fitScale, pivot = Offset.Zero)
+    }) {
+        drawIntoCanvas { canvas ->
+            val ctx = WatermarkRenderer.RenderContext(
+                baseWidth = bitmap.width,
+                baseHeight = bitmap.height,
+                targetWidth = bitmap.width,
+                targetHeight = bitmap.height
+            )
+            when (watermarkType) {
+                WatermarkType.TEXT ->
+                    renderer.drawInto(canvas.nativeCanvas, textConfig, sourceFileName, ctx)
+
+                WatermarkType.IMAGE -> {
+                    val logo = logoBitmap
+                    if (logo != null && !logo.isRecycled) {
+                        renderer.drawImageInto(canvas.nativeCanvas, logo, imageConfig, ctx)
+                    }
                 }
             }
         }

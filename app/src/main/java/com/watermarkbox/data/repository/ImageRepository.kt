@@ -150,7 +150,17 @@ class ImageRepository(private val context: Context) {
     }
 
     private companion object {
-        /** 预览缓存容量（推导见 [previewCache] 的说明）。 */
-        const val PREVIEW_CACHE_CAPACITY = 3
+        /**
+         * 预览缓存容量。
+         *
+         * ## 为什么从 3 降到 2
+         *
+         * 预览底图现在是**原图分辨率**（见 [BitmapUtils.PREVIEW_MAX_EDGE]）：
+         * 一张 1200 万像素的图约 **48 MB** —— 3 张就是 144 MB，太重。
+         *
+         * 降到 2（当前页 + 相邻一张）后约 96 MB，仍能保证
+         * 「滑到隔壁看一眼」是瞬时的（批量页最常用的动作）。
+         */
+        const val PREVIEW_CACHE_CAPACITY = 2
     }
 }
