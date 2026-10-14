@@ -390,7 +390,7 @@
     <string name="editor_invisible_content_limit">Up to 255 bytes</string>
     <string name="editor_invisible_auto_hint">Writes "device ID + export time" automatically, formatted as WMB1:DEV:XXXXXXXX:yyyyMMddHHmmss</string>
     <string name="editor_invisible_strength">Embedding strength</string>
-    <string name="editor_invisible_strength_hint">Higher strength survives more compression, but changes more pixels (1 × is subtlest, 4 × is the most stubborn)</string>
+    <string name="editor_invisible_strength_hint">Higher strength survives more compression, but changes more pixels (1 × is subtlest, 2 × is more stubborn)</string>
     <string name="editor_invisible_channels">Write channels (independent — combine freely)</string>
     <string name="editor_invisible_exif">EXIF metadata</string>
     <string name="editor_invisible_exif_pro">Completely lossless — not a single pixel changes</string>
