@@ -324,7 +324,6 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 
 | 任务 | 阻塞点 |
 |---|---|
-| **`docs/rust-migration-feasibility.md` 待脱敏** | 内含**本机绝对路径**，**pre-commit 钩子会拦**。需改成占位符（如 `$ANDROID_HOME`）后才能入库。该文档由其他会话产出，**未越权改写**，故本次提交时排除了它 —— 文件仍完整留在工作区。见 §5.13 |
 | README 截图 | 等人类提供真机截图 |
 | Baseline Profile | 收益评估偏小，优先级低 |
 | **推送本地提交** | **必须等人类明示** |
@@ -335,6 +334,8 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
 
+- **（本轮）`docs/rust-migration-feasibility.md` 已脱敏并入库**
+  （提交 `33d4c41`，由其他会话完成；本机路径已换成 `$ANDROID_HOME` 等占位符）
 - **（本轮）预览架构重构：底图/水印分离 + GPU 合成**（详见 §5.18）
   - 性能：每帧**只画水印**（不再整块拷贝底图）→ 拖动跟手
   - 画质：预览改用**原图分辨率**（`PREVIEW_MAX_EDGE` 720 → 4096）
