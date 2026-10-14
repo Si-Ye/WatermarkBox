@@ -40,7 +40,20 @@ SOURCE="$2"
 [ -z "$MSG_FILE" ] && exit 0
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-STATE="$ROOT/.git/collab-session"
+cd "$ROOT" || exit 0
+
+# 用 `--git-dir` 而不是 `$ROOT/.git`：
+#
+#   主仓库里       → `.git`
+#   worktree 里    → `<主仓库>/.git/worktrees/<名字>`（**worktree 专属**）
+#
+# 好处有两个：
+#   1. worktree 里 `.git` 是个**文件**（指向主仓库），
+#      `"$ROOT/.git/collab-session"` 会写失败（静默）→ 时间戳不准。
+#   2. 每个 worktree 有**自己的**会话状态 —— 这符合直觉：
+#      一个 worktree 就是一次独立的会话工作。
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null) || exit 0
+STATE="$GIT_DIR/collab-session"
 
 now=$(date +%s)
 start=""
