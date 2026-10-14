@@ -19,32 +19,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 一次预览渲染请求 —— 渲染所需参数的**快照**。
- *
- * 用 `data class` 是为了让 `StateFlow` 自动去重：
- * 参数没变（`equals` 相等）就不会重复渲染，这在
- * 「拖动面板导致重组、但水印参数没变」时能省下整轮渲染。
- */
-data class PreviewRequest(
-    val source: Bitmap,
-    val watermarkType: WatermarkType,
-    val textConfig: TextWatermarkStyle,
-    val imageConfig: ImageWatermarkStyle,
-    val logoBitmap: Bitmap?,
-    val sourceFileName: String?,
-    /**
-     * **原图**宽高（不是 [source] 的宽高）。
-     *
-     * 参与 `data class` 的 equals —— 换图（原图尺寸变了）时必须
-     * 触发新一轮渲染，否则 scale 还是旧的。
-     *
-     * 详见 [PreviewRenderer.render] 的 `sourceBaseWidth` 说明。
-     */
-    val baseWidth: Int = 0,
-    val baseHeight: Int = 0
-)
-
-/**
  * 「本次渲染是否已被取消」的查询口。
  *
  * ## 为什么必须显式传这个，而不是靠协程自动取消
@@ -121,7 +95,7 @@ fun interface RenderCancelCheck {
  *
  * 单元测试跑在 JVM 上，构造不了 `android.graphics.Bitmap`。
  * 泛型化之后，测试可以用 `String` 驱动整套逻辑（合并请求、发布结果、
- * 渲染标志位），而生产侧照样传 `PreviewRequest` 与 `Bitmap`。
+ * 渲染标志位），而生产侧照样传真实的请求对象与 `Bitmap`。
  *
  * @param render 真正的渲染动作。抽成参数既是为了可测，
  *        也是为了让本类不依赖 [PreviewRenderer] 的具体写法定型。

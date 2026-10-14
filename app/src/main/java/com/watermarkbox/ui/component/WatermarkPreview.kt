@@ -51,185 +51,7 @@ import com.watermarkbox.data.model.ImageWatermarkStyle
 import com.watermarkbox.data.model.LayoutMode
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkType
-import com.watermarkbox.watermark.PreviewBuffers
-import com.watermarkbox.watermark.PreviewRenderEngine
-import com.watermarkbox.watermark.PreviewRenderer
-import com.watermarkbox.watermark.PreviewRequest
 import com.watermarkbox.watermark.WatermarkRenderer
-
-/**
- * 预览渲染结果：位图 + 是否还在渲染。
- *
- * 把「还在渲染」一并带出来，是为了让 UI 区分「还没算出来」与
- * 「这张图没有内容」—— 否则首次渲染时会先闪一下「请选择图片」占位。
- */
-data class RenderedPreview(
-    val bitmap: Bitmap?,
-    val isRendering: Boolean
-)
-
-/**
- * 派生「预览渲染结果」的公共 Composable 帮助函数。
- *
- * ## 渲染不再发生在主线程
- *
- * 早期版本是 `derivedStateOf { PreviewRenderer.render(...) }` ——
- * `derivedStateOf` 的值在**组合阶段被读取时同步计算**，也就是卡在帧里。
- * 现在把请求交给 [PreviewRenderEngine]：渲染在后台线程做，
- * 结果经 `StateFlow` 回到 UI。UI 线程不再承担渲染成本，
- * 拖滑杆 / 拖水印时不会因为「这一帧要算图」而掉帧。
- *
- * ## 为什么用 LaunchedEffect 提交请求
- *
- * 参数（配置 / 位图）变化就提交一次；引擎侧会合并请求并且只认最新一次，
- * 所以拖滑块时不会在后台堆一串**已经过时**的渲染任务。
- *
- * ## `renderer` 为什么必须 `remember`
- *
- * 渲染器内部有 Paint 池与 Typeface 缓存，跨渲染复用才有意义；
- * 每次重组新建一个等于把缓存全丢掉。
- *
- * 本函数被 [WatermarkPreview] 与自动化测试共同调用，
- * 保证「测试覆盖的代码路径」= 「线上运行的代码路径」。
- */
-@Composable
-fun rememberRenderedPreview(
-    bitmap: Bitmap?,
-    watermarkType: WatermarkType,
-    textConfig: TextWatermarkStyle,
-    imageConfig: ImageWatermarkStyle,
-    logoBitmap: Bitmap?,
-    sourceFileName: String?,
-    renderer: WatermarkRenderer = remember { WatermarkRenderer() },
-    /**
-     * 是否参与渲染（默认 true）。
-     *
-     * 传 `false` 时不分配缓冲池、不建引擎、不提交渲染 ——
-     * 直接原样返回源位图。用于 `HorizontalPager` 里**非当前页**的预览：
-     * 那些实例看不到（或只是短暂经过），为它们渲染纯属浪费 CPU/内存，
-     * 还会抢走当前页的渲染资源导致「预览不实时」。
-     *
-     * 详见 [WatermarkPreview] 的 `enabled` 参数说明。
-     */
-    enabled: Boolean = true,
-    /**
-     * **原图**宽高，用于让预览的渲染 scale 与导出保持一致。
-     * 传 0 表示不知道（退回旧行为，scale = 1）。
-     * 详见 [WatermarkPreview] 的 `sourceWidth` 参数说明。
-     */
-    sourceWidth: Int = 0,
-    sourceHeight: Int = 0
-): RenderedPreview {
-    val scope = rememberCoroutineScope()
-
-    // 双缓冲。
-    //
-    // **历史上这里曾是 3 块**：当时怀疑 `published` 只记一块不够，
-    // 加一块留出更宽的保护窗口。但真正的频闪根因**不在缓冲数量**，
-    // 而在「多个渲染并发写同一批缓冲」—— 那由 `RenderCancelCheck`
-    // 从根上解决了（见 PreviewRenderEngine 的说明）。
-    //
-    // 实测：本机（15GB RAM）已用满并大量使用 Swap，
-    // 位图页被换出后每次访问要 20ms+。
-    // **每多一块缓冲就多一份被换出的压力**，
-    // 因此在渲染已串行的前提下，2 块足够且更省内存。
-    //
-    // 2 块的正确性由 PreviewBuffers 的保护窗口保证：
-    // acquire 时避开「最近发布过的」（窗口 = slotCount - 1 = 1 块），
-    // 即严格交替 A → B → A → B，UI 落后一帧也不会被覆写。
-    val buffers = remember { PreviewBuffers(slotCount = 2) }
-    val engine = remember(scope, renderer) {
-        PreviewRenderEngine<PreviewRequest, Bitmap>(
-            scope = scope,
-            render = { request, cancel ->
-                // ⚠️ 关键：这里**必须**用 try/finally 把 reuseTarget 摘掉。
-                //
-                // 渲染会被 collectLatest 取消（拖滑块时每帧都取消上一次）。
-                // 若取消发生在「设置 reuseTarget」与「画完」之间，
-                // 且没有 finally，那么 reuseTarget 会**一直挂着那块缓冲** ——
-                // 下一次 acquire 时，缓冲池以为它空闲，就把它分给别人写，
-                // 于是出现「两次渲染写同一块位图」→ 画面花 / 闪。
-                //
-                // 用 finally 保证无论正常结束、抛异常还是被取消，
-                // 渲染器都不会长期握着别人的缓冲。
-                try {
-                    renderer.reuseTarget = buffers.acquire(
-                        request.source.width,
-                        request.source.height
-                    )
-                    PreviewRenderer.render(
-                        renderer = renderer,
-                        bitmap = request.source,
-                        watermarkType = request.watermarkType,
-                        textConfig = request.textConfig,
-                        imageConfig = request.imageConfig,
-                        logoBitmap = request.logoBitmap,
-                            sourceFileName = request.sourceFileName,
-                            // 原图尺寸：让预览的 scale 与导出一致
-                            // （0 表示不知道，退回旧行为）
-                            sourceBaseWidth = request.baseWidth,
-                            sourceBaseHeight = request.baseHeight,
-                            // 把取消状态一路传到平铺循环里 —— 它是渲染链路中
-                            // 唯一耗时的地方，也是唯一能让取消真正生效的点。
-                            cancel = cancel
-                    )
-                } finally {
-                    // 这个渲染器不归缓冲池，别让它长期握着复用目标
-                    renderer.reuseTarget = null
-                }
-            },
-            // 渲染结束后（且未被取消）才发布结果
-            onRendered = { rendered -> buffers.onPublished(rendered) }
-        )
-    }
-
-    // 离开页面时主动归还两块缓冲，不必等 GC
-    DisposableEffect(buffers) {
-        onDispose { buffers.release() }
-    }
-
-    val rendered by engine.result.collectAsStateWithLifecycle()
-    val rendering by engine.rendering.collectAsStateWithLifecycle()
-
-    LaunchedEffect(
-        enabled, bitmap, watermarkType, textConfig, imageConfig, logoBitmap, sourceFileName,
-        // 原图尺寸也进 key：换图后 scale 变了必须重渲
-        sourceWidth, sourceHeight
-    ) {
-        // ⬇️ enabled=true 时才提交渲染。
-        //
-        // 为什么把 enabled 也放进 key：从 false 变 true（例如滑到该页）
-        // 需要**立刻补一次渲染**，否则会一直显示未加水的原图。
-        if (!enabled) return@LaunchedEffect
-        if (bitmap != null && !bitmap.isRecycled) {
-            engine.submit(
-                PreviewRequest(
-                    source = bitmap,
-                    watermarkType = watermarkType,
-                    textConfig = textConfig,
-                    imageConfig = imageConfig,
-                    logoBitmap = logoBitmap,
-                    sourceFileName = sourceFileName,
-                    baseWidth = sourceWidth,
-                    baseHeight = sourceHeight
-                )
-            )
-        }
-    }
-
-    return RenderedPreview(
-        // 没有源图时不显示任何结果（哪怕上一张的结果还在）
-        //
-        // enabled=false 时直接回显源图（不加水印）：那些页通常是不可见的，
-        // 渲染它们毫无收益，等滑到位再补渲染即可。
-        bitmap = when {
-            bitmap == null -> null
-            !enabled -> bitmap
-            else -> rendered
-        },
-        isRendering = rendering
-    )
-}
 
 /**
  * 图片预览区。
@@ -289,13 +111,9 @@ fun WatermarkPreview(
      * （Compose 默认 beyondBoundsPageCount = 0，但相邻页在滑动时
      * 会短暂进入组合），于是页面上同时存在 2~3 个 [WatermarkPreview]：
      *
-     * - 每个实例都有自己的 `PreviewBuffers`（3 块）+ `WatermarkRenderer`
-     * - 拖动参数时，**所有实例都会重组** → 都触发一轮渲染
-     * - 但只有当前页有源图，其余页 `bitmap == null`，渲染纯属浪费
-     *
-     * 实测（2048×1536 的图，3 页）：`submit` 579 次但 `result` 只 143 次
-     * —— 大量渲染被丢弃，CPU/内存被无效渲染抢走，
-     * **导致当前页的渲染变慢、结果延迟上屏，看起来就是「预览不实时」**。
+     * - 每个实例都有自己的 `WatermarkRenderer`（含 Paint 池与字体缓存）
+     * - 拖动参数时，**所有实例都会重组** → 都触发一轮水印绘制
+     * - 但只有当前页有源图，其余页 `bitmap == null`，绘制纯属浪费
      *
      * 传 `false` 时：不提交任何渲染请求、不占缓冲池，
      * 只显示传入的静态 `bitmap`（或占位）。滑到它成为当前页时再置回 `true`。
@@ -304,31 +122,14 @@ fun WatermarkPreview(
      */
     enabled: Boolean = true,
 
-    /**
-     * **原图**宽高（不是 [bitmap] 的宽高）。
-     *
-     * ## 为什么需要它（「预览与导出水印大小不一致」的修复）
-     *
-     * 配置里的 `fontSize` / `margin` / logo 宽度百分比都是**绝对像素**，
-     * 渲染时靠 `RenderContext.scale = targetWidth / baseWidth` 换算。
-     *
-     * 若 `baseWidth` 取 [bitmap] 自己的宽度（旧行为），scale 恒为 1 ——
-     * 于是同一个字号在预览图和导出原图上**各按原值渲染**：
-     *
-     * ```
-     * 字号 36，预览宽 540  →  占画面 6.7%
-     * 字号 36，导出宽 4032 →  占画面 0.9%     ← 差 7.5 倍
-     * ```
-     *
-     * 用户按预览调好的水印，导出后小得几乎看不见。
-     *
-     * 传入原图尺寸后，预览的 scale 变成 `540 / 4032 = 0.134`，
-     * 字号等数值等比缩小 —— **视觉占比与导出完全一致**。
-     *
-     * 传 0（默认）表示调用方不知道原图尺寸，退回旧行为。
-     */
-    sourceWidth: Int = 0,
-    sourceHeight: Int = 0,
+    // ⚠️ 这里**没有** sourceWidth / sourceHeight 参数（曾经有，已删除）。
+    //
+    // 旧架构把水印渲染成一张与「配置基准」对齐的位图，因此需要外部
+    // 传入**原图尺寸**来算 `scale = targetWidth / baseWidth`。
+    //
+    // 新架构下水印直接画在**原图坐标系**里（见 `drawWatermarkLayer` 的
+    // `withTransform`）：base == target == 底图尺寸，scale 恒为 1 ——
+    // 于是「预览所见 = 导出所得」是**结构上保证**的，不再依赖传参。
 
     /**
      * 拖动水印位置的回调（仅**单个模式**且本参数非 null 时生效）。
@@ -356,9 +157,9 @@ fun WatermarkPreview(
 
     // ---- 核心：水印渲染器 ----
     //
-    // ⚠️ 这里**不再**走 rememberRenderedPreview —— 那会把「底图 + 水印」
-    // 合成到**一张新位图**，每帧都要整块拷贝底图：720 边约 17ms，
-    // 原图分辨率下要 500ms+，根本没法跟手。
+    // ⚠️ 这里**不走**「渲染成一张合成位图」的老路 —— 那会把
+    // 「底图 + 水印」合成到**一张新位图**，每帧都要整块拷贝底图：
+    // 720 边约 17ms，原图分辨率下要 500ms+，根本没法跟手。
     //
     // 现在分两层，由 Compose（GPU）合成：
     //   层 1  Image(baseBitmap)    —— GPU 纹理，只上传一次，之后零拷贝
