@@ -285,10 +285,10 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 | 项 | 值 |
 |---|---|
 | **发版流程** | **`docs/RELEASE_PROCESS.md`（发版必须照它做）** |
-| 本地 HEAD | 见 `git log`（本轮收尾：两处 KDoc + §2.5 + 回退记录）|
+| 本地 HEAD | 见 `git log`（本轮收尾：三层方案落地 + 文档渲染语法清理 + M3/M5 修复）|
 | 远端 | `origin/main` = `b1a254e`（tag `v2.1.0`）—— **2.1.1 的推送 / tag / Release 已按人类要求全部回退** |
-| **ahead** | **5（未推送；人类已明确不回推 2.1.1）** |
-| 单测基线 | **433 个用例，全绿** |
+| **ahead** | **15（未推送；人类已明确不回推 2.1.1）** |
+| 单测基线 | **436 个用例，全绿** |
 | lint | 0 错误（6 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
 | 版本 | 远端发布 **2.1.0**；本地代码已含 2.1.1（versionCode 13，**未推送**）|
@@ -316,6 +316,7 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 | README 截图 | 等人类提供真机截图 |
 | Baseline Profile | 收益评估偏小，优先级低 |
 | **推送本地提交** | **必须等人类明示** |
+| **代码审查报告剩余项** | `docs/code-review-2026-10.md` 共 15 项。**已修**：H2（提取端重复计算）、M3（EXIF 编解码边界）、M5（两通道守卫不对称）。**待办**：M2 / L5（稳健性，低风险）、M4（需产品决策：缩窄档位 or 改公式）、H1 / M1（涉旧图兼容与安全语义，**必须人类拍板 + 开 issue**）、L1–L4 / L6–L8 |
 
 ### ✅ 近期完成（别惊讶于这些改动）
 
@@ -338,6 +339,14 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 - `b7cdc78` 检测按钮并排 / `07a7c6b` 新增重新检测按钮
 - `b9e8868` DC-QIM 失真补偿 + 检测失败提示「可能旧版本导出」
 - `0020c46` DCT 嵌入缺陷修复（整块缩放 → 逐像素裁剪）
+- **（本轮）三层协作方案落地**：`tools/session.sh` + `CONTEXT.md` + 合并审查流程。
+  实测揪出 **5 个「装上了但没跑」的 bug**（钩子悬空软链 / 缺可执行位 /
+  `gradlew` 权限 / merge 误拦未跟踪文件 / worktree 里 `.git` 是文件）。
+  并用它真实跑通一次任务（M3+M5 修复），端到端验证。
+- **（本轮）文档渲染语法清理**：新增 `tools/clean_doc_latex.py`（含回归样例），
+  清理 4 个文档共 21 处误用的 `$$...$$` 美化语法
+- **（本轮）修 M3 + M5**：EXIF 编解码边界（空 payload / `B64:` 往返）+
+  批量 Worker 两通道守卫不对称。单测 433 → **436**
 
 ---
 
@@ -605,6 +614,43 @@ EOF
 
 详见 `docs/RELEASE_PROCESS.md`。
 
+### 5.15 worktree 必须放 ext4，别放 FUSE（sdcard）
+
+> ⚠️ **症状：worktree 刚建好就报一堆改动，全是「文件模式差异」**
+
+实测（2026-10-14）——把 worktree 建到 sdcard 后：
+
+    $ git status --porcelain | wc -l
+    16                                  ← 全是假改动
+    $ git diff gradlew | head -3
+    old mode 100755
+    new mode 100644                     ← FUSE 不支持可执行位
+
+**根因**：FUSE 挂载不保留 Unix 可执行位。git 在 ext4 上记的是 `100755`，
+检出到 sdcard 后变成 `100644` → git 认为「被改动」，全程误报。
+
+**为什么危险**：这些假改动会
+
+- 让 `git status` 永远不干净（**掩盖真实改动**）
+- 让 `session.sh` 的「有未提交改动就拒绝删除」**永久误拦**
+
+**结论**：**worktree 放 ext4**（即 `$GIT_REPO` 的父目录）—— 这是 `session.sh`
+的默认行为，**别改**。
+
+若确实要放 FUSE（不推荐），必须两条都做：
+
+    git config extensions.worktreeConfig true
+    git -C <worktree> config --worktree core.fileMode false
+
+实测这样假改动归零，且**不影响主仓库**的 `fileMode=true`。
+
+> 🪞 **附带一条教训**：AI 工具读 `/root`（ext4）**必须显式传 `environment=linux`**，
+> 默认的 `android` 环境够不到。我一开始只试了默认值就断言「worktree 用不了」，
+> 白做了一轮探针实验 —— **别用一个失败的尝试就下结论，先把参数试全。**
+>
+> 同理：`grep_code` / `find_files` 等工具**不支持** `environment=linux`，
+> 在 ext4 上定位行号要用终端 `grep -n`。
+
 ---
 
 ## 6. 资源共享与冲突预案
@@ -685,6 +731,29 @@ git log --oneline --since='2 hours ago'
 > 格式：时间 + 会话干了什么 + 留下什么未决。
 
 ```
+[2026-10-14 02:2x] 三层协作方案落地 + 文档渲染语法清理 + 修 M3/M5
+  - 提交链：f51d8a3 → e16abb6 → 655c2ce → c42db5d → b0f3bb8 → e6de3d2
+            → ffa06fd → cfa98e8 → f62cc18(merge)
+  - ahead 15，单测 436（433 → +3），lint 0 错误
+  - ① 三层方案落地（worktree 隔离 + CONTEXT.md + 合并审查）
+       · tools/session.sh：new / list / review / merge / rm
+       · 实测揪出 5 个「装上了但没跑」的 bug（详见 §2.6 的表格）
+       · 并用 session.sh **真实跑通一次任务**（M3+M5），端到端验证
+  - ② 文档渲染语法清理
+       · 新增 tools/clean_doc_latex.py（--check / --fix + 回归样例）
+       · 清理 4 个文档共 21 处误用的 $$...$$ 美化语法
+       · 脚本自己踩了 5 个坑才正确（多参数命令残留花括号 / 嵌套加粗 /
+         误伤行内加粗 / >> 重复引用符 / /tmp 假阴性）
+  - ③ 修 code-review 的 M3 + M5（P1 两项）
+       · M3：EXIF 编解码边界（空 payload 被当成功 / B64: 开头往返不成立）
+       · M5：批量 Worker 两通道守卫不对称
+       · H2 经核实**已由更早的提交修掉** —— 看板当时显示「进行中」是过期信息
+  - ④ 新知识点：worktree 必须放 ext4，别放 FUSE（详见 §5.15）
+  - ⏳ 遗留：
+       · docs/rust-migration-feasibility.md 仍待脱敏
+       · code-review 剩余项：M2 / L5 / M4 / H1 / M1 / L1–L4 / L6–L8
+       · ahead 15 待人类明示推送
+
 [2026-10-14 00:07] 更新说明改为在线获取 + 发布流程文档 + 发布 2.1.1
   - 提交 6e7848b，**已推送**（ahead 0），tag `v2.1.1` 已推
   - 新增 docs/changelog.json（14 个版本）—— 应用从 GitHub 拉取更新说明
