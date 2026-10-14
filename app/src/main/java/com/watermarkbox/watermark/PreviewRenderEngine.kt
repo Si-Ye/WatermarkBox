@@ -175,6 +175,8 @@ class PreviewRenderEngine<T : Any, R : Any>(
         scope.launch {
             requests.filterNotNull().collectLatest { request ->
                 _rendering.value = true
+                // ⚠️ 必须用 try/finally 包住 —— 见下面的 finally。
+                try {
 
                 // ---- 用一个「哨兵」把「失败」和「真的没内容」分开 ----
                 //
@@ -235,7 +237,15 @@ class PreviewRenderEngine<T : Any, R : Any>(
                         _result.value = result
                     }
                 }
-                _rendering.value = false
+                } finally {
+                    // ⚠️ 复位**必须**放在 finally 里。
+                    //
+                    // 取消路径（上面那个 `throw cancellation`）会**跳过 try 块
+                    // 末尾的语句** —— 早期把复位放在末尾，于是被取消时
+                    // `_rendering` 会永远停在 true（状态不一致）。
+                    // 影响有限（UI 靠 `_result` 保留上一帧兜底），但状态错了就是错了。
+                    _rendering.value = false
+                }
             }
         }
     }

@@ -98,9 +98,16 @@ class ExportRepository(private val context: Context) {
         try {
             uri = context.contentResolver.insert(collection, values) ?: return@withContext null
 
-            context.contentResolver.openOutputStream(uri)?.use { output ->
-                writeToStream(bitmap, output, format, jpegQuality)
-            } ?: return@withContext null
+            // ⚠️ 这里**不能**写 `openOutputStream(uri)?.use { ... } ?: return@withContext null`。
+            //
+            // `return@withContext` 是**从 lambda 返回**（不是抛异常），
+            // 会**绕过下面的 catch** → 已 insert 的条目**不被清理** →
+            // 相册里留下一个 `IS_PENDING=1` 的脏条目（用户不可见，但会累积）。
+            //
+            // 改为抛异常，让 catch 统一做「失败即删除」的收尾。
+            val output = context.contentResolver.openOutputStream(uri)
+                ?: error("openOutputStream 返回 null（uri=$uri）")
+            output.use { writeToStream(bitmap, it, format, jpegQuality) }
 
             // ---- 像素写完后，才处理元数据（顺序很重要）----
             //

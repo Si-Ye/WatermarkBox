@@ -19,17 +19,19 @@ object PlaceholderResolver {
     private const val KEY_FILENAME = "{filename}"
 
     /**
-     * SimpleDateFormat 不是线程安全的，且构造开销大。
-     * 用 ThreadLocal 缓存，避免每次解析都重新构造
-     * （拖滑块时水印文本若含占位符会被高频解析）。
+     * 按**当前** Locale 构造格式化器。
+     *
+     * ## 为什么不再用 ThreadLocal 缓存（曾经的做法，已废弃）
+     *
+     * `SimpleDateFormat(pattern, Locale.getDefault())` 的 Locale 在
+     * **构造那一刻就固定**。用 ThreadLocal 缓存后，用户切换应用语言
+     * （本应用支持中英切换）**不会**重建它 —— 日期格式会一直停在旧语言。
+     *
+     * 而 SimpleDateFormat 的构造开销只有微秒级，水印渲染远达不到
+     * 「构造成为瓶颈」的频率，缓存的收益远小于它引入的正确性问题。
      */
-    private val timestampFormat = object : ThreadLocal<SimpleDateFormat>() {
-        override fun initialValue() = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-    }
-
-    private val dateFormat = object : ThreadLocal<SimpleDateFormat>() {
-        override fun initialValue() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-    }
+    private fun format(pattern: String, now: Date): String =
+        SimpleDateFormat(pattern, Locale.getDefault()).format(now)
 
     /**
      * 解析水印文本模板，替换所有占位符为真实值。
@@ -55,12 +57,10 @@ object PlaceholderResolver {
         var result = template
 
         if (result.contains(KEY_TIMESTAMP)) {
-            val ts = timestampFormat.get()!!.format(now)
-            result = result.replace(KEY_TIMESTAMP, ts)
+            result = result.replace(KEY_TIMESTAMP, format("yyyy-MM-dd HH:mm:ss", now))
         }
         if (result.contains(KEY_DATE)) {
-            val date = dateFormat.get()!!.format(now)
-            result = result.replace(KEY_DATE, date)
+            result = result.replace(KEY_DATE, format("yyyy-MM-dd", now))
         }
         if (result.contains(KEY_FILENAME)) {
             val name = sourceFileName?.substringBeforeLast('.') ?: ""

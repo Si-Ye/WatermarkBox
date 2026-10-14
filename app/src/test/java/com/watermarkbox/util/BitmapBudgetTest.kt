@@ -141,18 +141,23 @@ class BitmapBudgetTest {
         )
     }
 
-    /** 同一张图，「导出三份」放不下、「检测两份」可能放得下。 */
+    /**
+     * 同一张图，**份数不同结论可以不同**。
+     *
+     * ⚠️ 这里用**显式的 2 / 3 份**，而不是引用 `DETECT_COPIES` 之类的常量 ——
+     * 本测试要钉的是「份数会影响结论」这条**性质**，
+     * 与具体某条链路取几份无关。早期引用常量，导致常量一改测试就假失败
+     * （那是「把现状写成断言」的又一例）。
+     */
     @Test
     fun `份数不同结论可以不同`() {
         val w = 7000
         val h = 5000          // 3500 万像素：一份 133.5 MB
         val heap = 512 * mb   // 预算 307 MB
-        assertTrue(BitmapBudget.fitsFullResolution(w, h, BitmapBudget.DETECT_COPIES, heap))
-        assertFalse(
-            BitmapBudget.fitsFullResolution(
-                w, h, BitmapBudget.exportCopies(withDct = true), heap
-            )
-        )
+        // 2 份 = 267 MB ≤ 307 MB → 放得下
+        assertTrue(BitmapBudget.fitsFullResolution(w, h, copies = 2, maxHeapBytes = heap))
+        // 3 份 = 400 MB > 307 MB → 放不下
+        assertFalse(BitmapBudget.fitsFullResolution(w, h, copies = 3, maxHeapBytes = heap))
     }
 
     /** 尺寸非法（探测失败）时不能判成「放得下」。 */

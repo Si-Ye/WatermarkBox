@@ -84,16 +84,34 @@ data class DetectOptions(
     companion object {
         val Default = DetectOptions()
 
-        /** 不指定强度时尝试的那个值（与导出默认值一致）。 */
-        const val DEFAULT_STRENGTH = 1f
+        /**
+         * 「自动强度」关闭时尝试的那个值。
+         *
+         * ⚠️ 必须与**导出侧的默认强度**一致 —— 见
+         * `InvisibleWatermarkConfig.strength` 的默认值（`2`）。
+         *
+         * 早期这里写的是 `1f`，而注释声称"与导出默认值一致"，
+         * 实际**不一致**：用户关掉「自动强度」后只试 `1f`，
+         * 而默认导出用的是 `2f` → **自己导出的图检不出来**。
+         */
+        const val DEFAULT_STRENGTH = 2f
 
         /**
          * 自动模式下依次尝试的强度。
          *
-         * 顺序不是 1→4，而是**从导出默认值开始**（导出面板的 strength
-         * 默认是 2）：命中率最高的排最前，自动模式能少跑几轮。
+         * ## 只含导出侧**实际可能产生**的档位（1、2）
+         *
+         * 早期是 `listOf(2f, 1f, 3f, 4f)`。但 M4 之后导出已收紧到
+         * `coerceIn(1, 2)`（3/4 档被 `MAX_STEP` 吃掉、已从 UI 移除）——
+         * 那两档**永远不可能命中**，却让每次自动检测**白跑 50%** 的全图 DCT
+         * （大图上每轮数秒）。
+         *
+         * ## 顺序
+         *
+         * 从导出默认值（`2`）开始 —— 命中率最高的排最前，
+         * 自动模式能少跑一轮。
          */
-        val STRENGTH_CANDIDATES = listOf(2f, 1f, 3f, 4f)
+        val STRENGTH_CANDIDATES = listOf(2f, 1f)
     }
 }
 
