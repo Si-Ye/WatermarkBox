@@ -70,9 +70,4 @@ object PlaceholderResolver {
         return result
     }
 
-    /**
-     * 计算某个水印文本按 [lineSpacing]（行距倍数）绘制时的高度。
-     * 用于 SINGLE 模式做垂直定位时避免基线偏移。
-     */
-    fun lineSpacingMultiplier(): Float = 1.2f
 }

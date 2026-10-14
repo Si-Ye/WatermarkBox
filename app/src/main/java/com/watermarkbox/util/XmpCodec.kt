@@ -92,7 +92,13 @@ object XmpCodec {
                 '>' -> append(AMP + "gt;")
                 '"' -> append(AMP + "quot;")
                 '\'' -> append(AMP + "apos;")
-                else -> append(c)
+                // XML 1.0 允许的空白，原样保留
+                '\t', '\n', '\r' -> append(c)
+                // 其余控制字符（< 0x20）XML 1.0 **不允许** ——
+                // 连 `&#x0;` 这种数字实体引用也非法（规范明确排除该区间）。
+                // 若原样写入，整包会变成**非法 XML**，别的工具解析时可能直接丢弃。
+                // 因此这里**剔除**：控制字符对水印内容没有意义，丢了不损失信息。
+                else -> if (c.code >= 0x20) append(c)
             }
         }
     }
