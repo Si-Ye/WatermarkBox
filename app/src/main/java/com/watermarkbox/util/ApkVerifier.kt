@@ -220,13 +220,17 @@ object ApkVerifier {
             @Suppress("DEPRECATION")
             info.signatures
         }
-        return raw?.map { it.toCharsString().sha256Of() } ?: emptyList()
+        // 用 `Signature.toByteArray()` 而非 `toCharsString()`：
+        // 后者返回的是**调试用的可读串**，其格式没有跨版本保证
+        // （不同 Android 版本可能不同）；前者是签名的原始字节，稳定、权威。
+        // 两者都只用于"比较是否同一把密钥"，但用原始字节更可靠。
+        return raw?.map { it.toByteArray().sha256Of() } ?: emptyList()
     }
 
-    /** 对字符串做 SHA-256（用于把证书内容压成一个可比较的短值）。 */
-    private fun String.sha256Of(): String {
+    /** 对字节做 SHA-256（把证书内容压成一个可比较的短值）。 */
+    private fun ByteArray.sha256Of(): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        return digest.digest(toByteArray(Charsets.UTF_8))
+        return digest.digest(this)
             .joinToString("") { "%02x".format(it) }
     }
 }
