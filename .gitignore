@@ -53,6 +53,11 @@ Thumbs.db
 # 公开的多会话协作文档（docs/multi-session-collaboration.md）用
 # $WORKSPACE / $GIT_REPO 占位符，不含真实路径，可以正常入库。
 docs/build-artifacts.md
+# docs/rust-migration-feasibility.md 记录本机的 Rust / NDK / SDK 环境现状
+# （已装 target、build-tools 版本、NDK 是否存在等）——
+# 与 build-artifacts.md 同理：属"环境配置"而非"项目知识"，不进公开仓库。
+# 文件本身保留在工作区 / 仓库磁盘上（只是不被 git 跟踪）。
+docs/rust-migration-feasibility.md
 
 
 # ===== 安装包（走 GitHub Releases 分发）=====
