@@ -63,7 +63,6 @@ cd "$ROOT" || exit 1
 
 WT_BASE="$(dirname "$ROOT")/wmb-wt"
 
-# 全量测试命令（合并后必跑）
 # 全量测试命令（合并后必跑）。
 #
 # ⚠️ 用 `sh ./gradlew` 而不是 `./gradlew`：
