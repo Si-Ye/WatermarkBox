@@ -95,19 +95,6 @@ data class BatchUiState(
     val previewIndex: Int = 0,
     /** 当前预览图的降采样 Bitmap（仅在渲染完成后填充） */
     val previewBitmap: Bitmap? = null,
-    /**
-     * 当前预览图的**原图**宽高（不是 [previewBitmap] 的尺寸）。
-     *
-     * ## 为什么需要
-     *
-     * 预览渲染要用原图尺寸当基准坐标系，才能让水印的**视觉占比**
-     * 与导出一致。若拿降采样图的宽高当基准，同一个字号
-     * 在预览（540px 宽）与导出（4032px 宽）上会差 7.5 倍。
-     *
-     * 详见 `WatermarkPreview.sourceWidth`。
-     */
-    val previewSourceWidth: Int = 0,
-    val previewSourceHeight: Int = 0,
     /** 预览是否正在加载（避免切换时闪黑） */
     val previewLoading: Boolean = false,
     /** 已导入的自定义字体（供面板选择） */
@@ -180,10 +167,7 @@ class BatchViewModel(application: Application) :
             it.copy(
                 images = uris.take(MAX_BATCH_SIZE),
                 finished = false,
-                previewIndex = 0,
-                // 换了一批图，上一批的原图尺寸也失效（否则会用旧基准渲染新图）
-                previewSourceWidth = 0,
-                previewSourceHeight = 0
+                previewIndex = 0
             )
         }
         // 换了一批图，上一批的解码结果已无意义。
@@ -573,13 +557,12 @@ class BatchViewModel(application: Application) :
     fun setPreviewIndex(index: Int) {
         val clamped = index.coerceIn(0, _uiState.value.images.size)
         if (clamped == _uiState.value.previewIndex) return
-        // ⚠️ 先递增令牌：使此前所有在途的「位图加载 / 原图尺寸探测」立即失效。
+        // ⚠️ 先递增令牌：使此前所有在途的**位图加载**立即失效。
         //
-        // 必须在这里递增，而不是只放在 loadPreviewForCurrent 里 ——
-        // 命中缓存的分支走的是 loadSourceSizeForCurrent，它自身不自增；
-        // 若此处不增，连续两次「缓存命中」切页（相邻页已预取，是最常见操作）
-        // 会共用同一个令牌 → `token != previewToken` 恒为 false
-        // → 竞态保护形同虚设，旧页的原图尺寸会写进新页的状态。
+        // 必须在这里递增（而不是只在 loadPreviewForCurrent 里）——
+        // 缓存命中时我们**不发起加载**，若此处不增，连续两次
+        // 「缓存命中」切页会共用同一个令牌 → `token != previewToken`
+        // 恒为 false → 竞态保护形同虚设。
         val token = newPreviewToken()
         // 命中缓存就**立刻**显示：相邻页在切过来之前已经被预解码，
         // 于是「滑到隔壁看一眼」不再闪加载圈（这是批量页最常用的动作）
@@ -589,18 +572,11 @@ class BatchViewModel(application: Application) :
             it.copy(
                 previewIndex = clamped,
                 previewBitmap = cached,
-                // 换页了，原图尺寸也必须跟着换 ——
-                // 否则会用上一张的基准渲染这一张，水印大小错误。
-                // 命中缓存时先清零（渲染会用 fallback 的 bitmap 尺寸），
-                // 真正的原图尺寸由下面的 loadPreviewForCurrent 补上。
-                previewSourceWidth = 0,
-                previewSourceHeight = 0,
                 previewLoading = cached == null
             )
         }
-        // 无论是否命中缓存，都要取一次原图尺寸（只读文件头，很便宜）。
-        // 命中缓存时 loadPreviewForCurrent 不会跑，所以这里单独补。
-        if (cached != null) loadSourceSizeForCurrent(token) else loadPreviewForCurrent(token)
+        // 只有未命中缓存才需要异步加载（命中时上面已经显示出来了）
+        if (cached == null) loadPreviewForCurrent(token)
     }
 
     /** 移除图片后修正下标，避免越界或停在空白页。 */
@@ -649,18 +625,9 @@ class BatchViewModel(application: Application) :
                 // 的设计保持一致。
                 return@launch
             }
-            // 同时探测**原图**尺寸：预览渲染要用它当基准坐标系，
-            // 才能让水印大小与导出一致（见 BatchUiState.previewSourceWidth）
-            val originalSize = imageRepository.queryImageSize(uri)
-            // ⚠️ queryImageSize 是**新增的挂起点**：它返回时用户可能已经滑走。
-            // 必须在写入状态**之前**再查一次令牌 —— 否则会把旧页的
-            // 位图与尺寸覆盖到当前页上（画面显示 A 页、缩放基准却是 B 页的）。
-            if (token != previewToken) return@launch
             _uiState.update {
                 it.copy(
                     previewBitmap = bitmap,
-                    previewSourceWidth = originalSize?.first ?: bitmap?.width ?: 0,
-                    previewSourceHeight = originalSize?.second ?: bitmap?.height ?: 0,
                     previewLoading = false
                 )
             }
@@ -686,30 +653,6 @@ class BatchViewModel(application: Application) :
 
     /** 递增并返回预览竞态令牌（使此前所有在途请求失效）。 */
     private fun newPreviewToken(): Int = ++previewToken
-
-    /**
-     * 只取当前预览图的**原图尺寸**（不解码像素）。
-     *
-     * 命中预览缓存时走这条路 —— 位图已经有了，但原图尺寸还不知道。
-     * 只读文件头，开销可忽略。
-     *
-     * @param token 本轮的竞态令牌，**必须由调用方在切页时递增后传入**
-     *   （见 [newPreviewToken]）。早期这里自己读 `previewToken` 而不自增，
-     *   于是连续两次「缓存命中」切页共用同一个值 →
-     *   `token != previewToken` 恒为 false → 保护形同虚设。
-     */
-    private fun loadSourceSizeForCurrent(token: Int) {
-        val uri = _uiState.value.previewUri ?: return
-        viewModelScope.launch {
-            val size = imageRepository.queryImageSize(uri)
-            // 竞态保护：期间可能已经滑走了
-            if (token != previewToken) return@launch
-            if (size == null) return@launch
-            _uiState.update {
-                it.copy(previewSourceWidth = size.first, previewSourceHeight = size.second)
-            }
-        }
-    }
 
     /** 预取任务句柄：换页时取消上一个，避免连续滑动堆积一串解码。 */
     private var prefetchJob: Job? = null
@@ -755,10 +698,6 @@ class BatchViewModel(application: Application) :
         val cached = _uiState.value.previewUri?.let { imageRepository.peekPreview(it) }
         if (cached != null) {
             _uiState.update { it.copy(previewBitmap = cached) }
-            // ⚠️ 命中缓存时**必须**单独取原图尺寸：
-            // 预览渲染需要它当基准坐标系，否则水印大小与导出不一致。
-            // （另一条路径 loadPreviewForCurrent 会顺带取，这里不会跑到。）
-            loadSourceSizeForCurrent(newPreviewToken())
         } else {
             loadPreviewForCurrent()
         }

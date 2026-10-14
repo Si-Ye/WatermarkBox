@@ -198,10 +198,6 @@ fun EditorScreen(
                     logoBitmap = state.logoBitmap,
                     sourceFileName = state.sourceFileName,
                     isLoading = state.isLoading,
-                    // 原图尺寸：预览的水印缩放基准必须与导出一致，
-                    // 否则「预览里调好的大小，导出后完全不同」
-                    sourceWidth = state.sourceWidth,
-                    sourceHeight = state.sourceHeight,
                     modifier = previewModifier,
                     // 拖动水印改位置（仅单个模式生效，组件内部会判断）
                     onWatermarkDrag = { x, y ->
