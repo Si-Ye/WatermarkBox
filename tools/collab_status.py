@@ -147,6 +147,52 @@ def _is_local_only(rel_path: str, name: str) -> bool:
     return any(p == "__pycache__" or p.startswith(".") for p in parts)
 
 
+def _root_file_diffs(ws: Path) -> list[str]:
+    """
+    比对**根目录下、仓库已跟踪的文件**（AGENTS.md / CONTEXT.md / README.md …）。
+
+    ## 为什么需要它
+
+    `compare_workspace` 只比对了 4 个**目录**（app/src、docs、tools、.github）。
+    但仓库根目录还有一批**项目文件**（入口文档、构建脚本、.gitignore…），
+    它们不在任何被比对目录里，于是差异被**漏报**。
+
+    真实后果（2026-10-14）：修好 `AGENTS.md` 并合并后，主工作区那份
+    仍是旧版，而本脚本报「代码/文档一致」—— 新会话从工作区读到旧版
+    入口文档，被误导。
+
+    ## 为什么用 `git ls-files` 而不是写死清单
+
+    写死清单要人工维护，新增根目录文件时必然漏加（正是本 bug 的成因模式）。
+    用 `git ls-files` 自动取「仓库跟踪的根目录文件」：既不漏，
+    也天然排除本机专用文件（local.properties / keystore.properties
+    等**未被跟踪**，不会出现在列表里）。
+    """
+    real: list[str] = []
+    for rel in git("ls-files").splitlines():
+        if "/" in rel:
+            continue  # 只看根目录；子目录由 compare_workspace 负责
+        a = ws / rel
+        b = ROOT / rel
+        if not b.is_file():
+            continue
+        if not a.exists():
+            real.append(f"仅仓库有：{rel}")
+            continue
+        if not a.is_file():
+            real.append(f"类型不同：{rel}")
+            continue
+        r = subprocess.run(
+            ["diff", "-q", str(a), str(b)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if r.returncode != 0:
+            real.append(f"内容不同：{rel}")
+    return real
+
+
 def compare_workspace(ws: Path) -> tuple[list[str], list[str]]:
     """
     比较工作区与仓库。
@@ -203,6 +249,14 @@ def compare_workspace(ws: Path) -> tuple[list[str], list[str]]:
                     local_only.append(f"{rel_ws}/{rel_str}")
                 else:
                     real.append(f"内容不同：{rel_ws}/{rel_str}")
+
+    # ---- 根目录文件（AGENTS.md / CONTEXT.md / README.md / .gitignore …）----
+    #
+    # 上面的 pairs 只覆盖了 4 个**目录**，根目录的项目文件全被漏掉。
+    # 真实后果：修好 AGENTS.md 并合并后，主工作区那份仍是旧版，
+    # 而本脚本报「代码/文档一致」—— 新会话读到旧版入口文档，被误导。
+    real.extend(_root_file_diffs(ws))
+
     return real, local_only
 
 
