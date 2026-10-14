@@ -151,6 +151,53 @@ class ExifTextCodecTest {
     }
 
     // ------------------------------------------------------------------
+    // 边界（code-review-2026-10 的 M3）
+    // ------------------------------------------------------------------
+
+    @Test
+    fun decode_rejects_empty_base64_payload() {
+        // ⚠️ `Base64.decode("")` **不抛异常**，返回空数组 →
+        // 若不显式挡掉，会「成功解码」出空字符串，
+        // 检测端 `startsWith(WMB1:)` 就会误报「检测到水印」。
+        val emptyPayload = "WMB1:B64:"
+        assertEquals(
+            "空 payload 不应被当成有效水印",
+            emptyPayload,
+            ExifTextCodec.decode(emptyPayload)
+        )
+        assertFalse(
+            "尤其不得解码成裸前缀 WMB1:",
+            ExifTextCodec.decode(emptyPayload) == "WMB1:"
+        )
+    }
+
+    @Test
+    fun round_trip_content_starting_with_b64_mark() {
+        // ⚠️ 用户的合法文本恰好以 `B64:` 开头时，不能与「编码标记」撞车。
+        // 若不特殊处理：encode 产出 `WMB1:B64:hello`，
+        // decode 再把 `hello` 当 Base64 解 → 往返不成立。
+        val tricky = "WMB1:B64:hello"
+        assertEquals(
+            "以 B64: 开头的内容必须能无损往返",
+            tricky,
+            ExifTextCodec.decode(ExifTextCodec.encode(tricky))
+        )
+    }
+
+    @Test
+    fun encode_forces_base64_when_body_starts_with_mark() {
+        val encoded = ExifTextCodec.encode("B64:payload")
+        assertTrue(
+            "以 B64: 开头的内容必须走 Base64 分支",
+            encoded.startsWith("WMB1:B64:")
+        )
+        assertTrue(
+            "且确实编码过（不是裸拼接）",
+            encoded != "WMB1:B64:payload"
+        )
+    }
+
+    // ------------------------------------------------------------------
     // 辅助判定
     // ------------------------------------------------------------------
 

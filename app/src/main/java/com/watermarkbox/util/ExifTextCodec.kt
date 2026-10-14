@@ -60,7 +60,14 @@ object ExifTextCodec {
      */
     fun encode(text: String): String {
         val body = text.removePrefix(TAG_PREFIX)
-        return if (isPureAscii(body)) {
+        // ⚠️ 除了「非 ASCII」，还有一种情况**必须**编码：内容本身以 `B64:` 开头。
+        //
+        // 否则往返不成立（code-review-2026-10 的 M3 第 3 点）：
+        //   用户输入 "B64:hello" → 是纯 ASCII → 产出 "WMB1:B64:hello"
+        //   → decode 看到 `B64:` 标记，把 "hello" 当 Base64 解 → 乱码或失败。
+        // 本质是「用户的合法文本」与「编码标记」撞车。
+        // 加上这个条件后：`decode(encode("B64:x")) == "WMB1:B64:x"` ✓
+        return if (isPureAscii(body) && !body.startsWith(B64_MARK)) {
             // 纯 ASCII：不编码，保持可读性
             TAG_PREFIX + body
         } else {
@@ -92,6 +99,15 @@ object ExifTextCodec {
         if (!body.startsWith(B64_MARK)) return trimmed // 明文格式，原样返回
 
         val payload = body.substring(B64_MARK.length)
+
+        // ⚠️ 空 payload 必须**单独挡掉**（code-review-2026-10 的 M3）。
+        //
+        // `Base64.getDecoder().decode("")` **不抛异常** —— 它返回空数组，
+        // 于是 `String(emptyArray) == ""`，最终 decode 返回 `"WMB1:"`。
+        // 一个「空水印」会被当成**解码成功**，而上层 `WatermarkDetector`
+        // 用 `startsWith(TAG_PREFIX)` 判定命中 → 报告「检测到水印」但内容为空。
+        if (payload.isEmpty()) return trimmed
+
         val bytes = runCatching { Base64.getDecoder().decode(payload) }.getOrNull()
             ?: return trimmed // 解码失败，返回原始串（至少不丢信息）
         val decodedBody = runCatching { String(bytes, Charsets.UTF_8) }.getOrNull()

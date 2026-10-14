@@ -191,11 +191,21 @@ class BatchWatermarkWorker(
                 }
             }
 
+            // 隐藏水印：两条通道**共用同一个已校验的内容**（code-review-2026-10 的 M5）。
+            //
+            // 原来两处守卫条件**不对称**：
+            //   · DCT 分支判 `!invisibleContent.isNullOrBlank() && strength > 0`
+            //   · EXIF 分支只判 `invisibleExif`（开关）
+            // 于是 `content == null/blank 但 exif 开着` 时，saveBitmap 会收到 null。
+            // 虽然它内部应当能兜住，但两处守卫不一致本身就是易错点 ——
+            // 统一成下面这个已校验的值，两条通道用同一个。
+            val content = invisibleContent?.takeIf { it.isNotBlank() }
+
             // 隐藏水印频域嵌入（仅当该通道开启）
             var toWrite = rendered
-            if (invisibleDct && !invisibleContent.isNullOrBlank() && invisibleStrength > 0) {
+            if (invisibleDct && content != null && invisibleStrength > 0) {
                 stamped = InvisibleWatermarkEngine(invisibleStrength.toFloat())
-                    .embed(rendered, invisibleContent)
+                    .embed(rendered, content)
                 if (stamped != null) toWrite = stamped
             }
 
@@ -218,8 +228,10 @@ class BatchWatermarkWorker(
                 albumPath = exportSettings.customOutputDir,
                 sourceUri = uri,
                 preserveExif = exportSettings.preserveExif,
-                // EXIF 通道独立开关：关掉时传 null，等价于「不写元数据水印」
-                invisibleContent = invisibleContent.takeIf { invisibleExif }
+                // EXIF 通道独立开关：关掉时传 null，等价于「不写元数据水印」。
+                // ⚠️ 用上面那个**已校验**的 `content`（与 DCT 通道同源），
+                // 而不是原始字符串 —— 见函数开头关于 M5 的说明。
+                invisibleContent = content.takeIf { invisibleExif }
             )
             if (savedResult != null) {
                 null
