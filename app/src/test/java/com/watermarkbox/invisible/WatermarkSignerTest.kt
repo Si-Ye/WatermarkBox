@@ -100,4 +100,50 @@ class WatermarkSignerTest {
         assertEquals(WatermarkSigner.SIGNATURE_BYTES, sig.size)
         assertTrue(WatermarkSigner.verify(keyA, 0, ByteArray(0), sig))
     }
+
+    // ---- v2.2 新增：定长签名 + 旧格式回退 ----
+
+    @Test
+    fun `旧格式签名仍能通过校验（兼容早期版本）`() {
+        // v2.2 把长度从「1 字节」改成「定长 4 字节」参与签名。
+        // 旧图是用旧格式签的 —— 若不回退，它们会被标成「可能被伪造」，
+        // 那是**错误的指控**（旧图确实是本应用签发的）。
+        val legacySig = legacySign(keyA, data.size, data)
+        assertTrue(
+            "旧图签名必须仍能验过",
+            WatermarkSigner.verify(keyA, data.size, data, legacySig)
+        )
+    }
+
+    @Test
+    fun `新格式签名与旧格式签名不同（确认输入确实变了）`() {
+        // 钉住「格式确实改了」这个事实，避免将来有人"顺手改回去"却没人发现。
+        val newSig = WatermarkSigner.sign(keyA, data.size, data)
+        val legacySig = legacySign(keyA, data.size, data)
+        assertFalse(
+            "新旧格式的签名应当不同（长度输入从 1 字节变为 4 字节）",
+            newSig.contentEquals(legacySig)
+        )
+    }
+
+    @Test
+    fun `长度高位也参与签名`() {
+        // 定长签名的意义：长度的高位不能"恰好被忽略"。
+        // 取两个只在高位不同的长度，签名必须不同。
+        val sig1 = WatermarkSigner.sign(keyA, 1, data)
+        val sig2 = WatermarkSigner.sign(keyA, 1 + 256, data) // 低 8 位相同、高位不同
+        assertFalse(
+            "长度的高位必须影响签名（旧实现只签低 8 位，这里会相同）",
+            sig1.contentEquals(sig2)
+        )
+    }
+
+    /** 复刻 v2.1 及更早的签名算法：长度只取低 8 位。 */
+    private fun legacySign(key: ByteArray, len: Int, data: ByteArray): ByteArray {
+        val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+        mac.init(javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"))
+        mac.update(len.toByte())
+        mac.update(data)
+        return mac.doFinal().copyOf(WatermarkSigner.SIGNATURE_BYTES)
+    }
 }
