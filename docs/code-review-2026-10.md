@@ -14,11 +14,11 @@
 
 > ## 🔄 修订状态（2026-10-14 更新）
 >
-> **所有高 / 中严重度项 + L5 已修复并合并**（见下表「状态」列）。
-> 剩余 **L1–L4 / L6–L8** 为低风险小项，尚未处理。
+> **13 / 15 项已修复并合并**（见下表「状态」列）。
+> 剩余 **L3 / L4** 两项经复核**收益极小**，暂不处理 —— 理由见 §3 对应行。
 >
 > 修复分多轮完成，提交见 `git log`（关键词：`fix(signing)` / `fix(m4)` /
-> `refactor(m4)` / `fix(collab)` 等）。
+> `refactor(m4)` / `fix(l1,l7)` / `test(l2,l6,l8)` / `fix(collab)` 等）。
 
 | 编号 | 严重度 | 状态 | 位置 | 一句话 |
 |---|---|---|---|---|
@@ -30,7 +30,13 @@
 | M4 | 🟠 中 | ✅ 已修 | `InvisibleWatermarkEngine` + UI | 档位缩到 1~2 + 改**分段控件**（与标题并排一行） |
 | M5 | 🟠 中 | ✅ 已修 | `BatchWatermarkWorker` | 两通道守卫对齐 |
 | L5 | 🟡 低 | ✅ 已修 | `ApkVerifier` | 签名比较改用 `Signature.toByteArray()` |
-| L1–L4 / L6–L8 | 🟡 低 | 📋 待办 | 多处 | 见 §3 |
+| L1 | 🟡 低 | ✅ 已修 | `XmpCodec.escape` | 剔除 `< 0x20` 控制字符（XML 1.0 不允许，连实体引用也非法） |
+| L2 | 🟡 低 | ✅ 已修 | `XmpCodec.unpack` | 补 4 项边界测试（闭标签字面量 / 同名标签 / 头尾位置 / 空内容） |
+| L3 | 🟡 低 | ⏸️ 不改 | `FileNameResolver.build` | Android 上无 Windows 保留名问题；trim 属预期行为 |
+| L4 | 🟡 低 | ⏸️ 不改 | `LruCacheMap.values()` | 未发现高频调用；需先量化收益再决定 |
+| L6 | 🟡 低 | ✅ 已修 | `ReedSolomon.positionToXIndex` | **只加注释**：`% 255` 是「廉价的安全带」，别当冗余删 |
+| L7 | 🟡 低 | ✅ 已修 | `PlaceholderResolver` | 删除死方法 `lineSpacingMultiplier()`（无调用点 + 文档与签名不符） |
+| L8 | 🟡 低 | ✅ 已修 | `BitmapUtils.calculateInSampleSize` | 补 3 项极端宽高比测试（实测**不会**降过头） |
 
 ---
 
