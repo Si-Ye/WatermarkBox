@@ -222,6 +222,29 @@ def _root_file_diffs(ws: Path) -> list[str]:
     return real
 
 
+def _side_and_rel(
+    dir_part: str, name: str, a: Path, b: Path, rel_ws: str
+) -> tuple[str, str]:
+    """
+    判断 `diff -rq` 的 `Only in <dir>` 属于哪一侧，并算出相对工作区的路径。
+
+    @return `(side, rel)`，side ∈ {"ws", "repo", "?"}
+    """
+    p = Path(dir_part)
+    for base, side in ((a, "ws"), (b, "repo")):
+        try:
+            sub = p.relative_to(base)
+        except Exception:
+            continue
+        rel = (
+            f"{rel_ws}/{name}"
+            if str(sub) in (".", "")
+            else f"{rel_ws}/{sub}/{name}"
+        )
+        return side, rel
+    return "?", f"{rel_ws}/{name}"
+
+
 def compare_workspace(ws: Path) -> tuple[list[str], list[str]]:
     """
     比较工作区与仓库。
@@ -250,11 +273,22 @@ def compare_workspace(ws: Path) -> tuple[list[str], list[str]]:
         )
         for line in r.stdout.splitlines():
             if "Only in" in line:
-                parent, name = line.rsplit(":", 1)
-                name = name.strip()
-                rel = f"{rel_ws}/{name}"
+                # `diff -rq` 的输出形如：Only in <dir>: <name>
+                # <dir> 可能是**工作区侧**或**仓库侧** —— 必须区分方向，
+                # 否则会把「仅仓库有」误报成「仅工作区有」，把排查引向反方向。
+                # （2026-10-14 真实踩到：主仓库多出个未跟踪文件，却报「仅工作区有」。）
+                #
+                # 顺带修一个路径 bug：旧写法只用 `name`，丢掉子目录层级
+                # （`Only in .../a/b: c` 会算成 `docs/c`，应为 `docs/a/b/c`）。
+                body = line.split("Only in ", 1)[1]
+                dir_part, name = body.rsplit(":", 1)
+                dir_part, name = dir_part.strip(), name.strip()
+
+                side, rel = _side_and_rel(dir_part, name, a, b, rel_ws)
                 if _is_local_only(rel, name):
                     local_only.append(rel)
+                elif side == "repo":
+                    real.append(f"仅仓库有：{rel}")
                 else:
                     real.append(f"仅工作区有：{rel}")
             elif "differ" in line:
