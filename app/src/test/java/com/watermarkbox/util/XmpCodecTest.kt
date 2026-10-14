@@ -1,6 +1,7 @@
 package com.watermarkbox.util
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -101,5 +102,33 @@ class XmpCodecTest {
     @Test
     fun `只有开标签没有闭标签时返回 null 而不是崩`() {
         assertNull(XmpCodec.unpack("<wmb:watermark>开了没关"))
+    }
+
+    // ---- L1：控制字符（XML 1.0 不允许）----
+
+    @Test
+    fun `控制字符被剔除 —— 否则整包会变成非法 XML`() {
+        // XML 1.0 不允许 < 0x20 的控制字符（除 \t \n \r）。
+        // 连 `&#x0;` 这种数字实体引用也非法（规范明确排除该区间）。
+        // 若原样写入，别的工具解析时可能**直接丢弃**整个 XMP。
+        val packed = XmpCodec.pack("WMB1:含\u0000控制\u0007字符")
+        assertFalse("不该含 NUL", packed.contains('\u0000'))
+        assertFalse("不该含 BEL", packed.contains('\u0007'))
+        // 正常文本必须保留（别误伤）
+        assertTrue("正常文字不该被误伤", packed.contains("含"))
+        assertTrue(packed.contains("控制"))
+    }
+
+    @Test
+    fun `允许的空白（tab 换行 回车）被保留`() {
+        val packed = XmpCodec.pack("a\tb\nc\rd")
+        assertTrue("tab 应保留", packed.contains("a\tb"))
+        assertTrue("回车应保留", packed.contains("c\rd"))
+    }
+
+    @Test
+    fun `剔除控制字符后仍能往返`() {
+        val original = "WMB1:正常文本"
+        assertEquals(original, XmpCodec.unpack(XmpCodec.pack(original)))
     }
 }
