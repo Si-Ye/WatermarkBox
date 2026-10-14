@@ -309,6 +309,7 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 
 | 时间 | 变更 | 你该做什么 |
 |---|---|---|
+| 2026-10-14 | **`merge` 现在会跑 `assembleDebug`**（全量验证含打包） | 每轮 merge 因此**慢约 1 分钟**（实测 1m53s）—— 别以为卡住了。好处：**merge 全绿 = 能装机**。详见 `tools/session.sh` 的 `TEST_CMD` 注释 |
 | 2026-10-14 | **协作流程改为 worktree 隔离**（`tools/session.sh`） | **别再手动 `cp` 同步**。新任务用 `sh tools/session.sh new <名字>`；已经在主工作区改到一半的，可按原方式收尾，但**下次请换新流程**（详见 §2.6） |
 | 2026-10-14 | **`AGENTS.md` 已入库** | 它现在是 AI 会话的**入口文件**。如果你开工前没读过它，现在读一遍 |
 | 2026-10-14 | **开工自检改为一条命令** | `python3 tools/collab_status.py --workspace "$WORKSPACE"`（取代过去的「必做 3 件事」） |
@@ -327,7 +328,7 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 | README 截图 | 等人类提供真机截图 |
 | Baseline Profile | 收益评估偏小，优先级低 |
 | **推送本地提交** | **必须等人类明示** |
-| **代码审查报告剩余项** | `docs/code-review-2026-10.md` 共 15 项。**已修**：H2（提取端重复计算）、M3（EXIF 编解码边界）、M5（两通道守卫不对称）。**待办**：M2 / L5（稳健性，低风险）、M4（需产品决策：缩窄档位 or 改公式）、H1 / M1（涉旧图兼容与安全语义，**必须人类拍板 + 开 issue**）、L1–L4 / L6–L8 |
+| **代码审查报告剩余项** | `docs/code-review-2026-10.md` 共 15 项。**已修**：H1 / H2 / M1 / M2 / M3 / M4 / M5 / L5。**待办**：L1–L4 / L6–L8（低风险小项）。详见报告 §0 的「修订状态」表 |
 
 ### ✅ 近期完成（别惊讶于这些改动）
 
