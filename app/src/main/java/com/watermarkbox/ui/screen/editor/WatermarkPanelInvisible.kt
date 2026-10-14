@@ -22,7 +22,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.InvisibleSource
-import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ToggleRow
@@ -105,17 +104,20 @@ internal fun InvisibleWatermarkSection(
         }
     }
 
-    // ---- 强度 ----
+    // ---- 强度（只有 1~2 两档，用分段控件而非滑块）----
+    //
+    // 为什么不用滑块：两档滑块在视觉上暗示"连续可调"，
+    // 但中间值没有意义（3、4 档被 MAX_STEP 吃掉，见 WatermarkConfig）。
+    // 分段控件更诚实，也更省竖向空间 —— 与「布局模式」用同一个组件。
     Spacer(Modifier.height(Spacing.Item))
-    LabeledSlider(
-        label = stringResource(R.string.editor_invisible_strength),
-        value = config.strength.toFloat(),
-        onValueChange = { viewModel.updateInvisibleStrength(it.roundToInt()) },
-        // 只保留 1~2 两档：3、4 档在数学上会被 MAX_STEP 封顶吃掉，
-        // 与 1、2 档**完全等价**（详见 WatermarkConfig.strength 的说明）。
-        valueRange = 1f..2f,
-        steps = 1,
-        valueText = stringResource(R.string.editor_invisible_strength_value, config.strength),
+    SegmentedControl(
+        options = listOf(
+            1 to stringResource(R.string.editor_invisible_strength_value, 1),
+            2 to stringResource(R.string.editor_invisible_strength_value, 2)
+        ),
+        selected = config.strength,
+        onSelect = viewModel::updateInvisibleStrength,
+        hintTitle = stringResource(R.string.editor_invisible_strength),
         hint = stringResource(R.string.editor_invisible_strength_hint)
     )
 
