@@ -130,6 +130,37 @@ image, with 100% confidence.</sub>
 Both channels can be **switched on and off independently**. Metadata is the *overt* path — precise but
 fragile; DCT is the *covert* path — fuzzy but stubborn.
 
+**Written in, but invisible** — three real side-by-side comparisons
+(left: the original; right: the exported image carrying the payload — same size,
+same resolution, so you can compare them pixel by pixel):
+
+<div align="center">
+
+<img src="docs/assets/hidden-compare-01-smooth.jpg" width="100%" alt="Smooth image: original (left) vs watermarked (right)">
+
+<sub><b>01 · Smooth</b> — the hardest case for DCT: large flat areas leave almost no headroom</sub>
+
+<br>
+
+<img src="docs/assets/hidden-compare-02-typical.jpg" width="100%" alt="Typical photo: original (left) vs watermarked (right)">
+
+<sub><b>02 · Typical photo</b></sub>
+
+<br>
+
+<img src="docs/assets/hidden-compare-03-texture.jpg" width="100%" alt="Textured image: original (left) vs watermarked (right)">
+
+<sub><b>03 · Textured</b> — the easiest case: dense detail hides the change</sub>
+
+</div>
+
+> All three images on the right already carry an **extractable** payload, yet the
+> picture is unchanged to the eye. That is the whole point: **change the data, not
+> the picture**.
+>
+> Measured pixel-by-pixel (source ↔ export): **~2/255 per channel on average**,
+> 22/255 at the worst single pixel — far below the threshold of human perception.
+
 **Measured** (512×512 test image, per-block bit accuracy):
 
 - Per-block accuracy **99.5%** (54.2% before the light-background embedding fix)
