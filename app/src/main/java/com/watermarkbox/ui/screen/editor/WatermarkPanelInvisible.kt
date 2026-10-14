@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.InvisibleSource
+import com.watermarkbox.invisible.WatermarkPayload
 import com.watermarkbox.ui.component.InfoDot
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
@@ -101,7 +102,14 @@ internal fun InvisibleWatermarkSection(
                 placeholder = { Text(stringResource(R.string.editor_invisible_content_placeholder)) },
                 supportingText = {
                     Text(
-                        stringResource(R.string.editor_invisible_content_limit),
+                        // ⚠️ 上限**引用常量**，别在文案里写死 255 ——
+                        // 否则改 `MAX_DATA_BYTES` 时用户看到的限制还是旧的。
+                        // 「约几个汉字」按 UTF-8 汉字 3 字节估算（文案里的"约"已说明不精确）。
+                        stringResource(
+                            R.string.editor_invisible_content_limit,
+                            WatermarkPayload.MAX_DATA_BYTES,
+                            WatermarkPayload.MAX_DATA_BYTES / 3
+                        ),
                         style = MaterialTheme.typography.labelSmall
                     )
                 }

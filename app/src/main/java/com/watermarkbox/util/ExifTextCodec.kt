@@ -46,7 +46,18 @@ import java.util.Base64
  */
 object ExifTextCodec {
 
-    /** 隐藏水印的固定前缀（与 `WatermarkPayload.TAG_PREFIX` 保持一致）。 */
+    /**
+     * 隐藏水印的固定前缀。
+     *
+     * ## ⚠️ 这是**唯一来源**（别在两处各写一份）
+     *
+     * `WatermarkPayload.TAG_PREFIX` 是一个**引用本常量的 getter**，
+     * 不是另一份副本 —— 改这里就够了。
+     *
+     * 早期注释写的是"与 `WatermarkPayload.TAG_PREFIX` 保持一致"，
+     * 那是**方向反了**（读起来像 Payload 才是源头），容易误导人
+     * 去改错地方。
+     */
     const val TAG_PREFIX = "WMB1:"
 
     /** Base64 模式标记。 */
