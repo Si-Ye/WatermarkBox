@@ -82,6 +82,7 @@ usage() {
     sh tools/session.sh review <名字>    合并前审查（动了哪些文件）
     sh tools/session.sh merge <名字>     合并回 main（保留合并记录 + 全量测试）
     sh tools/session.sh rm <名字>        删除会话工作区（分支保留，需手工删）
+    sh tools/session.sh sync             把当前改动同步回主工作区（merge 已自动调用）
 
 约定：
     · 工作区位置：<仓库父目录>/wmb-wt-<名字>
@@ -196,6 +197,66 @@ cmd_review() {
     echo "下一步：sh tools/session.sh merge $name"
 }
 
+# ---------- 同步回主工作区（merge 收尾 / 手动）----------
+#
+# ## 为什么需要它
+#
+# worktree 流程解决了「改动怎么进仓库」，但**反方向没人管**：
+# 主工作区（AI 默认环境，FUSE）里的文件不会随 merge 更新。
+#
+# 真实后果（2026-10-14）：修好 AGENTS.md 并 merge 后，主工作区那份
+# 仍是旧版 —— 而系统提示会把**工作区的** AGENTS.md 注入给新会话，
+# 于是新会话读到旧版入口文档（等于白修）。
+#
+# ## 工作区路径从哪来
+#
+# 复用 pre-commit 钩子已有的本机配置 `.git/collab-config`（不入库），
+# 格式 `WORKSPACE=<工作区根目录>`。没配置就跳过（别的机器无从同步）。
+#
+# ## 只同步「仓库里确实存在的」文件
+#
+# 删除的文件**不碰工作区** —— 保守优先，避免误删工作区里别的东西。
+# 未跟踪的本机文件本来就不在改动列表里，天然排除。
+sync_to_workspace() {
+    # 工作区路径来源（优先级）：环境变量 $WORKSPACE > 本机配置 .git/collab-config
+    # 环境变量优先 —— 便于测试与临时指定。
+    ws="${WORKSPACE:-}"
+    if [ -z "$ws" ]; then
+        cfg="$ROOT/.git/collab-config"
+        [ -f "$cfg" ] && ws=$(sed -n 's/^WORKSPACE=//p' "$cfg" | head -1)
+    fi
+
+    if [ -z "$ws" ] || [ ! -d "$ws" ]; then
+        echo "（未配置工作区，跳过同步；如需自动同步，在 .git/collab-config 写 WORKSPACE=<路径>）"
+        return 0
+    fi
+
+    # 本次改动的文件（merge 后 HEAD 是 merge commit，HEAD^ 是旧 main）
+    files=$(git diff --name-only HEAD^ HEAD 2>/dev/null)
+    if [ -z "$files" ]; then
+        echo "（本次无改动文件）"
+        return 0
+    fi
+
+    n=0
+    for f in $files; do
+        if [ -f "$ROOT/$f" ]; then
+            mkdir -p "$(dirname "$ws/$f")"
+            cp "$ROOT/$f" "$ws/$f"
+            n=$((n + 1))
+        fi
+    done
+    echo "已同步 $n 个文件到工作区：$ws"
+}
+
+# ---------- sync：手动同步回工作区 ----------
+cmd_sync() {
+    echo "═══════════════════════════════════════════════════"
+    echo " 同步回主工作区"
+    echo "═══════════════════════════════════════════════════"
+    sync_to_workspace
+}
+
 # ---------- merge：合并（第 3 层）----------
 cmd_merge() {
     name="$1"
@@ -265,6 +326,9 @@ cmd_merge() {
         echo ""
         echo "✅ 合并完成且测试通过。"
         echo ""
+        echo "[收尾] 同步回主工作区"
+        sync_to_workspace
+        echo ""
         echo "提示：本脚本**不推送**。远端可见性由人类决定。"
     else
         echo ""
@@ -311,5 +375,6 @@ case "${1:-}" in
     review) shift; [ $# -ge 1 ] || { usage; exit 1; }; cmd_review "$1" ;;
     merge)  shift; [ $# -ge 1 ] || { usage; exit 1; }; cmd_merge "$1" ;;
     rm)     shift; [ $# -ge 1 ] || { usage; exit 1; }; cmd_rm "$1" ;;
+    sync)   cmd_sync ;;
     *)      usage; exit 1 ;;
 esac
