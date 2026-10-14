@@ -285,13 +285,18 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 | 项 | 值 |
 |---|---|
 | **发版流程** | **`docs/RELEASE_PROCESS.md`（发版必须照它做）** |
-| 本地 HEAD | 见 `git log`（本轮收尾：三层方案落地 + 文档渲染语法清理 + M3/M5 修复）|
-| 远端 | `origin/main` = `b1a254e`（tag `v2.1.0`）—— **2.1.1 的推送 / tag / Release 已按人类要求全部回退** |
-| **ahead** | **15（未推送；人类已明确不回推 2.1.1）** |
-| 单测基线 | **436 个用例，全绿** |
+| 本地 HEAD | 见 `git log`（本轮收尾：**发布 2.2.0** —— 预览架构重构 + README 截图整理 + 11 项修复）|
+| 远端 | `origin/main` 已推送到本轮发版提交；tag **`v2.2.0`** 已推（触发 CI 自动发布）|
+| **ahead** | **0（本轮已推送 —— 人类明确要求发布 2.2.0）** |
+| 单测基线 | **468 个用例，全绿** |
 | lint | 0 错误（6 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
-| 版本 | 远端发布 **2.1.0**；本地代码已含 2.1.1（versionCode 13，**未推送**）|
+| 版本 | **2.2.0（versionCode 14）已发布** |
+
+> ⚠️ **`v2.1.1` 从未对外发布**（它的推送 / tag / Release 曾按人类要求全部回退）。
+> `docs/changelog.json` 里仍保留 2.1.1 条目 —— 其内容已并入 2.2.0，
+> 用户从 2.1.0 直升 2.2.0 时会同时看到这两条，这是**预期行为**。
+> **不要再单独给 2.1.1 打 tag**（`docs/releases/v2.1.1.md` 仅作历史留档）。
 
 **更新约定**：任何会话在一轮工作结束时，如果 HEAD 变了，
 **顺手更新上表的 HEAD 与 ahead**（一行的事，但对下一个人很关键）。
@@ -324,14 +329,21 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 
 | 任务 | 阻塞点 |
 |---|---|
-| README 截图 | 等人类提供真机截图 |
 | Baseline Profile | 收益评估偏小，优先级低 |
 | **推送本地提交** | **必须等人类明示** |
 | **代码审查报告剩余项** | `docs/code-review-2026-10.md` 共 15 项，**已收口**：13 项已修（H1 / H2 / M1–M5 / L1 / L2 / L5 / L6 / L7 / L8），2 项复核后判定**不改**（L3 / L4，收益极小）。详见报告 §0 的「修订状态」表 |
+| **CI 发布结果确认** | `v2.2.0` 的 tag 已推 —— 需到 Actions / Releases 页面确认转绿、APK 附件在（人类或下个会话）|
 
 ### ✅ 近期完成（别惊讶于这些改动）
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
+- **（本轮）发布 2.2.0** —— 三处版本信息同步（`versionCode 13 → 14`、
+  `changelog.json` 插入 2.2.0 条目 13 条、新建 `docs/releases/v2.2.0.md`）
+  - README 中英双语同步：截图换成 2.2.0 真机图（11 张，缩放到 720 宽统一基准）、
+    单测数 411 → 468、底部版本号、补「预览两层架构」说明与开发手记第 7 条
+  - ⚠️ 本轮**推送 + tag `v2.2.0`**（人类明确要求），是自 2.1.0 以来首次对外发布
+  - 本地 release 包已构建并归档（`WatermarkBox-2.2.0-release.apk`，
+    经 `build_release_apk.py` 重组 —— proot 下 `assembleRelease` 产物缺 manifest 是已知问题）
 - **（本轮）新增「跨模块单一来源」不变量测试**（`invariants/CrossModuleReferenceTest.kt`，7 条，详见 §5.19）
   - 同时把 3 处**硬编码副本**改成引用常量：滑块下限 → `WatermarkRenderer.MIN_ALPHA`（3 处）；
     上限文案 → `WatermarkPayload.MAX_DATA_BYTES`（中英双语改为 `%1$d` / `%2$d` 参数化）
@@ -919,6 +931,21 @@ git log --oneline --since='2 hours ago'
 > 格式：时间 + 会话干了什么 + 留下什么未决。
 
 ```
+[2026-10-14 12:2x] 发布 2.2.0（推送 + tag v2.2.0）+ README 截图整理
+  - 会话：session/release-2-2-0（worktree 隔离）
+  - ① 截图重命名：14 张真机截图按**画面内容**改名（screen-*.jpg），
+       3 张「隐藏水印处理图」与已删除的临时文件保持原名
+  - ② README 中英双语：11 张新截图（**先裁掉顶部状态栏**再缩放到 720 宽）、
+       单测 411 → 468、底部版本号、新增「预览两层架构」+ 开发手记第 7 条
+       ⚠️ 截图必须裁状态栏 —— 里面有 VPN / 电量 / 通知内容等隐私
+  - ③ 发版三件套：versionCode 13 → 14 / changelog.json 2.2.0（13 条）/ v2.2.0.md
+  - ④ 校验与构建：check_release_consistency ✅、468 单测全绿、lint 0 error；
+       ⚠️ `assembleRelease` 产物缺 AndroidManifest.xml（proot 已知问题）→
+       `tools/build_release_apk.py` 重组 → `check_apk_integrity --require-signature` ✅
+       （keystore 在工作区、被 .gitignore 排除，**需手动复制进 worktree** 才能签本地包）
+  - ⑤ 推送 main + tag v2.2.0（人类明确要求）
+  - ⏳ 遗留：CI 发布结果待确认；v2.1.1 从未发布，其 changelog 条目保留
+
 [2026-10-14 02:2x] 三层协作方案落地 + 文档渲染语法清理 + 修 M3/M5
   - 提交链：f51d8a3 → e16abb6 → 655c2ce → c42db5d → b0f3bb8 → e6de3d2
             → ffa06fd → cfa98e8 → f62cc18(merge)

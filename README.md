@@ -63,13 +63,17 @@
 
 <div align="center">
 
-| 首页 | 编辑 · 文字水印 | 编辑 · 隐藏水印 |
+| 首页 | 编辑 · 文字水印 | 编辑 · 图片水印 |
 |:---:|:---:|:---:|
-| <img src="docs/assets/screen-home.jpg" width="220" alt="首页"> | <img src="docs/assets/screen-editor-text.jpg" width="220" alt="编辑页"> | <img src="docs/assets/screen-editor-invisible.jpg" width="220" alt="隐藏水印设置"> |
+| <img src="docs/assets/screen-home.jpg" width="220" alt="首页"> | <img src="docs/assets/screen-editor-text.jpg" width="220" alt="文字水印"> | <img src="docs/assets/screen-editor-image.jpg" width="220" alt="图片水印"> |
 
-| 检测隐藏水印 | 设置 |
-|:---:|:---:|
-| <img src="docs/assets/screen-detect.jpg" width="220" alt="检测结果"> | <img src="docs/assets/screen-settings.jpg" width="220" alt="设置页"> |
+| 编辑 · 隐藏水印 | 编辑 · 平铺 | 批量处理 |
+|:---:|:---:|:---:|
+| <img src="docs/assets/screen-editor-invisible.jpg" width="220" alt="隐藏水印设置"> | <img src="docs/assets/screen-editor-tile.jpg" width="220" alt="平铺水印"> | <img src="docs/assets/screen-batch.jpg" width="220" alt="批量处理"> |
+
+| 检测结果 | 全局导出设置 | 设置 |
+|:---:|:---:|:---:|
+| <img src="docs/assets/screen-detect-result.jpg" width="220" alt="检测结果"> | <img src="docs/assets/screen-export-settings.jpg" width="220" alt="全局导出设置"> | <img src="docs/assets/screen-settings.jpg" width="220" alt="设置页"> |
 
 <sub>检测页展示的是真实结果：从一张图片里读出了写入的隐藏水印，置信度 100%</sub>
 
@@ -83,6 +87,9 @@
 
 - **Photo Picker 选图** —— 不需要存储权限
 - **实时预览** —— 改任何参数，画面立刻响应
+- **预览按原图分辨率渲染**（上限 4096）—— 不再压到 720 边，
+  所见即所得；拖动参数时只重画水印层，所以跟手
+- **打开即见** —— 先上低清占位图（几十毫秒），高清解码完成后无缝替换
 - **文字水印** —— 字号 6~300、字体族、**自定义字体导入**（ttf/otf）、颜色、加粗、斜体、描边、阴影
 - **图片水印** —— 宽度占比、保持比例、透明度
 - **布局** —— 单个 / 平铺 / 对角线
@@ -100,6 +107,12 @@
 - 单张失败不影响其它，结束时给出统计，并**说明失败原因**
 
 ### 预设
+
+<div align="center">
+
+<img src="docs/assets/screen-presets.jpg" width="260" alt="预设列表">
+
+</div>
 
 - DataStore 持久化，重启不丢
 - **可脱离图片单独编辑** —— 不选图也能改参数
@@ -148,6 +161,14 @@ DCT 有画质代价（**按块自适应强度**，同等抗压缩下峰值改动
 检测项**可自选**：只查元数据（最快）/ 也查频域 / 尝试全部强度 / 尝试四个旋转方向 /
 用频域验证签名 —— 想快就快、想全就全。
 
+<div align="center">
+
+<img src="docs/assets/screen-detect.jpg" width="260" alt="检测页：检测项可自选">
+
+<sub>改完检测项后重新选一次图片即可生效；结果页给出内容、来源通道、签名状态与置信度</sub>
+
+</div>
+
 ---
 
 ## 技术实现
@@ -176,6 +197,25 @@ app/src/main/java/com/watermarkbox/
 - Repository 负责 IO 与持久化，UI 不直接碰 `ContentResolver`
 - 参数面板 `WatermarkPanel` 通过 `WatermarkPanelHost` 接口与 ViewModel 解耦，
   因此单张编辑页和批量页可以**复用同一套面板**
+
+### 预览：底图与水印分两层
+
+预览**不把「底图 + 水印」合成到一张位图**，而是分两层、交给 GPU 合成：
+
+| 层 | 画什么 | 每帧成本 |
+|---|---|---|
+| `Image(baseBitmap)` | 底图 | GPU 纹理，只上传一次，之后零拷贝 |
+| `Canvas { drawInto }` | 水印 | 几十条绘制命令，与像素数无关 |
+
+旧路径每帧都要 `outputFor()`（擦除 + 整块拷贝底图），成本与像素数成正比 ——
+768×1024 就要 33.8 ms，按比例到原图分辨率约 520 ms/帧。
+这就是「预览只能压到 720 边」的原因。
+
+**而拖动参数时底图一个像素都没变** —— 那 98% 的时间是纯粹的重复劳动。
+
+用 `withTransform` 把画布坐标系映射成「原图坐标系」之后，
+`WatermarkRenderer` 里的绘制逻辑（字号 / 边距 / 旋转 / 平铺）**一行都不用改**，
+而且与导出**天然一致**（同一坐标系、同一套代码）。
 
 ### 隐藏水印的技术要点
 
@@ -216,7 +256,7 @@ app/src/main/java/com/watermarkbox/
 ### 命令
 
 ```bash
-# 单元测试（411 个）
+# 单元测试（468 个）
 ./gradlew testDebugUnitTest
 
 # Debug 包
@@ -452,6 +492,17 @@ EXIF `UserComment` 有字符集限制，直接写中文会丢失。
 
 > **修复**：统一走 Base64 + 自定义转义编码。
 
+### 7. 预览只能压到 720 —— 每帧重拷了底图
+
+预览曾经必须把图片压到最长边 720，否则拖动参数时卡到没法用。
+看着像「渲染太慢」，实际是**每帧都把整块底图重拷了一遍** ——
+而拖动参数时底图根本没有变化。
+
+> **修复**：底图与水印分成两层交给 GPU 合成，每帧只画水印。分辨率随之提到原图。
+
+> **教训**：性能问题先问「这份工作是不是重复劳动」，再谈算法优化 ——
+> 前者的收益往往是数量级的（这里约 30~100 倍）。
+
 ---
 
 ## 权限
@@ -504,7 +555,7 @@ limitations under the License.
 
 <br>
 
-**水印盒 · WatermarkBox**　`v2.1.0`
+**水印盒 · WatermarkBox**　`v2.2.0`
 
 Made with 🐺 by [肆叶](https://github.com/Si-Ye)
 

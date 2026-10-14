@@ -1,7 +1,83 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-13",
+  "updatedAt": "2026-10-14",
   "releases": [
+    {
+      "version": "2.2.0",
+      "date": "2026-10-14",
+      "type": "MINOR",
+      "title": {
+        "zh": "预览不再缩水：原图分辨率，而且跟手",
+        "en": "A preview that no longer shrinks: full resolution, and it keeps up"
+      },
+      "changes": [
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：预览改用原图分辨率 —— 此前最长边被压到 720，看着比导出结果糊",
+          "en": "Improved: the preview now renders at full image resolution (it used to be downscaled to 720px, so it looked softer than the export)"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：拖动字号 / 角度 / 密度 / 透明度时更跟手 —— 每帧只重画水印，不再整块重拷底图",
+          "en": "Improved: dragging size, rotation, density or opacity is far more responsive - only the watermark is redrawn each frame"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：打开图片时先显示低清占位、再无缝换成高清，首屏不再长时间空白",
+          "en": "Improved: a low-res placeholder appears immediately and is then seamlessly replaced by the full-resolution image"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：水印被画到图片外面（预览比导出多出四周留白，边缘水印会溢出）",
+          "en": "Fixed: watermarks could be drawn outside the image (the preview has letterbox padding that the export does not)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：关掉「自动强度」后，自己导出的图片反而检测不出来（检测端默认强度与导出不一致）",
+          "en": "Fixed: images exported with auto-strength turned off could not be detected (the detector default did not match the export)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：导出失败时，相册里残留一条打不开的空白条目",
+          "en": "Fixed: a failed export left an unopenable empty entry in the gallery"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：隐藏水印内容过长时会被整段丢弃（现在按字符截断，不会把 emoji 切成半个）",
+          "en": "Fixed: over-long invisible-watermark payloads were dropped entirely (now truncated, without cutting an emoji in half)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：隐藏水印的两处边界 —— 内容为空时被误报「检测到水印」；内容以 B64: 开头时写进去读不出来",
+          "en": "Fixed: two invisible-watermark edge cases - an empty payload was reported as detected, and payloads starting with \"B64:\" could not be read back"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：签名校验的两处隐患 —— 长度字段只覆盖低 8 位；校验失败时静默返回全零，可能与有效签名混淆",
+          "en": "Fixed: two signature-check weaknesses - only the low 8 bits of the length field were covered, and a failed check silently returned all zeros"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：隐藏水印含控制字符时，XMP 元数据变成非法 XML，别的软件可能整包丢弃",
+          "en": "Fixed: control characters made the XMP metadata invalid XML, which other software may discard entirely"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：大尺寸图片检测隐藏水印时可能因内存不足而失败",
+          "en": "Fixed: detecting watermarks in large images could fail on memory"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "变更：签名状态文案由「已验证 · 本应用签发」改为「通过内置密钥校验」—— 内置密钥是公开可查的，原措辞给了超出实际能力的信任感",
+          "en": "Changed: the signature status now reads \"Passed built-in key check\" instead of \"Verified - issued by this app\"; the built-in key is public, so the old wording over-promised"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "变更：隐藏水印嵌入强度由 4 档缩为 2 档 —— 原来 3、4 档受上限限制，实际效果与 2 档没有区别",
+          "en": "Changed: invisible-watermark strength went from 4 steps to 2 - steps 3 and 4 were capped and behaved identically to step 2"
+        }
+      ]
+    },
     {
       "version": "2.1.1",
       "date": "2026-10-13",
