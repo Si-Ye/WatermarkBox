@@ -130,21 +130,50 @@ def collect(workspace: str | None) -> dict:
     }
 
 
+def _git_ignored(rel_path: str) -> bool:
+    """
+    该路径是否被 `.gitignore` 忽略。
+
+    ## 为什么不自己解析 .gitignore
+
+    匹配规则很多（`**`、目录尾斜杠、否定 `!`、多层嵌套的 .gitignore…），
+    自己实现必然有偏差。直接问 git —— 它才是权威。
+
+    `git check-ignore -q`：被忽略时退出码 0，否则 1。
+    """
+    try:
+        r = subprocess.run(
+            ["git", "check-ignore", "-q", rel_path],
+            cwd=ROOT,
+            capture_output=True,
+            timeout=10,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
 def _is_local_only(rel_path: str, name: str) -> bool:
     """
     判断某个差异项是否属于「本机专用文件」—— 它们**本来就不该入库**，
     报出来只会制造噪音、降低对报告的信任。
 
-    规则（沿用本仓库的既有约定）：
+    规则：
     - 以 `.` 开头的文件/目录（如 `.inject_lint.py`、`.cmsg_150.txt`）
     - 以 `_` 开头的文件（本仓库把`_`前缀用作"临时脚本/截图"的标记，
       例如 `_home_top.png`、`_dct_compare.py`）
     - `__pycache__`、`.pyc`
+    - **被 `.gitignore` 忽略的路径** —— 例如 `docs/build-artifacts.md`：
+      它「只在本机存在」是**设计如此**，不是「同步漏了」。
+      真实踩到（2026-10-14）：在 worktree 里跑本脚本时，工作区多出的
+      本机文件被逐个报成「仅工作区有」，全是假警报。
     """
     if name.startswith(".") or name.startswith("_"):
         return True
     parts = Path(rel_path).parts
-    return any(p == "__pycache__" or p.startswith(".") for p in parts)
+    if any(p == "__pycache__" or p.startswith(".") for p in parts):
+        return True
+    return _git_ignored(rel_path)
 
 
 def _root_file_diffs(ws: Path) -> list[str]:
