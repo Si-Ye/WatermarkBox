@@ -172,4 +172,37 @@ class BitmapUtilsSampleSizeTest {
             )
         }
     }
+
+    // ---- L8：极端宽高比（长条形图）----
+    //
+    // 原报告怀疑「对 10000×10 这类图会降很多次、可能降过头」。
+    // 实测**不会**：循环条件每次都重新检查最长边，所以停在「再降一档就不够」的位置。
+    // 这三条测试把这个结论钉住，防止将来有人把条件改成 `maxOf(w, h) >= target`。
+
+    @Test
+    fun `极端长条形图不会降过头`() {
+        // 10000×10、目标 1000：3 次折半后最长边 1250（≥ 1000），再降一档就 625（< 1000）。
+        val s = BitmapUtils.calculateInSampleSize(10000, 10, 1000)
+        assertEquals(8, s)
+        assertTrue("最长边应仍 ≥ 目标", 10000 / s >= 1000)
+        assertTrue("再降一档就不够了（说明没降过头）", 10000 / (s * 2) < 1000)
+    }
+
+    @Test
+    fun `细高图与长条图结果对称`() {
+        // 算法只取 maxOf(w, h)，横竖旋转不该有差别
+        assertEquals(
+            BitmapUtils.calculateInSampleSize(10000, 10, 1000),
+            BitmapUtils.calculateInSampleSize(10, 10000, 1000)
+        )
+    }
+
+    @Test
+    fun `短边被折到 0 也不崩`() {
+        // 10000×1 这类退化输入：循环里 h/2 会一路变成 0。
+        // 但循环条件只看最长边，所以既不会死循环也不会出负数。
+        val s = BitmapUtils.calculateInSampleSize(10000, 1, 1000)
+        assertTrue("sampleSize 应为正", s > 0)
+        assertTrue("最长边应仍 ≥ 目标", 10000 / s >= 1000)
+    }
 }

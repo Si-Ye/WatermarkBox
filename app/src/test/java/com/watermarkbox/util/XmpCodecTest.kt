@@ -131,4 +131,39 @@ class XmpCodecTest {
         val original = "WMB1:正常文本"
         assertEquals(original, XmpCodec.unpack(XmpCodec.pack(original)))
     }
+
+    // ---- L2：unpack 用 indexOf 定位，补边界测试 ----
+
+    @Test
+    fun `内容里含闭标签字面量也不会提前截断`() {
+        // `unpack` 用 indexOf 找 `</wmb:watermark>`，若内容里真出现这个串就会被截断。
+        // 但 `escape` 会把内容里的 `<` 转成 `&lt;`，所以 **pack → unpack 往返是安全的**。
+        // 这条测试把这个「隐式依赖」显式钉住：将来若有人动 escape，这里会先红。
+        val tricky = "WMB1:前面</wmb:watermark>后面"
+        assertEquals(tricky, XmpCodec.unpack(XmpCodec.pack(tricky)))
+    }
+
+    @Test
+    fun `多个同名标签时取第一个`() {
+        // 故意不做完整 XML 解析（避免引入解析器开销），所以行为定义为「取第一个」。
+        val xmp = "<x:xmpmeta><wmb:watermark>第一个</wmb:watermark>" +
+            "<wmb:watermark>第二个</wmb:watermark></x:xmpmeta>"
+        assertEquals("第一个", XmpCodec.unpack(xmp))
+    }
+
+    @Test
+    fun `标签在开头或在结尾都能取出`() {
+        assertEquals("头", XmpCodec.unpack("<wmb:watermark>头</wmb:watermark>"))
+        assertEquals(
+            "尾",
+            XmpCodec.unpack("<rdf>无关前缀</rdf><wmb:watermark>尾</wmb:watermark>")
+        )
+    }
+
+    @Test
+    fun `空内容返回空串而不是 null`() {
+        // 空标签说明「有人签过，只是没写内容」，与「压根找不到标签」是两回事，
+        // 不能都返回 null —— 否则检测端无法区分「没水印」和「水印是空的」。
+        assertEquals("", XmpCodec.unpack("<wmb:watermark></wmb:watermark>"))
+    }
 }
