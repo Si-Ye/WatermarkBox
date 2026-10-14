@@ -183,16 +183,26 @@ def compare_workspace(ws: Path) -> tuple[list[str], list[str]]:
                 else:
                     real.append(f"仅工作区有：{rel}")
             elif "differ" in line:
-                f = line.split(" and ")[0]
+                # `diff -rq` 的输出形如：
+                #     Files /path/to/A and /path/to/B differ
+                #
+                # 早期直接 `split(" and ")[0]` 就去 `relative_to(a)` ——
+                # 但字符串里还留着 `Files ` 前缀，Path 会把它当成相对路径，
+                # `relative_to` 必然失败，于是退回**原始英文行**（很难读）。
+                # 这里先把前缀剥掉。
+                left = line.split(" and ")[0].strip()
+                if left.startswith("Files "):
+                    left = left[len("Files "):]
                 try:
-                    rel = Path(f).relative_to(a)
+                    rel = Path(left).relative_to(a)
+                    rel_str = str(rel)
                 except Exception:
-                    real.append(line)
-                    continue
-                if _is_local_only(str(rel), rel.name):
-                    local_only.append(f"{rel_ws}/{rel}")
+                    # 兜底：至少给出文件名，不要吐原始英文行
+                    rel_str = Path(left).name
+                if _is_local_only(f"{rel_ws}/{rel_str}", Path(rel_str).name):
+                    local_only.append(f"{rel_ws}/{rel_str}")
                 else:
-                    real.append(f"内容不同：{rel_ws}/{rel}")
+                    real.append(f"内容不同：{rel_ws}/{rel_str}")
     return real, local_only
 
 
@@ -322,6 +332,42 @@ def report(s: dict, prev: dict, warns: list[str], workspace: str | None) -> None
     print("\n" + LINE)
 
 
+def check_sync_mode(cur: dict, workspace: str | None) -> int:
+    """
+    只做「工作区 ↔ 仓库是否同步」这一件事，供 **pre-commit 钩子**调用。
+
+    ## 为什么单独做成一个模式（方案 D）
+
+    本轮的真实痛点：所有代码改动都要手动 `cp` 同步到仓库，
+    漏一次就会**提交旧代码** —— 而 `git commit` 本身不会告诉你这件事。
+
+    钩子里调用本模式即可拦住：
+    - 有实质差异 → 打印差异 + **退出码 1** → 提交被拦
+    - 只有本机临时文件（`.`/`_` 前缀、`__pycache__`）→ 不算差异 → 放行
+
+    ## 没配工作区路径怎么办
+
+    直接放行（退出码 0）。工作区路径是**本机信息**（不入库），
+    别的机器/克隆里没有配置，此时无从检查 —— 不该因此阻塞提交。
+    """
+    if not workspace:
+        return 0  # 未配置工作区，跳过检查
+
+    real = cur.get("workspace_diff") or []
+    if not real:
+        return 0
+
+    print("[check-sync] ⚠️ 工作区与仓库不一致 —— 提交前请先同步，否则仓库里是旧代码：")
+    for d in real[:20]:
+        print(f"    {d}")
+    if len(real) > 20:
+        print(f"    … 还有 {len(real) - 20} 项")
+    print()
+    print("    同步命令：cp -r <工作区>/app/src/. <仓库>/app/src/")
+    print("    （docs/、tools/、.github/ 同理；详见 docs/RELEASE_PROCESS.md）")
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="多会话协作状态自检")
     ap.add_argument(
@@ -334,9 +380,21 @@ def main() -> int:
         action="store_true",
         help="只在有「需要注意的变化」时输出（适合放进自动化流程）",
     )
+    ap.add_argument(
+        "--check-sync",
+        action="store_true",
+        help="只检查「工作区 ↔ 仓库」是否同步；有实质差异时退出码 1。"
+             "供 pre-commit 钩子调用。",
+    )
     args = ap.parse_args()
 
     cur = collect(args.workspace)
+
+    # ---- 模式一：只做同步检查（pre-commit 用）----
+    if args.check_sync:
+        return check_sync_mode(cur, args.workspace)
+
+    # ---- 模式二：完整报告 ----
     prev = load_snapshot()
     warns = changes_vs(prev, cur)
 

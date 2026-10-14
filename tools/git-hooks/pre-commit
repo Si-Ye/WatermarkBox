@@ -35,6 +35,52 @@ if [ ! -f "$AUDIT" ]; then
     exit 0
 fi
 
+# ============================================================
+# 工作区同步检查（方案 D）
+# ============================================================
+#
+# ## 为什么需要
+#
+# 本项目有**两套路径**：工作区（AI 工具读写）与 git 仓库（提交/构建）。
+# 代码改动要**手动 cp** 同步过去 —— 漏一次就会**提交旧代码**，
+# 而 `git commit` 本身不会告诉你这件事（本轮真实踩过，手打 cp 6 次以上）。
+#
+# ## 配置
+#
+# 读 `.git/collab-config`（**本机文件，不入库**），内容一行：
+#
+#     WORKSPACE=<工作区根目录>
+#
+# 用 sed 提取而非 `source` —— 避免执行文件里的任意代码。
+# **没这个文件就跳过**（别的机器/克隆里没有，不该因此阻塞提交）。
+#
+# ## 判定
+#
+# 交给 `tools/collab_status.py --check-sync`：
+# 它只比「应该一致」的内容，并**自动忽略本机临时文件**
+# （`.`/`_` 前缀、`__pycache__` 等）。
+#
+# ============================================================
+CFG="$ROOT/.git/collab-config"
+WORKSPACE=""
+if [ -f "$CFG" ]; then
+    WORKSPACE=$(sed -n 's/^WORKSPACE=//p' "$CFG" | head -1)
+fi
+
+if [ -n "$WORKSPACE" ] && [ -d "$WORKSPACE" ] && command -v python3 >/dev/null 2>&1; then
+    if ! python3 "$ROOT/tools/collab_status.py" --check-sync --workspace "$WORKSPACE"; then
+        echo ""
+        echo "=========================================="
+        echo " 提交被拦截：工作区改动尚未同步到仓库"
+        echo "=========================================="
+        echo " 先同步再提交，否则仓库里是旧代码。"
+        echo " 同步：cp -r \"$WORKSPACE/app/src/.\" \"$ROOT/app/src/\""
+        echo " 确实无需同步（如只改本机文件）：git commit --no-verify"
+        echo ""
+        exit 1
+    fi
+fi
+
 echo "[pre-commit] 正在审计暂存区内容..."
 if ! sh "$AUDIT" --staged; then
     echo ""

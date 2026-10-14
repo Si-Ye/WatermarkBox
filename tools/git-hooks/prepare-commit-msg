@@ -1,0 +1,71 @@
+#!/bin/sh
+# ============================================================
+# prepare-commit-msg 钩子：给提交信息自动加「会话标识」
+# ============================================================
+#
+# ## 为什么需要它（方案 C）
+#
+# 本项目由多个 AI 会话并行推进。事后翻 `git log` 时很难判断
+# 「这几条提交是同一次工作，还是不同会话各做的」——
+# 本轮就真实发生过：看到一堆改动，分不清哪些是自己的、哪些是别人的。
+#
+# 本钩子在提交信息末尾追加一行：
+#
+#     Session-Start: 2026-10-14 00:52
+#
+# 同一次工作内的多个提交会**共享同一个时间戳**，
+# 于是「同一批工作」在日志里一眼可辨。
+#
+# ## 时间戳怎么定
+#
+# 存在 `.git/collab-session`（**本机状态，不入库**）。
+# 首次提交时写入当前时间；**超过 6 小时**视为新会话、自动刷新。
+# （6 小时是经验值：一次连续工作很少更久，跨天则必然刷新。）
+#
+# ## 安装
+#
+#     sh tools/install_hooks.sh
+#
+# ## 跳过
+#
+# `git commit --no-verify` 可跳过，但不建议 —— 会丢掉会话标识。
+#
+# ============================================================
+
+MSG_FILE="$1"
+SOURCE="$2"
+
+# merge 提交的信息是自动生成的，加标识没意义
+[ "$SOURCE" = "merge" ] && exit 0
+[ -z "$MSG_FILE" ] && exit 0
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+STATE="$ROOT/.git/collab-session"
+
+now=$(date +%s)
+start=""
+if [ -f "$STATE" ]; then
+    start=$(cat "$STATE" 2>/dev/null)
+fi
+
+# 脏数据保护：非纯数字一律当作「没有记录」
+case "$start" in
+    ''|*[!0-9]*) start="" ;;
+esac
+
+# 无记录，或已过期（> 6 小时）→ 视为新会话
+if [ -z "$start" ] || [ "$((now - start))" -gt 21600 ] 2>/dev/null; then
+    start=$now
+    echo "$start" > "$STATE" 2>/dev/null
+fi
+
+stamp=$(date -d "@$start" '+%Y-%m-%d %H:%M' 2>/dev/null)
+[ -z "$stamp" ] && stamp=$(date '+%Y-%m-%d %H:%M')
+
+# 已经加过就不重复（`git commit --amend` 会再次触发本钩子）
+if grep -q '^Session-Start:' "$MSG_FILE" 2>/dev/null; then
+    exit 0
+fi
+
+printf '\nSession-Start: %s\n' "$stamp" >> "$MSG_FILE"
+exit 0
