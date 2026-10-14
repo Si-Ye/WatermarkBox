@@ -55,13 +55,34 @@ class ImageRepository(private val context: Context) {
     fun peekPreview(uri: Uri): Bitmap? = previewCache.get(uri)?.takeIf { !it.isRecycled }
 
     /**
-     * 加载预览用的降采样 Bitmap（最大边 1024）。
-     * 命中缓存直接返回，避免重复解码。
+     * 加载预览用的降采样 Bitmap。
+     *
+     * ## 参数为什么变多了（渐进式加载）
+     *
+     * 预览现在是「**先低清占位 → 再高清替换**」（见 `EditorViewModel.loadImage`）：
+     * 大图解码 + 上传 GPU 纹理要几百毫秒，先给用户看一眼低清版，
+     * 体感上「立刻就有图」，之后再无缝换成高清。
+     *
+     * 因此这个方法要能：
+     * - 按**指定分辨率**解码（低清占位 / 高清最终）
+     * - 决定**是否写入 LRU 缓存**
+     *
+     * @param maxEdge 最大边长；默认 [BitmapUtils.PREVIEW_MAX_EDGE]（高清）
+     * @param cache 是否写入 LRU 缓存。
+     *   **低清占位图必须传 `false`** —— 它只是"先看一眼"的临时物，
+     *   缓存它会把**高清版挤出去**（容量只有 [PREVIEW_CACHE_CAPACITY] 张），
+     *   下一帧又得重新解码，反而更慢。
      */
-    suspend fun loadPreviewBitmap(uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
-        peekPreview(uri)?.let { return@withContext it }
-        val bitmap = BitmapUtils.loadBitmap(context, uri, BitmapUtils.PREVIEW_MAX_EDGE)
-        if (bitmap != null) previewCache.put(uri, bitmap)
+    suspend fun loadPreviewBitmap(
+        uri: Uri,
+        maxEdge: Int = BitmapUtils.PREVIEW_MAX_EDGE,
+        cache: Boolean = true
+    ): Bitmap? = withContext(Dispatchers.IO) {
+        // 只有「要缓存的」（高清）才走缓存命中；低清每次现解 ——
+        // 但它每张图只解一次，代价可忽略
+        if (cache) peekPreview(uri)?.let { return@withContext it }
+        val bitmap = BitmapUtils.loadBitmap(context, uri, maxEdge)
+        if (bitmap != null && cache) previewCache.put(uri, bitmap)
         bitmap
     }
 

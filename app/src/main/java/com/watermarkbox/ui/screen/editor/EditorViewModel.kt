@@ -26,6 +26,7 @@ import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.invisible.InvisibleContentResolver
 import com.watermarkbox.invisible.InvisibleWatermarkEngine
 import com.watermarkbox.util.BitmapBudget
+import com.watermarkbox.util.BitmapUtils
 import com.watermarkbox.util.BitmapLoadOutcome
 import com.watermarkbox.util.FileNameResolver
 import com.watermarkbox.util.UiMessage
@@ -167,24 +168,63 @@ class EditorViewModel(application: Application) :
         _uiState.update { it.copy(isLoading = true, errorMessage = null, imageUri = uri) }
         viewModelScope.launch {
             val name = imageRepository.queryDisplayName(uri)
-            val bitmap = imageRepository.loadPreviewBitmap(uri)
-            if (bitmap == null) {
+
+            // ---- 渐进式加载：先低清占位 → 再高清替换 ----
+            //
+            // ## 为什么
+            //
+            // 高清底图是原图分辨率（1200 万像素 ≈ 48 MB），解码 + 上传
+            // GPU 纹理要**几百毫秒** —— 这段时间界面上只有加载圈。
+            //
+            // 先给一张 720 边的低清图（≈ 1.5 MB，解码只要几十毫秒），
+            // 用户**立刻看到图**，然后后台换成高清。
+            //
+            // ## 命中缓存时跳过占位
+            //
+            // 若高清**已在 LRU 缓存里**（比如从批量页滑回来），直接用它 ——
+            // 没必要先降级显示一遍。
+            val cached = imageRepository.peekPreview(uri)
+            val lowRes = if (cached == null) {
+                imageRepository.loadPreviewBitmap(
+                    uri,
+                    maxEdge = BitmapUtils.PREVIEW_PLACEHOLDER_MAX_EDGE,
+                    // ⚠️ 低清**不写缓存** —— 否则会把高清挤出 LRU（容量只有 2 张）
+                    cache = false
+                )
+            } else {
+                null
+            }
+
+            val first = cached ?: lowRes
+            if (first == null) {
                 _uiState.update {
                     it.copy(isLoading = false, errorMessage = UiMessage(R.string.editor_error_load_failed))
                 }
                 return@launch
             }
+
             val defaultAlpha = _uiState.value.exportSettings.defaultAlpha
             val defaults = _uiState.value.exportSettings
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    previewBitmap = bitmap,
+                    previewBitmap = first,
                     sourceFileName = name,
                     // 新图片沿用设置里的默认透明度
                     config = it.config.copy(alpha = defaultAlpha),
                     imageConfig = it.imageConfig.copy(alpha = defaultAlpha)
                 )
+            }
+
+            // ---- 没命中缓存 → 后台解高清并替换 ----
+            if (cached == null) {
+                val hiRes = imageRepository.loadPreviewBitmap(uri)   // 默认即高清 + 写缓存
+                if (hiRes != null && hiRes !== lowRes) {
+                    _uiState.update { it.copy(previewBitmap = hiRes) }
+                    // ⚠️ **不 recycle** lowRes：它可能正被某一帧绘制。
+                    // 与 `LruCacheMap`「淘汰不 recycle」的取舍一致 ——
+                    // 宁可晚一点释放，也不要崩。
+                }
             }
             // 新图片套用设置里的「默认水印文字」。
             // 只在用户还没手动改过文字时套用 —— 否则会覆盖掉用户刚输入的内容。
