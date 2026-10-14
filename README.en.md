@@ -58,13 +58,17 @@ their work being reused without credit.
 
 <div align="center">
 
-| Home | Editor · Text | Editor · Invisible |
+| Home | Editor · Text | Editor · Logo |
 |:---:|:---:|:---:|
-| <img src="docs/assets/screen-home.jpg" width="220" alt="Home"> | <img src="docs/assets/screen-editor-text.jpg" width="220" alt="Editor"> | <img src="docs/assets/screen-editor-invisible.jpg" width="220" alt="Invisible watermark settings"> |
+| <img src="docs/assets/screen-home.jpg" width="220" alt="Home"> | <img src="docs/assets/screen-editor-text.jpg" width="220" alt="Text watermark"> | <img src="docs/assets/screen-editor-image.jpg" width="220" alt="Image watermark"> |
 
-| Detect | Settings |
-|:---:|:---:|
-| <img src="docs/assets/screen-detect.jpg" width="220" alt="Detection result"> | <img src="docs/assets/screen-settings.jpg" width="220" alt="Settings"> |
+| Editor · Invisible | Editor · Tiled | Batch |
+|:---:|:---:|:---:|
+| <img src="docs/assets/screen-editor-invisible.jpg" width="220" alt="Invisible watermark settings"> | <img src="docs/assets/screen-editor-tile.jpg" width="220" alt="Tiled watermark"> | <img src="docs/assets/screen-batch.jpg" width="220" alt="Batch processing"> |
+
+| Detection result | Export settings | Settings |
+|:---:|:---:|:---:|
+| <img src="docs/assets/screen-detect-result.jpg" width="220" alt="Detection result"> | <img src="docs/assets/screen-export-settings.jpg" width="220" alt="Global export settings"> | <img src="docs/assets/screen-settings.jpg" width="220" alt="Settings"> |
 
 <sub>The detection screen shows a real result: the payload was recovered from an
 image, with 100% confidence.</sub>
@@ -79,6 +83,11 @@ image, with 100% confidence.</sub>
 
 - **Photo Picker** — no storage permission required
 - **Live preview** — every parameter change redraws immediately
+- **Full-resolution preview** (up to 4096 px) — the preview used to be downscaled to
+  720 px; it now renders at the image's own resolution, and only the watermark layer
+  is redrawn while you drag
+- **Instant first frame** — a low-res placeholder appears within tens of milliseconds
+  and is seamlessly replaced once the full-resolution decode finishes
 - **Text watermark** — size 6–300, font family, **custom font import** (ttf/otf),
   color, bold, italic, outline, shadow
 - **Image watermark** — width ratio, aspect-ratio lock, opacity
@@ -97,6 +106,12 @@ image, with 100% confidence.</sub>
 - One failure does not abort the batch; a summary is shown at the end
 
 ### Presets
+
+<div align="center">
+
+<img src="docs/assets/screen-presets.jpg" width="260" alt="Preset list">
+
+</div>
 
 - Persisted via DataStore — survives restarts
 - **Editable without an image** — you can tweak parameters before picking one
@@ -154,6 +169,15 @@ DCT-based signature verification.
 
 Two-stage strategy: **EXIF first, frequency domain as fallback**.
 
+<div align="center">
+
+<img src="docs/assets/screen-detect.jpg" width="260" alt="Detection screen: pick what to check">
+
+<sub>Pick what to check — metadata only is fastest; you can also try the frequency
+domain, every strength, or all four rotations</sub>
+
+</div>
+
 ---
 
 ## Architecture
@@ -182,6 +206,25 @@ app/src/main/java/com/watermarkbox/
 - The parameter panel `WatermarkPanel` talks to the ViewModel through a
   `WatermarkPanelHost` interface, which is what lets the single-editor and the
   batch screen **share the same panel**
+
+### Preview: the base image and the watermark are two layers
+
+The preview does **not** composite the base image and the watermark into a single
+bitmap. They stay two layers, composited by the GPU:
+
+| Layer | Draws | Cost per frame |
+|---|---|---|
+| `Image(baseBitmap)` | the photo | a GPU texture — uploaded once, then zero-copy |
+| `Canvas { drawInto }` | the watermark | a few dozen draw commands, independent of pixel count |
+
+The old path re-copied the entire base image every frame — 33.8 ms at 768×1024,
+and roughly 520 ms per frame at full resolution, which is exactly why the preview
+had to stay at 720 px. Yet **the base image never changes while you drag a slider**;
+that was 98% wasted work.
+
+Mapping the canvas into "image coordinates" with `withTransform` means none of the
+rendering logic (size, margins, rotation, tiling) had to change — and it stays
+**structurally identical to the export**, because it is literally the same code.
 
 ### Invisible watermark — the interesting parts
 
@@ -225,7 +268,7 @@ implemented from scratch.
 ### Commands
 
 ```bash
-# Unit tests (411)
+# Unit tests (468)
 ./gradlew testDebugUnitTest
 
 # Debug build
@@ -343,7 +386,7 @@ Apache-2.0 — see [LICENSE](LICENSE).
 
 <br>
 
-**WatermarkBox**　`v2.1.0`
+**WatermarkBox**　`v2.2.0`
 
 Made with 🐺 by [Si-Ye](https://github.com/Si-Ye)
 

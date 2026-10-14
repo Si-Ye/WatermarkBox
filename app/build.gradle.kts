@@ -26,8 +26,8 @@ android {
         applicationId = "com.watermarkbox"
         minSdk = 26            // Android 8.0
         targetSdk = 35         // Android 15
-        versionCode = 13
-        versionName = "2.1.1"
+        versionCode = 14
+        versionName = "2.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
