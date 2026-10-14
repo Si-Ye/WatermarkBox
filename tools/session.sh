@@ -63,7 +63,7 @@ cd "$ROOT" || exit 1
 
 WT_BASE="$(dirname "$ROOT")/wmb-wt"
 
-# 全量测试命令（合并后必跑）。
+# 全量验证命令（合并后必跑）。
 #
 # ⚠️ 用 `sh ./gradlew` 而不是 `./gradlew`：
 # 本仓库的 `gradlew` 长期没有可执行位（历史遗留），
@@ -71,7 +71,16 @@ WT_BASE="$(dirname "$ROOT")/wmb-wt"
 # 而且**症状具有迷惑性**：合并本身成功了，只是测试没跑起来。
 # 用 `sh` 显式解释执行可以彻底绕开权限问题。
 # （同时也补上了 `chmod +x gradlew`，两道保险。）
-TEST_CMD='sh ./gradlew testDebugUnitTest lintDebug --console=plain'
+#
+# ## 为什么含 assembleDebug（2026-10-14 补）
+#
+# 之前这里只有 test + lint，于是**「merge 全绿」不等于「能打包」**——
+# 真实踩到：连续多轮 merge 都通过，却从没验证过 APK 能否产出，
+# 直到要装机验证 UI 改动时才发现这个盲区。
+#
+# 加 `-PparallelSuffix=.final`：产出的正是**可安装的 debug 包**
+# （`com.watermarkbox.final`），装机时直接 cp 即可，省一步。
+TEST_CMD='sh ./gradlew testDebugUnitTest lintDebug assembleDebug -PparallelSuffix=.final --console=plain'
 
 usage() {
     sed -n 's/^# \{0,1\}//p' "$0" | sed -n '/^用法/,/^$/p' 2>/dev/null
