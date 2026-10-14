@@ -64,7 +64,15 @@ cd "$ROOT" || exit 1
 WT_BASE="$(dirname "$ROOT")/wmb-wt"
 
 # 全量测试命令（合并后必跑）
-TEST_CMD='./gradlew testDebugUnitTest lintDebug --console=plain'
+# 全量测试命令（合并后必跑）。
+#
+# ⚠️ 用 `sh ./gradlew` 而不是 `./gradlew`：
+# 本仓库的 `gradlew` 长期没有可执行位（历史遗留），
+# 直接 `./gradlew` 会 `Permission denied` —— 实测踩到，
+# 而且**症状具有迷惑性**：合并本身成功了，只是测试没跑起来。
+# 用 `sh` 显式解释执行可以彻底绕开权限问题。
+# （同时也补上了 `chmod +x gradlew`，两道保险。）
+TEST_CMD='sh ./gradlew testDebugUnitTest lintDebug --console=plain'
 
 usage() {
     sed -n 's/^# \{0,1\}//p' "$0" | sed -n '/^用法/,/^$/p' 2>/dev/null
