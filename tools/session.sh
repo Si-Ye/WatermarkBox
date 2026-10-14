@@ -200,10 +200,16 @@ cmd_merge() {
         exit 1
     fi
 
-    # main 必须干净，否则合并后分不清哪些改动来自哪
-    if [ -n "$(git status --porcelain)" ]; then
-        echo "错误：main 工作区有未提交改动，先处理干净再合并。" >&2
-        git status --short | head -10 >&2
+    # main 必须干净，否则合并后分不清哪些改动来自哪。
+    #
+    # ⚠️ 只看**已跟踪**文件的改动（`--untracked-files=no`）：
+    # 未跟踪文件（例如正在等脱敏、有意不入库的文档）**不影响 git merge**，
+    # 若把它们也算作"不干净"，就会让 merge **被永久误拦**
+    # —— 实测踩到：`docs/rust-migration-feasibility.md` 待脱敏，
+    # 每次 merge 都被它挡住。
+    if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+        echo "错误：main 有未提交改动（已跟踪文件），先处理干净再合并。" >&2
+        git status --short --untracked-files=no | head -10 >&2
         exit 1
     fi
 
