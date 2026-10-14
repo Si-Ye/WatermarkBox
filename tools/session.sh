@@ -303,12 +303,31 @@ cmd_merge() {
 
 由 tools/session.sh merge 执行。
 --no-ff 保留合并记录，便于日后回溯「这批改动来自哪次会话工作」。"; then
+        conflicts=$(git diff --name-only --diff-filter=U)
+        if [ -z "$conflicts" ]; then
+            # 没有内容冲突 —— 多半是「未跟踪文件」挡路（详见 §5.16）。
+            # 注意：这种情况 git 已自动 abort，**没有 MERGING 状态**，
+            # 所以不能照下面那样提示 `git merge --abort`（会报"没有可中止的合并"）。
+            echo ""
+            echo "═══════════════════════════════════════════════════"
+            echo " ⚠️ 合并失败 —— 但**不是内容冲突**"
+            echo "═══════════════════════════════════════════════════"
+            echo " 很可能：待合并的文件在主仓库里已有**未跟踪**副本，"
+            echo "         git 拒绝覆盖它（怕弄丢你的未跟踪文件）。"
+            echo ""
+            echo " 主仓库当前的未跟踪文件："
+            git status --porcelain --untracked-files=all | grep '^??' | sed 's/^?? /    /' | head -10
+            echo ""
+            echo " 处理：确认无害后移走（mv 到 /tmp 备份），再重新 merge。"
+            echo " 详见 docs/multi-session-collaboration.md §5.16。"
+            exit 1
+        fi
         echo ""
         echo "═══════════════════════════════════════════════════"
         echo " ⚠️ 合并冲突 —— 需要人工决断"
         echo "═══════════════════════════════════════════════════"
         echo " 冲突文件："
-        git diff --name-only --diff-filter=U | sed 's/^/    /'
+        echo "$conflicts" | sed 's/^/    /'
         echo ""
         echo " 处理方式："
         echo "   放弃合并：  git merge --abort"
