@@ -12,7 +12,7 @@
 
 ## 0. 一句话总则
 
-$$\textcolor{#0D47A1}{\textbf{\text{先搞清楚「现在是什么状态」，再决定「我要做什么」。}}}$$
+> ⚠️ **先搞清楚「现在是什么状态」，再决定「我要做什么」。**
 
 ### 工作前必做：跑一条命令
 
@@ -58,7 +58,7 @@ python3 tools/collab_status.py --workspace "$WORKSPACE"
 
 ## 1. 项目坐标（两套路径，别搞混）
 
-$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{代码有\textbf{两份}，必须靠 \texttt{cp} 同步 —— 这是最容易出错的点}}}}$$
+> ⚠️ **代码有两份，必须靠 `cp` 同步 —— 这是最容易出错的点**
 
 | 位置 | 特点 |
 |---|---|
@@ -90,7 +90,7 @@ diff -rq "$GIT_REPO/app/src" "$WORKSPACE/app/src"
 
 ### 2.1 推送
 
-$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{未经人类所有者明示「推送」，\textbf{绝不} \texttt{git push}}}}}$$
+> ⚠️ **未经人类所有者明示「推送」，绝不 `git push`**
 
 - 本地攒提交是**常态**，攒到十几个很正常
 - 每轮结束**必须**报告：`本地 HEAD / 远端 / ahead N`
@@ -138,7 +138,7 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 ### 2.5 改完要留注解（交接的燃料）
 
-$$\fcolorbox{orange}{#FFF3E0}{\textcolor{orange}{\textbf{\text{下一个人只有代码，没有你的上下文}}}}$$
+> ⚠️ **下一个人只有代码，没有你的上下文**
 
 这是 `CONTRIBUTING.md`「注释」一节的**协同视角补充** ——
 那条讲"写什么"（只写为什么，不写是什么），这条讲**为谁写、写到什么程度**。
@@ -187,7 +187,7 @@ $$\fcolorbox{orange}{#FFF3E0}{\textcolor{orange}{\textbf{\text{下一个人只�
 
 ### ⚠️ 两个真实踩过的坑（都靠「故意制造未同步去测拦截」才发现）
 
-$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{钩子「装上了」不等于「会跑」—— 两种静默失效}}}}}$$
+> ⚠️ **钩子「装上了」不等于「会跑」—— 两种静默失效**
 
 1. **悬空软链**：`install_hooks.sh` 里的相对路径写成 `../tools/...`，
    内核解析成 `.git/tools/...`（不存在）→ **钩子静默不执行**，
@@ -201,6 +201,79 @@ $$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{钩子「装上了」�
 
 那会让这两道闸门形同虚设。
 确实无需同步时（例如只改了本机文件），钩子会说明原因并给出正确做法。
+
+---
+
+## 2.6 会话工作区（三层方案的第 1、3 层）
+
+### 为什么要用
+
+以前所有会话**共用一份代码**，改完要**手动 `cp`** 到 git 仓库。三个后果：
+
+1. 同步容易漏 → 提交旧代码
+2. 改动互相覆盖 → 后同步的把前者的活冲掉
+3. 日志分不清 → 不知道哪批改动属于哪次工作
+
+**现在**：每个会话在**自己的 git worktree** 里干活 —— 它本身就是 git 工作树，
+**「手动同步」这一步彻底消失了**。
+
+### 用法
+
+```sh
+sh tools/session.sh new <名字>       # 创建：<仓库父目录>/wmb-wt-<名字>，分支 session/<名字>
+sh tools/session.sh list             # 列出所有会话工作区
+sh tools/session.sh review <名字>    # 合并前审查：改了什么 + 冲突预判
+sh tools/session.sh merge <名字>     # 审查 → --no-ff 合并 → 全量测试
+sh tools/session.sh rm <名字>        # 删除工作区（有未提交改动时**拒绝**）
+```
+
+**注意**：`merge` 冲突时**不自动裁决** —— 脚本停下来，由人类决断。
+合并后**必跑全量测试**（两边改动可能语义冲突，静态看不出来）。
+
+### 实测数据（落地前就先验过）
+
+| 项 | 结果 |
+|---|---|
+| `.git` 大小 | 36M（worktree 共享它，开销很小）|
+| worktree 里构建 | BUILD SUCCESSFUL in 34s |
+| 需要本机配置 | **零** —— SDK 走环境变量；`keystore` 只在 release 时需要 |
+| AI 工具访问 | `linux` 环境可直接读写 worktree 文件 |
+
+### ⚠️ 五个实测踩到的坑（全是「看起来对、实际没跑」）
+
+| # | 坑 | 症状 |
+|---|---|---|
+| 1 | `install_hooks.sh` 软链少一级 | **悬空软链** → 钩子静默不执行，但 `ls` 看着它在 |
+| 2 | 钩子源文件缺可执行位 | git 直接跳过钩子 |
+| 3 | `gradlew` 缺可执行位 | 合并后测试 `Permission denied` —— **合并本身却成功了**，极具迷惑性 |
+| 4 | `merge` 把未跟踪文件也算作「不干净」 | 待脱敏文档让 merge 被**永久**误拦 |
+| 5 | worktree 里 `.git` 是个**文件**（不是目录） | 会话状态路径写不进去，`Session-Start` 静默退回当前时间 |
+
+> ⚠️ **共同教训：「装上了 / 配好了」≠「真的会跑」**
+>
+> 这条比任何一条具体规则都重要 —— 本轮所有坑都属于这一类。
+
+**必须验证防线的实际行为**，而且要**在真实场景里验**：
+
+- 验证「未同步会被拦」→ 故意制造未同步，去提交（本轮 1、2 号坑就是这样暴露的）
+- 验证「合并后跑测试」→ 真的跑一次 merge（3 号坑）
+- 验证「worktree 里钩子正常」→ 真的在 worktree 里提交一次（5 号坑）
+
+只看着配置对、只跑 `sh -n` 语法检查，**发现不了这些**。
+
+### 🔧 配套工具：`tools/clean_doc_latex.py`
+
+AI 在**对话框里**会用 LaTeX 做卡片 / 高亮（界面能渲染），
+但同一套写法写进 `.md` 后，在 GitHub 上**只是一堆原始命令**。
+这个脚本负责把这类误用的渲染语法转成普通 Markdown：
+
+```sh
+python3 tools/clean_doc_latex.py --check docs/*.md   # 只报告
+python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
+```
+
+**写文档时请直接用普通 Markdown**（`**加粗**`、`> 引用`），
+不要从对话框里整段复制带 `$$...$$` 的内容。
 
 ---
 
@@ -274,7 +347,7 @@ $$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{钩子「装上了」�
 
 ### 5.1 预览频闪：一个修了三次的 bug
 
-$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{症状：拖动字号/角度/密度/透明度时预览闪烁，松手就正常}}}}$$
+> ⚠️ **症状：拖动字号/角度/密度/透明度时预览闪烁，松手就正常**
 
 **关键结论（第三次才找对）：**
 
@@ -337,7 +410,7 @@ Worker 层 `uris.forEachIndexed { processOne(...) }` **本来就是顺序的**�
 
 ### 5.6 预览「不实时」：降采样在非正方形图上曾完全失效
 
-$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{\texttt{calculateInSampleSize} 的 \&\& 写法会让非正方形图\textbf{一点不降}}}}}}$$
+> ⚠️ ****`calculateInSampleSize` 的 && 写法会让非正方形图**一点不降**
 
 ```kotlin
 // ❌ 旧：要求两条边都能折半才降
@@ -444,7 +517,7 @@ EXPORT_COPIES   = 3       ← 固定按 3 份算
 
 ### 5.11 ⚠️ 终端不能用 heredoc（会卡住）
 
-$$\fcolorbox{red}{#FFEBEE}{\textcolor{red}{\textbf{\text{多行命令会停在续行模式，\textbf{命令不执行}}}}}$$
+> ⚠️ ****多行命令会停在续行模式，**命令不执行**
 
 ```bash
 # ❌ 这样写会卡住（shell 停在 ">" 续行提示符，永远等不到结尾）
@@ -476,7 +549,7 @@ EOF
 
 ### 5.13 文档里别写本机绝对路径（钩子会拦）
 
-$$\fcolorbox{orange}{#FFF8E1}{\textcolor{#E65100}{\textbf{\text{pre-commit 钩子的第 [3/5] 项专查本机路径，含它就别想提交}}}}}$$
+> ⚠️ **pre-commit 钩子的第 [3/5] 项专查本机路径，含它就别想提交**
 
 **真实案例**：一份技术调研文档记录了本机实测环境，
 里面有写死的 SDK 绝对路径 —— 提交时被钩子拦下，输出形如：
@@ -548,7 +621,7 @@ $$\fcolorbox{orange}{#FFF8E1}{\textcolor{#E65100}{\textbf{\text{pre-commit 钩�
 
 ### 6.2 发现别人改动的正确姿势
 
-$$\fcolorbox{blue}{#E3F2FD}{\textcolor{#0D47A1}{\textbf{\text{不要"奇怪"，先"评估" —— 用 git 问，别用猜}}}}}$$
+> ⚠️ **不要"奇怪"，先"评估" —— 用 git 问，别用猜**
 
 ```sh
 # 这个文件最近被谁、为什么改的？

@@ -84,7 +84,7 @@ git push origin vX.Y.Z
 **`versionCode` 每次发布必须 +1**（同版本号也 +1）——
 它是系统判断"新版本"的唯一依据，不变的话用户装不上更新。
 
-$$\text{versionName 只在 } \texttt{app/build.gradle.kts} \text{ 里写一次，别处不再手写}$$
+> ⚠️ **versionName 只在 `app/build.gradle.kts` 里写一次，别处不再手写**
 
 ---
 
@@ -383,7 +383,7 @@ git push origin main
 
 ### 步骤 10 · 打 tag（触发发布）
 
-$$\textcolor{red}{\textbf{\text{tag 名必须是 v + 版本号，且与 versionName 完全一致}}}$$
+> ⚠️ **tag 名必须是 v + 版本号，且与 versionName 完全一致**
 
 ```bash
 git tag -a v2.1.1 -m "水印盒 v2.1.1"
