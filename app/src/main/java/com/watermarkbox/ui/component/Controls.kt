@@ -120,6 +120,9 @@ fun LabeledSlider(
  * 分段选择控件（Segmented Control），用于水印类型 / 布局模式等少量互斥选项。
  *
  * @param hint 非空时在上方显示一个带 ⓘ 的标签行，点击弹出说明（见 [InfoDot]）
+ * @param fillWidth 是否占满可用宽度。默认 `true`（整行铺开）；
+ *        设为 `false` 时不加 `fillMaxWidth`，由调用方给宽度
+ *        —— 用于「标题 + 控件并排一行」的紧凑布局（如隐藏水印的强度）。
  */
 @Composable
 fun <T> SegmentedControl(
@@ -128,7 +131,8 @@ fun <T> SegmentedControl(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     hintTitle: String? = null,
-    hint: String? = null
+    hint: String? = null,
+    fillWidth: Boolean = true
 ) {
     if (hint != null && hintTitle != null) {
         Row(
@@ -150,7 +154,7 @@ fun <T> SegmentedControl(
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = modifier.fillMaxWidth()
+        modifier = if (fillWidth) modifier.fillMaxWidth() else modifier
     ) {
         Row(modifier = Modifier.padding(4.dp)) {
             options.forEach { (value, label) ->

@@ -5,11 +5,14 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -17,11 +20,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.InvisibleSource
+import com.watermarkbox.ui.component.InfoDot
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ToggleRow
@@ -104,22 +109,43 @@ internal fun InvisibleWatermarkSection(
         }
     }
 
-    // ---- 强度（只有 1~2 两档，用分段控件而非滑块）----
+    // ---- 强度（只有 1~2 两档，与标题并排一行）----
     //
     // 为什么不用滑块：两档滑块在视觉上暗示"连续可调"，
     // 但中间值没有意义（3、4 档被 MAX_STEP 吃掉，见 WatermarkConfig）。
-    // 分段控件更诚实，也更省竖向空间 —— 与「布局模式」用同一个组件。
+    //
+    // 为什么并排一行：只有两个短选项，单独占一整行太浪费空间。
+    // 用「标题 + ⓘ + 控件」的紧凑布局（同 ToggleRow 的思路），
+    // 控件用固定宽度（fillWidth = false）而非铺满。
     Spacer(Modifier.height(Spacing.Item))
-    SegmentedControl(
-        options = listOf(
-            1 to stringResource(R.string.editor_invisible_strength_value, 1),
-            2 to stringResource(R.string.editor_invisible_strength_value, 2)
-        ),
-        selected = config.strength,
-        onSelect = viewModel::updateInvisibleStrength,
-        hintTitle = stringResource(R.string.editor_invisible_strength),
-        hint = stringResource(R.string.editor_invisible_strength_hint)
-    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.editor_invisible_strength),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.width(6.dp))
+            InfoDot(
+                title = stringResource(R.string.editor_invisible_strength),
+                text = stringResource(R.string.editor_invisible_strength_hint)
+            )
+        }
+        SegmentedControl(
+            options = listOf(
+                1 to stringResource(R.string.editor_invisible_strength_value, 1),
+                2 to stringResource(R.string.editor_invisible_strength_value, 2)
+            ),
+            selected = config.strength,
+            onSelect = viewModel::updateInvisibleStrength,
+            fillWidth = false,
+            modifier = Modifier.width(132.dp)
+        )
+    }
 
     // ---- 两条写入通道（各自独立开关）----
     Spacer(Modifier.height(Spacing.Item))
