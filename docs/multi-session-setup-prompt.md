@@ -57,7 +57,7 @@ cd "$GIT_REPO" && git init && git add -A && git commit -m "chore: 初始提交"
 
 | 文件 | 职责 |
 |---|---|
-| `AGENTS.md` | **AI 会话第一入口**：三条铁律 + 开工三步 + 怎么改代码 + 高危区 |
+| `AGENTS.md` | **AI 会话第一入口**：三条铁律 + 开工自检命令 + 平台支持边界 + 怎么改代码 + 高危区 |
 | `CONTEXT.md` | **只写稳定信息**：项目是什么、已确认决策、职责边界 |
 | `docs/multi-session-collaboration.md` | 协作硬性规矩、任务看板、**已知坑**、交接记录 |
 | `tools/session.sh` | worktree 管理（new / list / review / merge / rm / sync） |
@@ -84,7 +84,7 @@ cd "$GIT_REPO" && git init && git add -A && git commit -m "chore: 初始提交"
   - 用 `--no-ff` 保留合并记录（便于回溯「这批改动来自哪次会话」）
   - 合并后**必跑全量测试**；失败要报告但**不自动回滚**（由人类决定）
   - 冲突时**停下交人类**，**绝不自动裁决**（两个会话可能各有合理之处）
-- 全量测试命令用 **`sh ./gradlew`** 而不是 `./gradlew`
+- 全量测试命令用 **`sh gradlew`** 而不是 `./gradlew`
   - ⚠️ `gradlew` 常缺可执行位 → `Permission denied`，
     而**合并本身却成功了**，极具迷惑性
 
@@ -137,7 +137,7 @@ cd "$GIT_REPO" && git init && git add -A && git commit -m "chore: 初始提交"
 
 | 文档 | 只写什么 |
 |---|---|
-| `AGENTS.md` | 入口：铁律、开工三步、worktree 用法、高危区 |
+| `AGENTS.md` | 入口：铁律、开工自检命令、平台支持边界、worktree 用法、高危区 |
 | `CONTEXT.md` | **稳定信息**：项目目标、已确认决策、职责边界 |
 | `docs/multi-session-collaboration.md` | 硬性规矩、任务看板、已知坑、**交接记录（最新在最上）** |
 
@@ -181,5 +181,5 @@ cd "$GIT_REPO" && git init && git add -A && git commit -m "chore: 初始提交"
 
 - worktree 位置：`<仓库父目录>/wmb-wt-<名字>`
 - 本机配置：`.git/collab-config`（`WORKSPACE=<路径>`）、`.git/collab-session`（会话时间戳）—— 均**不入库**
-- 全量测试命令：`sh ./gradlew testDebugUnitTest lintDebug --console=plain`
+- 全量测试命令：`sh gradlew testDebugUnitTest lintDebug --console=plain`
 - 合并后脚本会自动把改动**同步回主工作区**（读 `collab-config`；没配就跳过）

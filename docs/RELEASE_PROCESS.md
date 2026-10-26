@@ -25,7 +25,7 @@
 python3 tools/check_release_consistency.py
 
 # ⑤ 构建与测试
-./gradlew testDebugUnitTest lintDebug assembleDebug
+sh gradlew testDebugUnitTest lintDebug assembleDebug
 
 # ⑥ 提交并推送
 git add -A && git commit -F /tmp/commit_msg.txt
@@ -265,10 +265,10 @@ python3 tools/check_release_consistency.py
 
 ```bash
 # 测试 + lint + debug 包
-./gradlew testDebugUnitTest lintDebug assembleDebug
+sh gradlew testDebugUnitTest lintDebug assembleDebug
 
 # Release 包
-./gradlew assembleRelease
+sh gradlew assembleRelease
 ```
 
 **必须全部 BUILD SUCCESSFUL。**
@@ -440,14 +440,14 @@ https://raw.githubusercontent.com/Si-Ye/WatermarkBox/main/docs/changelog.json
 |---|---|
 | 看当前版本 | `grep -n 'versionCode\|versionName' app/build.gradle.kts` |
 | **发版校验** | `python3 tools/check_release_consistency.py` |
-| 跑测试 | `./gradlew testDebugUnitTest` |
-| 静态检查 | `./gradlew lintDebug` |
-| 构建 debug | `./gradlew assembleDebug` |
-| 构建 release | `./gradlew assembleRelease` |
+| 跑测试 | `sh gradlew testDebugUnitTest` |
+| 静态检查 | `sh gradlew lintDebug` |
+| 构建 debug | `sh gradlew assembleDebug` |
+| 构建 release | `sh gradlew assembleRelease` |
 | 重组 release 包 | `python3 tools/build_release_apk.py` |
 | 校验 APK 完整性 | `python3 tools/check_apk_integrity.py --require-signature app/build/outputs/apk/release/app-release.apk` |
 | 看包装名/版本 | `aapt2 dump badging <apk> \| head -1` |
-| 从旧数据重建 changelog | `python3 tools/export_changelog.py` |
+| 从旧数据重建 changelog | `python3 tools/export_changelog.py --apply`（**不带 `--apply` 只干跑预览**，不再直接覆盖） |
 
 ---
 
@@ -549,7 +549,7 @@ $ python3 tools/check_release_consistency.py
 退出码=0
 
 # ⑦ 构建与测试
-$ ./gradlew testDebugUnitTest lintDebug assembleDebug
+$ sh gradlew testDebugUnitTest lintDebug assembleDebug
 BUILD SUCCESSFUL
 
 # ⑧ 提交 / 推送 / 打 tag

@@ -33,6 +33,7 @@ fi
 mkdir -p "$DST_DIR"
 
 count=0
+COPIED=0
 for hook in "$SRC_DIR"/*; do
     [ -f "$hook" ] || continue
     name=$(basename "$hook")
@@ -51,27 +52,33 @@ for hook in "$SRC_DIR"/*; do
     # （2026-10-14 实际踩到，靠一次「故意制造未同步去测拦截」才发现。）
     rel_src="../../tools/git-hooks/$name"
     rm -f "$dst"
-    if ln -s "$rel_src" "$dst" 2>/dev/null; then
-        # 安装后**立刻验证目标可达** —— 悬空软链必须当场发现，不能留到运行时
-        if [ -e "$dst" ]; then
-            echo "已链接：.git/hooks/$name -> $rel_src"
-        else
-            echo "⚠️ 软链目标不可达（$rel_src），改用复制。"
-            rm -f "$dst"
-            cp "$hook" "$dst"
-            chmod +x "$dst"
-        fi
+
+    # 只有 `ln -s` **并且** `[ -L ]` 也确认它是链接，才算链接成功。
+    #
+    # ⚠️ MSYS（Git-Bash）上 `ln -s` 常常**返回成功、实际却复制了一份**（或造出 .lnk）。
+    #    只看 `ln` 的退出码就会打印「已链接」而其实是副本 ——
+    #    于是改了 `tools/git-hooks/*` **不生效**，而且没人知道（2026-10-16 记录）。
+    if ln -s "$rel_src" "$dst" 2>/dev/null && [ -L "$dst" ] && [ -e "$dst" ]; then
+        echo "已链接：.git/hooks/$name -> $rel_src"
     else
-        # 软链不可用（少见）时退回复制
+        rm -f "$dst"
         cp "$hook" "$dst"
-        chmod +x "$dst"
-        echo "已复制：.git/hooks/$name"
+        chmod +x "$dst" 2>/dev/null || true
+        COPIED=1
+        echo "已复制：.git/hooks/$name（本机不支持软链）"
     fi
     count=$((count + 1))
 done
 
 echo ""
 echo "安装完成，共 $count 个钩子。"
+
+if [ "$COPIED" = "1" ]; then
+    echo ""
+    echo "⚠️ 本机是【副本模式】：钩子是复制过去的，不是软链。"
+    echo "   → 以后改了 tools/git-hooks/* 的内容，**必须重跑本脚本**才生效。"
+    echo "   → 原因见 docs/multi-session-collaboration.md §2.7「Windows 已知坑」第 3 条。"
+fi
 
 # 最终自检：每个钩子都必须可执行（防再次出现悬空软链）
 echo "自检："

@@ -1,7 +1,7 @@
 # 项目上下文（CONTEXT）
 
 > **每个会话开工前先读这份。**
-> 配套的**入口文件**是 `AGENTS.md` —— 那里有「开工三步」和硬性约束，先读它再读本文。
+> 配套的**入口文件**是 `AGENTS.md` —— 那里有「开工自检命令」和硬性约束，先读它再读本文。
 >
 > 它是「项目是什么、定了什么」的**唯一入口** ——
 > 目的是让新会话**不必重新问一遍背景**，也不必各自复制一份。
@@ -22,8 +22,11 @@
 > **需要状态时现查**：
 >
 > ```sh
-> python3 tools/collab_status.py --workspace "$WORKSPACE"
+> "$(command -v python3 || command -v python)" tools/collab_status.py --workspace "$WORKSPACE"
 > ```
+>
+> （Windows 上 `python3` 可能是应用商店占位程序，会**静默失败** —— 所以别硬写 `python3`。
+> 单份代码平台上 `--workspace` 可省。）
 
 ---
 
@@ -54,6 +57,7 @@
 | 4 | **git 只本地提交，推送需人类明示** | 远端可见性由人类控制；推送不可逆 |
 | 5 | **不主动升版本号** | 等人类明确说升到几（曾因擅自升版本号导致一次回退） |
 | 6 | **多会话用 worktree 隔离** | 见下方「三层方案」 |
+| 7 | **开发环境「划界支持」**：正式支持 ① 手机 Termux/proot（aarch64 Linux）② **Windows**；**不支持面**的脚本（`setup_android_env.sh` / `install_debug.sh` / `run_instrumented_tests.sh` / `push_release.sh` 的 tar 同步段 / `build_release_apk.py`）**自带平台守卫，跑错平台当场报错并给替代路径**，不去「修」它们 | 与其让所有脚本半死不活地「大概能跑」，不如明确划线：**支持面必须两边全绿，不支持面必须当场失败**。判据、替代路径与 Windows 已知坑见协作文档 §2.7 |
 
 ---
 
@@ -91,7 +95,8 @@
 | 名称 | 用途 |
 |---|---|
 | **`CONTEXT.md`** | **本文档** —— 开工先读 |
-| `docs/multi-session-collaboration.md` | 协作规矩、已知坑、**活跃任务看板**、交接记录 |
+| `docs/multi-session-collaboration.md` | 协作规矩、已知坑、**活跃任务看板**、**§2.7 平台支持边界**、交接记录 |
+| `docs/pending-fixes-2026-10.md` | **待修复清单**（环境 E1–E11 / 代码 C1–C11 / 文档 D1–D6，含修复顺序） |
 | `docs/RELEASE_PROCESS.md` | **发版流程**（发版必须照做，命令均已实测） |
 | `docs/build-artifacts.md` | 本机路径与产物规范（**不入库**，含本机专用信息） |
 | `tools/collab_status.py` | **状态自检**：一条命令看全状态 + 与上次对比 |

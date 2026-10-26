@@ -56,32 +56,33 @@ python3 tools/collab_status.py --workspace "$WORKSPACE"
 
 ---
 
-## 1. 项目坐标（两套路径，别搞混）
+## 1. 项目坐标
 
-> ⚠️ **代码有两份，必须靠 `cp` 同步 —— 这是最容易出错的点**
+### 1.1 当前：单份代码（Windows 等桌面平台）
+
+**只有一份代码** —— `$WORKSPACE` = `$GIT_REPO` = 仓库根目录。
+直接改、直接提交、直接构建，**没有「同步」这一步**。
+
+- `collab_status.py --workspace` 可省（脚本识别到同路径会打印「单份代码模式」）。
+- `pre-commit` 的**工作区同步检查**在这种模式下**自动跳过**（不适用，不是失败）。
+
+### 1.2 手机端（Termux / proot）曾有过的两套路径
 
 | 位置 | 特点 |
 |---|---|
 | **工作区** `$WORKSPACE` | AI 工具直接读写；常位于 FUSE 挂载，**git 不可用（或极慢）** |
 | **git 仓库** `$GIT_REPO` | ext4；只有 Ubuntu 终端能看见；**提交与构建都在这** |
 
-**同步方向**：工作区 → 仓库（**单向**，改完工作区要手动同步过去）
+> ⚠️ **这套「两份代码 + 手动同步」的做法已于 2026-10-14 废弃**，
+> 改用 worktree 隔离（§2.6）—— 每个会话在自己的 git 工作树里干活，「手动同步」这一步彻底消失。
+> 下面两段是**历史记录**，描述的是**已不再使用**的流程，别照着做。
 
 ```sh
-# ✅ 正确写法（cp -r 递归覆盖，能带上新增文件）
+# ❌ 已废弃（历史记录）：靠 cp 从工作区同步到仓库
 cp -r "$WORKSPACE/app/src/." "$GIT_REPO/app/src/"
 
-# ⚠️ 旧写法已废弃：早期用 diff 管道同步，
-#    会【漏掉新增文件】—— 曾一次性补回 6 个丢失文件、+1529 行。
-#    不要再用 diff | patch 那套。
-```
-
-**反向也要看一眼**：如果仓库里有工作区没有的改动（别人在仓库直接改的），
-先搞清楚状况再继续，别直接 `cp` 覆盖掉。
-
-```sh
-# 反向检查（仓库有、工作区没有的文件）
-diff -rq "$GIT_REPO/app/src" "$WORKSPACE/app/src"
+# ❌ 更早的 diff 管道同步也已废弃：会【漏掉新增文件】
+#    曾一次性补回 6 个丢失文件、+1529 行。
 ```
 
 ---
@@ -167,11 +168,15 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 
 ---
 
-### 2.6 git 钩子（自动生效，**别绕过**）
+### git 钩子（自动生效，**别绕过**）
 
-> 📌 本节原编号为 `## 2.5`，与上面的 `### 2.5 改完要留注解` 撞号
-> （一个是子节、一个是顶级节，引用时指不清）。2026-10-15 改为 `### 2.6`，
-> 归入「硬性规矩」之下 —— 它讲的确实是规矩的自动化执行。
+> 📌 **编号变更记录（本节已去掉编号，别再给它加）**
+> 原为 `## 2.5`，与 `### 2.5 改完要留注解` 撞号；2026-10-15 改成 `### 2.6` ——
+> **结果又和 `## 2.6 会话工作区` 撞号（第三次）**。
+> 2026-10-16 起**去掉本节编号**：它讲的是「硬性规矩的自动化执行」，
+> 与上下几个子节（`### 为什么加…` / `### 别用 --no-verify`）同级，本就不需要号。
+> **全文凡引用「§2.6」一律指会话工作区（worktree 隔离）那节。**
+> 教训：给子节编号等于给自己埋雷 —— 新增章节前先 `grep -n '^#\{2,4\} '` 全文查号。
 
 仓库装了两个钩子，`sh tools/install_hooks.sh` 安装：
 
@@ -281,6 +286,126 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 
 ---
 
+## 2.7 平台支持边界（**划界支持**）
+
+> 📌 **2026-10-16 人类拍板**：项目不再只有「手机 Termux」一个开发环境。
+> Windows 被**正式支持**，但**只支持一部分** —— 与其让所有脚本半死不活地「大概能跑」，
+> 不如明确划线：**支持面必须全绿，不支持面必须当场报错并给替代路径。**
+
+### 判据：看脚本，不看机器
+
+| | 正式支持 | 明确不支持 → 走替代路径 |
+|---|---|---|
+| **平台** | ① 手机 Termux / proot（**aarch64 Linux**）<br>② **Windows**（Git-Bash + JDK 21 + Android SDK） | macOS、x86 Linux、其他 |
+| **构建验证** | `testDebugUnitTest` + `assembleDebug` + `lintDebug` **两平台都必须绿** | — |
+| **协作工具** | `tools/session.sh`、`tools/pre_push_audit.sh`、`tools/collab_status.py`、纯 Python 校验脚本、git 钩子 | — |
+
+**触发词**：脚本内出现 `pm` / `am` / `pidof` / `/data/local/tmp` / `/storage/emulated` / `apt-get` /
+捆绑的 `aapt2-arm64-v8a` → 它属于**不支持面**。
+
+### 不支持面（**这些脚本跑错平台会自己拦住你**）
+
+| 脚本 | 为什么只有一边能用 | 替代路径 |
+|---|---|---|
+| `setup_android_env.sh` | `apt-get` + 用捆绑 ARM64 二进制覆盖工具链 —— 在 x86/Windows 上跑会**污染工具链** | Windows 见下面「Windows 上手」一节 |
+| `tools/install_debug.sh` | 假定脚本被 push 到**手机上**执行（`pm install`、`/data/local/tmp`） | `adb install -r <apk>` + `adb shell am start` |
+| `tools/run_instrumented_tests.sh` | 第一行 `#!/system/bin/sh`；用 `pm` / `am` / `pidof` | `adb push` 到 `/data/local/tmp` 再 `adb shell sh`；或 `sh gradlew connectedDebugAndroidTest`（**实测：模拟器 / 非 MIUI 真机上 57 例一次全通过，不需要分批**） |
+| `tools/push_release.sh`（tar 同步段） | 假设「工作区 / 仓库两份」—— 单份代码后**该段无意义** | 单份代码平台直接跳过（默认已跳过） |
+| `tools/build_release_apk.py` | 只在 Linux PATH 上找 `apksigner` | 待修：支持 `APKSIGNER` 环境变量与 `apksigner.bat` |
+
+这些脚本顶部都有**平台守卫**：跑错平台会打印「不支持当前平台」+ 替代路径后**立即退出**。
+确需强跑：`WMB_FORCE_UNSUPPORTED=1 sh <脚本>`（**通常不该这么做**）。
+
+### Windows 上手（按顺序）
+
+前置：**Git-Bash**（提供 `sh`）、**JDK 21**（17 是最低基线）、**Android SDK**。
+⚠️ PowerShell / cmd 里 `sh` **默认找不到**，先看下面「Windows 已知坑」第 6 条。
+
+```sh
+# 0) 环境变量（本机实际取值见 docs/build-artifacts.md，不入库）
+export JAVA_HOME="<JDK 21 根目录>"
+export ANDROID_HOME="<Android SDK 根目录>"
+export PATH="$ANDROID_HOME/platform-tools:$PATH"     # adb 不在 PATH 也要加
+
+# 1) SDK 需要什么：platforms/android-35 + platform-tools + build-tools
+#    build-tools 缺失时 AGP 会自己装 36.0.0，前提是 $ANDROID_HOME/licenses/ 已有许可文件
+
+# 2) SDK 定位：二选一（两条都实测过，lint 都干净）
+#    a) 不建 local.properties，靠 ANDROID_HOME      ← Windows 上更省事
+#    b) 建 local.properties —— 盘符后面那个冒号【必须转义】，否则 lintDebug 直接失败：
+#         sdk.dir=<盘符>\:/<SDK 路径>
+#       （报错原文：Windows file separators (\) and drive letter separators (':')
+#         must be escaped (\\) in property files [PropertyEscape]）
+#       ⚠️ 改完必须清 app/build/intermediates/lint* ——
+#          lint 会**缓存**对 local.properties 的分析，不清就继续报旧错，很容易误判「改了没用」
+
+# 3) 全量验证（与 §2.3 同一条，两平台一致）
+sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
+    -PparallelSuffix=.final --console=plain
+
+# 4) 实装验证（有设备/模拟器时；无设备会直接报 "no connected devices"）
+ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
+    -PparallelSuffix=.final --console=plain
+#    实测（MuMu Player 12 / Android 15 / x86_64）：57 例一次跑完，0 失败，约 1m35s
+```
+
+**模拟器可替代什么、不能替代什么**（实测口径）：
+
+- ✅ 能替代：功能正确性、**并发竞态**（连点快切在模拟器上更好复现）、
+  仪器化测试全套 —— 模拟器**不是 MIUI**，没有 instrumentation 冻结机制，**不必走分批脚本**。
+- ⚠️ 参考价值低：**OOM 复现**（模拟器堆上限与真机不同，要测就把实例内存调小）、
+  **卡顿体感**（模拟器 CPU/IO 强于手机）。
+- ❌ 仍需真机：相册 / SAF / 存储权限对话框、厂商相册的落盘位置与 EXIF 归属。
+
+### Windows 已知坑（都实测过，踩了会很难查）
+
+1. **`python3` 是坏的** —— Windows 的 `python3` 可能指向应用商店占位程序，
+   **零输出 + 非零退出码**，而 `command -v python3` 仍判定它「存在」。
+   → 所有文档/脚本里的 `python3` 在 Windows 上**一律换成 `python`**。
+   最坑的表现：pre-commit 因此判定「工作区未同步」而**拦下每一次提交**，理由还是错的。
+2. **系统 `Path` 里混入未配对的 `"`** —— 会让 Gradle fork 出来的 JVM 命令行被截断，
+   报 `找不到或无法加载主类 <某个 PATH 片段>`，看起来像是代码/依赖坏了。
+   → 修完**必须重启宿主进程**：Windows 只对修复之后**新启动**的进程生效，
+   修复前已运行的宿主（及其子终端）仍持有旧值。
+3. **钩子可能是副本而不是软链** —— 本机 `core.symlinks=false`，
+   `install_hooks.sh` 的 `ln -s` 会退化 → 改了 `tools/git-hooks/*` **不生效**。
+   → 装完用 `readlink` 验一次；是副本就每次改完重装。
+4. **工作区文件是 CRLF**（`core.autocrlf=true`）—— MSYS 的 `sh` 容忍，
+   实测 `sh -n` 与脚本实跑都通过，**现在不必动**；
+   但换机器或改 `autocrlf` 会产生整库假改动，**别碰它**。
+5. **不适用而非失败**：单份代码平台上「工作区同步检查」不适用，
+   脚本会提示并跳过 —— 看到「跳过」不要当成错误去修。
+6. **PowerShell / cmd 里 `sh` 找不到**（`The term 'sh' is not recognized...`）——
+   Git for Windows 默认只把 `Git\cmd` 加进 `PATH`，那目录里只有 `git.exe` / `git-lfs.exe` 等，
+   **没有 `sh.exe`**（`sh.exe` 在 `Git\bin`，默认不在 `PATH`）。
+   文档里的 `sh <脚本>` / `sh gradlew ...` 因此有三种跑法：
+   - ① 在 **Git Bash 终端**里跑（推荐：所有命令照文档原样写，不用记全路径）
+   - ② PowerShell / cmd 里用全路径：`& "$env:ProgramFiles\Git\bin\sh.exe" gradlew ...`
+   - ③ 纯 Gradle 命令也可以用 `cmd /c gradlew.bat ...`（仓库自带 `gradlew.bat`）
+   ⚠️ **别为了这个去改系统 `PATH`** —— 见第 2 条，`Path` 写坏（多一个引号）会让 Gradle 报
+   「找不到或无法加载主类 <PATH 片段>」，比 `sh` 找不到难查得多。
+7. **Git-Bash 会改写 `adb` 的 `/sdcard` 路径**（MSYS 路径转换）—— 表现为
+   `adb push x.jpg /sdcard/Pictures/` 突然要往 `C:\...\node_modules\@dsh-ops\...\sdcard\Pictures\`
+   里写，报 `remote secure_mkdirs() failed` 或 `mkdir: 'C:': Read-only file system`。
+   → 凡是带 `/sdcard`、`/data/local/tmp` 这类**设备路径**的 adb 命令，前面加
+   `export MSYS_NO_PATHCONV=1`（一行生效整个会话），或在 Git-Bash 外（cmd/PowerShell）执行。
+8. **MuMu 实例「第一次启动」可能失败，报 `VERR_NO_PAGE_MEMORY`** ——
+   `MuMuManager.exe info -v <索引>` 里 `is_android_started: false` 且
+   `launch_err_msg: "VERR_NO_PAGE_MEMORY"`，看着像内存不足（本机 32 GB / 空闲 16 GB，不是真的不够）。
+   → **`control -v <索引> shutdown` 等进程退出后再 `launch`**，实测第二次 10 秒内就 booted。
+   另：SDK 的 `adb` 会同时看到 `emulator-5554` 与 `127.0.0.1:<port>` **两个 transport**（同一台），
+   跑 `connectedDebugAndroidTest` 前用 `adb disconnect` 掉一个，或显式指定 `ANDROID_SERIAL`，
+   否则测试任务会在一台设备上被登记两次。
+
+### 维护规则
+
+- **新增任何脚本必须在文件头声明它属于哪一面**（一行注释即可），
+  不支持面**必须带平台守卫**，否则下一个人会在错误平台上浪费半天。
+- 支持面的判据是**「两边都能全绿」**，不是「在我机器上能跑」：
+  改完支持面工具，另找一个平台验一遍再收工。
+
+---
+
 ## 3. 当前状态（**每次工作前刷新这一节**）
 
 > ⚠️ 这一节是**易变**的。你读到的内容可能已经过期 ——
@@ -318,6 +443,9 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 
 | 时间 | 变更 | 你该做什么 |
 |---|---|---|
+| 2026-10-16 | **`## 2.6 会话工作区` 的编号不再撞车**：`### 2.6 git 钩子` 已去掉编号；新增 `## 2.7 平台支持边界（划界支持）` | 凡引用「§2.6」**一律指会话工作区**；涉及平台差异先看 §2.7 |
+| 2026-10-16 | **正式支持 Windows**（划界支持：支持面必须两边全绿，不支持面脚本自带平台守卫） | 若你在手机端：不支持面的脚本**不要**往 Windows 方向改；若在 Windows：别再试图修 `setup_android_env.sh` 这类脚本，走 §2.7 的替代路径 |
+| 2026-10-16 | **`tools/collab_status.py` / 钩子里的 `python3` 将改为自动探测** | Windows 上**别硬写 `python3`**（那是应用商店占位程序，会静默失败并被误报成「工作区未同步」）——用 `python` |
 | 2026-10-14 | **`merge` 现在会跑 `assembleDebug`**（全量验证含打包） | 每轮 merge 因此**慢约 1 分钟**（实测 1m53s）—— 别以为卡住了。好处：**merge 全绿 = 能装机**。详见 `tools/session.sh` 的 `TEST_CMD` 注释 |
 | 2026-10-14 | **协作流程改为 worktree 隔离**（`tools/session.sh`） | **别再手动 `cp` 同步**。新任务用 `sh tools/session.sh new <名字>`；已经在主工作区改到一半的，可按原方式收尾，但**下次请换新流程**（详见 §2.6） |
 | 2026-10-14 | **`AGENTS.md` 已入库** | 它现在是 AI 会话的**入口文件**。如果你开工前没读过它，现在读一遍 |
@@ -337,10 +465,37 @@ python3 tools/clean_doc_latex.py --fix   docs/*.md   # 就地转换
 | **推送本地提交** | **必须等人类明示** |
 | **代码审查报告剩余项** | `docs/code-review-2026-10.md` 共 15 项，**已收口**：13 项已修（H1 / H2 / M1–M5 / L1 / L2 / L5 / L6 / L7 / L8），2 项复核后判定**不改**（L3 / L4，收益极小）。详见报告 §0 的「修订状态」表 |
 | **CI 发布结果确认** | `v2.2.0` 的 tag 已推 —— 需到 Actions / Releases 页面确认转绿、APK 附件在（人类或下个会话）|
+| **Windows 环境适配 + 第二轮审查待修项** | **已拍板：走「划界支持」**（2026-10-16，见 §2.7）。清单见 `docs/pending-fixes-2026-10.md`（环境 E1–E11 / 代码 C1–C11 / 文档 D1–D6）。**2026-10-16 已修 22 项**（E1–E11、C1、C2、C3、C5、C7、D1–D6，含 P0 的 E2 / E3 / E4 / C1），**剩 6 项**（C4、C6、C8–C11）—— 这 6 项是**老大明确决定不修**的（改载荷格式影响已发布图片、DI 重构回归面最大、378 行死代码是既定保留决策等，理由见清单 §0）。复验：全量构建 53/53 通过、**474 单测**（468 → 474）0 失败、lint 0 error |
 
 ### ✅ 近期完成（别惊讶于这些改动）
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
+- **（本轮）批量页：位置作用域搬进参数面板，预览区彻底无浮层** ——
+  「统一位置 / 每张独立」从预览左上角的胶囊浮层移到「水印参数」面板
+  （`WatermarkPanel(positionScopeSection = ...)`，紧随水印类型切换之后）；
+  锁定态提示「拖动水印 · 点预览外退出」借 `PanelDragHandle(hintRes = ...)`
+  显示在面板标题行，替换临时的「拖动调整高度」，解锁后自动恢复原文案；
+  同时修掉一轮 `UnusedResources`（`batch_position_hint` 改为在面板内展示）。
+  **预览区现在不含任何浮层控件** —— 别再往那加胶囊。
+  「每张独立」导出链路已用真机日志实测确认：
+  `BatchWatermarkWorker` 打一行 `batch export: scope=PER_IMAGE textPositions=N ...`
+  （只含计数与 key 尾号，便于下次出问题时区分「作用域没传进来」与「key 对不上」）
+- **（本轮）首页布局自适应重写** —— 首页三张入口卡片改为**按可用高度推导尺寸**
+  （`HomeMetrics` + `homeMetrics(width, height)`），小屏不再被压成扁条；
+  横屏/平板自动并排、矮屏自动藏副标题与页脚、极矮屏才滚动。详见 §5.20，
+  尺寸矩阵与实测截图见 `docs/pending-fixes-2026-10.md` §8
+- **（本轮）行尾归一化 + 一个假绿修复** —— 工作区 213 个文本文件 CRLF → LF
+  （Windows `core.autocrlf=true` 又一次把整库改成 CRLF，导致设备侧脚本的反斜杠续行被打断）；
+  `tools/run_instrumented_tests.sh` 补进漏掉的 `survives_right_angle_rotations` 与
+  整个 `ApkVerifierInstrumentedTest`（**44 → 53** 例，此前有 13 例从未在设备上跑过）。详见 §5.21
+- **（本轮）平台边界划界 + 第二轮待修项收口** —— Windows 被**正式支持一部分**：新增 §2.7 平台支持边界（支持面 / 不支持面 + Windows 上手 + 已知坑），
+  不支持面脚本（`setup_android_env.sh` / `install_debug.sh` / `run_instrumented_tests.sh` / `push_release.sh` 同步段 / `build_release_apk.py`）**加了平台守卫**（跑错平台立即报错并给替代路径）；
+  修了 `collab_status.py` 单目录假绿 + 快照写入路径、`pre-commit` 的 `python3` 硬编码、新增 `.gitattributes`、`DetectViewModel` 并发令牌、`build.gradle.kts` 的 aapt2 覆盖
+  —— 明细与剩余项见 `docs/pending-fixes-2026-10.md`（**未提交，本地保留**）
+- **（本轮）可修项第三轮** —— 修了 `export_changelog.py`（现在默认**干跑**，`--apply` 才写盘）、
+  预览缓存张数改为按堆预算算出（`BitmapBudget.previewCacheCapacity`，1–3 张）、编辑页 `loadImage()` 并发令牌、
+  OOM 不再被兜成「原因未知」（检测侧原本**根本没兜**，会闪退）、`SettingsScreen` 的挂/摘观察者合为一路；
+  单测 468 → **474**（新增 6 个边界用例）。`C4 / C6 / C8 / C9 / C10 / C11` 经评估**不修**，理由见清单 §0
 - **（本轮）发布 2.2.0** —— 三处版本信息同步（`versionCode 13 → 14`、
   `changelog.json` 插入 2.2.0 条目 13 条、新建 `docs/releases/v2.2.0.md`）
   - README 中英双语同步：截图换成 2.2.0 真机图（11 张，缩放到 720 宽统一基准）、
@@ -701,7 +856,7 @@ EOF
 
 实测这样假改动归零，且**不影响主仓库**的 `fileMode=true`。
 
-> 🪞 **附带一条教训**：AI 工具读 `/root`（ext4）**必须显式传 `environment=linux`**，
+> 🪞 **附带一条教训**（**手机端 / Operit 专有** —— 是它那套 `environment=` 参数的行为，别当通用结论）：AI 工具读 `/root`（ext4）**必须显式传 `environment=linux`**，
 > 默认的 `android` 环境够不到。我一开始只试了默认值就断言「worktree 用不了」，
 > 白做了一轮探针实验 —— **别用一个失败的尝试就下结论，先把参数试全。**
 >
@@ -873,6 +1028,81 @@ pm install -r -d --user 0 /data/local/tmp/wmb.apk
 必须**恰好**红在那两条上（实测 `skipped=0 failures=2`），确认后删掉探针。
 **没做过元验证的扫描测试，等于没有测试。**
 
+### 5.20 Compose 里别把「高度」留给父容器去分
+
+**症状**：首页三张入口卡片，小屏手机上第三张被压成一条**很扁的横条**，
+点不到。大屏正常，所以只在特定尺寸上暴露。
+
+**根因**：卡片原来是 `Modifier.weight(...)` / 剩余空间分配，父容器给多少就用多少。
+一旦「头部（Logo + 标题 + 副标题）+ 页脚」把高度吃掉，剩余空间就不够三张卡片，
+而 Compose 的 `Column` **不会**给子项一个最小高度 —— 它会把子项压到 0，
+于是卡片里的 `Icon + 标题 + 副标题` 溢出成一团，可点区域几乎消失。
+
+**做法（现在的实现，`ui/screen/home/HomeScreen.kt`）**：
+
+- 所有尺寸由**纯函数**推出：`homeMetrics(width, height): HomeMetrics`
+  —— 不读 `LocalConfiguration` 之外的东西，也不在 Composable 里做算术；
+- 卡片高度**永远** ≥ 可点下限（竖排 `CardMin = 88.dp`、并排 `CardWideMin = 140.dp`），
+  「放不下」时按优先级**依次让位**：先缩 Logo → 再藏副标题 → 再藏页脚 → 最后才允许滚动；
+- 布局形态按 `width >= WideCardWidth (1000.dp)` 分竖排/并排，而不是写死方向。
+
+> **规则**：卡片/按钮这类**可点元素的高度**必须在布局函数里算出来并给出下限，
+> 不要靠 `weight` 或「剩余空间」。空间不够时的正确行为是**少显示内容**，不是**压缩可点区域**。
+
+**回归防线**：`app/src/test/java/com/watermarkbox/ui/screen/home/HomeLayoutMetricsTest.kt`
+（6 条，纯算术、无需设备）—— 对 13 个主流尺寸断言「卡片高度 ≥ 下限」和
+「内容总高 ≤ 可用高度」，另断言 Logo 随高度单调、横屏/平板必定并排。
+
+### 5.21 工作区整库 CRLF 会「静默改坏」脚本
+
+**症状**：脚本内容肉眼完全正常，但推到设备上执行直接报
+`/data/local/tmp/run_instrumented_tests.sh[87]: syntax error: unexpected '|'`。
+同一份文件在本机 `sh -n` 过、在 Linux 上跑过。
+
+**根因**：Windows 工作区被 `core.autocrlf=true` 变成了 CRLF（**整库 213 个文件**），
+于是 shell 的**反斜杠续行**变成「`\` + CR + LF」，续行失效，下一行以 `|` 开头 → 语法错。
+`.gitattributes` 只约束 Git 的**读写转换**，不约束「谁往磁盘上写了什么」，
+所以 `git status` 看起来干净（blob 一直是 LF），文件其实是 CRLF。
+
+**怎么发现**（不要靠眼看）：
+
+```sh
+python tools/…/scan_crlf.py .            # 或：git ls-files --eol | grep w/crlf
+file tools/run_instrumented_tests.sh     # 出现 "CRLF line terminators" 就是它
+```
+
+**怎么修**：
+
+1. 文本文件 CRLF → LF（二进制安全地只替换 `\r\n`）；
+2. `git config core.autocrlf false`（本机）；
+3. **归一化后必须 `git add -A && git reset`** —— 否则 `git status` 会把内容相同
+   但 mtime 变过的文件报成 ` M`（实测一次冒出 **219 个假「已修改」**，
+   这是 git 对「racy clean」的保守判断，`git update-index --refresh` 清不掉）。
+
+> **规则**：设备侧脚本报语法错、但本机 `sh -n` 通过时，**第一件事查行尾**，
+> 不要重写脚本。`.bat` 保持 CRLF，`.sh` / `.py` / `.kt` 一律 LF。
+
+### 5.22 桌面单测全绿，设备上照样崩：正则引擎不是一个
+
+**症状**：`FileNameResolver.collapseSeparators()` 里的
+`Regex("""\(\s*\)|\[\s*]|\{\s*}|（\s*）""")` 让「设置 → 导出」**一点就闪退**
+（`java.util.regex.PatternSyntaxException: near index 21`），
+而同一份代码的**桌面单测 523 条全绿**、lint 也不报。
+
+**根因**：`java.util.regex` 在 **OpenJDK** 与 **Android（ICU 实现）** 上严格程度不同。
+上面这段的 `\[\s*]`、`\{\s*}` 右侧是**裸括号**——OpenJDK 容忍，Android 直接拒绝编译。
+单测跑在桌面 JVM 上，**永远抓不到这类差异**。
+
+**怎么修**：四对括号**两边都转义**（`\(\s*\)` / `\[\s*\]` / `\{\s*\}` / `（\s*）`），
+并补设备侧用例 `app/src/androidTest/java/com/watermarkbox/util/FileNameResolverInstrumentedTest.kt`。
+
+> **规则**：代码里出现 `Regex(...)` / `Pattern.compile(...)`，且**会在真机上执行**时，
+> 必须有一条**仪器化测试**走过那个分支。桌面单测绿 ≠ 设备不崩。
+
+> **教训（流程）**：这个崩溃逃过了「全量构建 + 523 单测 + 57 仪器化测试 + MuMu 截图核验」，
+> 因为**没有一个环节会去点「设置 → 导出」这个 tab**。验证新写的 UI 区段时，
+> 每个 tab / 每个新增入口都要真点一遍，别只验主路径。
+
 ## 6. 资源共享与冲突预案
 
 ### 6.1 共享资源（最容易冲突的地方）
@@ -931,7 +1161,7 @@ git log --oneline --since='2 hours ago'
 
 ② 建独立工作区（别在主工作区直接改）
    sh tools/session.sh new <你的任务名>
-   → 在打印出的路径里干活（AI 工具需 environment=linux）
+   → 在打印出的路径里干活（**手机端**：AI 工具需 `environment=linux`；其它平台直接 `cd` 进去）
 
 ③ 定位
    grep_code / grep_context 找相关代码
@@ -1080,6 +1310,8 @@ git log --oneline --since='2 hours ago'
 | `docs/build-artifacts.md` | **构建产物与装机规范**（必读）|
 | `docs/invisible-watermark-research.md` | 隐形水印调研 + 实测数据 |
 | `docs/baseline-profile.md` | Baseline Profile（低优先级）|
+| `docs/code-review-2026-10.md` | 第一轮代码审查（15 项，已收口：13 修 / 2 不改）|
+| **`docs/pending-fixes-2026-10.md`** | **待修复清单**（Windows 环境适配 + `app/src` 第二轮审查）|
 | **`docs/multi-session-collaboration.md`** | **本文档** |
 
 ---

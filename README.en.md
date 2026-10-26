@@ -300,14 +300,14 @@ implemented from scratch.
 
 ```bash
 # Unit tests (468)
-./gradlew testDebugUnitTest
+sh gradlew testDebugUnitTest
 
 # Debug build
-./gradlew assembleDebug
+sh gradlew assembleDebug
 # Output: app/build/outputs/apk/debug/app-debug.apk
 
 # Release build
-./gradlew assembleRelease
+sh gradlew assembleRelease
 # ⚠️ In arm64/proot environments this artifact may be missing AndroidManifest.xml
 #    (it will not install). Use the repo's repack script instead:
 #      python3 tools/build_release_apk.py
@@ -332,8 +332,8 @@ rather than failing.
 ### Testing
 
 ```bash
-./gradlew testDebugUnitTest           # Unit tests (pure JVM)
-./gradlew connectedDebugAndroidTest   # Instrumented tests (needs a device)
+sh gradlew testDebugUnitTest           # Unit tests (pure JVM)
+sh gradlew connectedDebugAndroidTest   # Instrumented tests (needs a device)
 ```
 
 Unit tests can only cover so much — anything that genuinely needs the Android

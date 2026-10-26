@@ -39,6 +39,7 @@ pre-commit 的本机路径检查拦下）。传了才会做「工作区 ↔ 仓�
 from __future__ import annotations
 
 import argparse
+import filecmp
 import json
 import subprocess
 import sys
@@ -46,7 +47,7 @@ from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SNAPSHOT = ROOT / ".git" / "collab-state.json"
+SNAPSHOT_NAME = "collab-state.json"
 
 LINE = "─" * 56
 
@@ -66,21 +67,46 @@ def git(*args: str, default: str = "") -> str:
         return default
 
 
+def snapshot_path() -> Path:
+    """快照落在 git 的**公共目录**里（worktree 之间共享它）。
+
+    ## 为什么不能写死 `ROOT / ".git"`
+
+    worktree 里的 `.git` 是个**文件**（内容形如 `gitdir: /path/to/main/.git/worktrees/x`），
+    不是目录 —— 于是 `mkdir` / `write_text` 必然失败。
+    而失败如果被静默吞掉，现象就是「与上次自检相比的变化」**永远为空**，
+    且没有任何线索说明为什么（本项目的 prepare-commit-msg 早用
+    `git rev-parse --git-dir` 规避了同一个坑，本脚本没跟上）。
+    """
+    common = git("rev-parse", "--git-common-dir")
+    if common:
+        p = Path(common)
+        if not p.is_absolute():
+            p = ROOT / p
+        if p.is_dir():
+            return p / SNAPSHOT_NAME
+    return ROOT / ".git" / SNAPSHOT_NAME
+
+
 def load_snapshot() -> dict:
     try:
-        return json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+        return json.loads(snapshot_path().read_text(encoding="utf-8"))
     except Exception:
         return {}
 
 
 def save_snapshot(data: dict) -> None:
     try:
-        SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
-        SNAPSHOT.write_text(
+        p = snapshot_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(
             json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-    except Exception:
-        pass  # 存不下也不影响本次输出
+    except Exception as e:
+        # 存不下不影响本次输出，但要**说出来** —— 否则「变化对比」永远为空
+        # 而使用者以为「没问题」。
+        print(f"[collab_status] ⚠️ 快照写入失败（{e}）；本次运行没有变化对比基线。",
+              file=sys.stderr)
 
 
 def collect(workspace: str | None) -> dict:
@@ -108,10 +134,23 @@ def collect(workspace: str | None) -> dict:
     # 工作区 ↔ 仓库差异（可选）
     ws_diff: list[str] = []
     ws_local: list[str] = []
+    ws_same_as_repo = False
     if workspace:
         ws = Path(workspace)
         if ws.is_dir():
-            ws_diff, ws_local = compare_workspace(ws)
+            # ⚠️ 单份代码平台（Windows 等）：工作区**就是**仓库根。
+            #    此时 `diff A A` 恒为空 → 打印「一致 ✅」、--check-sync 永远放行。
+            #    那是**假绿**，比不检查更危险（会让人误以为闸门在工作）。
+            #    所以显式识别并跳过，把「为什么没检查」说出来。
+            try:
+                ws_same_as_repo = ws.resolve() == ROOT.resolve()
+            except OSError:
+                ws_same_as_repo = False
+
+            if ws_same_as_repo:
+                pass  # 单份代码：本就不适用，见上
+            else:
+                ws_diff, ws_local = compare_workspace(ws)
         else:
             ws_diff = [f"(路径不存在：{workspace})"]
 
@@ -127,6 +166,7 @@ def collect(workspace: str | None) -> dict:
         "untracked": untracked,
         "workspace_diff": ws_diff,
         "workspace_local_only": ws_local,
+        "workspace_same_as_repo": ws_same_as_repo,
     }
 
 
@@ -176,6 +216,77 @@ def _is_local_only(rel_path: str, name: str) -> bool:
     return _git_ignored(rel_path)
 
 
+def _has_gnu_diff() -> bool:
+    """PATH 上有没有 GNU `diff`？"""
+    try:
+        subprocess.run(["diff", "--version"], capture_output=True, timeout=15)
+        return True
+    except Exception:
+        return False
+
+
+def _diff_rq(a: Path, b: Path) -> list[str]:
+    """`diff -rq A B` 的等价输出；没有 GNU diff 时用标准库回退。
+
+    ## 为什么要回退
+
+    Windows 上 PATH 可能**只有 `git.exe` 而没有 `diff.exe`**（GNU diff 不在其中）。
+    早期直接 `subprocess.run(["diff", ...])` 没包 try —— 于是整个自检脚本
+    抛 `FileNotFoundError` **崩溃**。自检脚本自己崩掉是最差的结果：
+    使用者得不到任何状态，还会以为「环境坏了」。
+    回退实现输出保持 `diff -rq` 的同形状，下游解析逻辑一行都不用改。
+    """
+    if _has_gnu_diff():
+        try:
+            r = subprocess.run(
+                ["diff", "-rq", str(a), str(b)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            return r.stdout.splitlines()
+        except Exception:
+            pass  # 落回标准库
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for p in sorted(a.rglob("*")):
+        if p.is_dir():
+            continue
+        rel = p.relative_to(a)
+        seen.add(str(rel))
+        q = b / rel
+        if not q.exists():
+            out.append(f"Only in {a / rel.parent}: {rel.name}")
+        elif not q.is_file() or not filecmp.cmp(str(p), str(q), shallow=False):
+            out.append(f"Files {p} and {q} differ")
+    for q in sorted(b.rglob("*")):
+        if q.is_dir():
+            continue
+        rel = q.relative_to(b)
+        if str(rel) not in seen and not (a / rel).exists():
+            out.append(f"Only in {b / rel.parent}: {rel.name}")
+    return out
+
+
+def _same_file(a: Path, b: Path) -> bool:
+    """两个文件内容是否相同（优先用 `diff -q`，没有就 filecmp）。"""
+    if _has_gnu_diff():
+        try:
+            r = subprocess.run(
+                ["diff", "-q", str(a), str(b)],
+                capture_output=True,
+                timeout=30,
+            )
+            return r.returncode == 0
+        except Exception:
+            pass
+    try:
+        return filecmp.cmp(str(a), str(b), shallow=False)
+    except OSError:
+        return False
+
+
 def _root_file_diffs(ws: Path) -> list[str]:
     """
     比对**根目录下、仓库已跟踪的文件**（AGENTS.md / CONTEXT.md / README.md …）。
@@ -211,13 +322,7 @@ def _root_file_diffs(ws: Path) -> list[str]:
         if not a.is_file():
             real.append(f"类型不同：{rel}")
             continue
-        r = subprocess.run(
-            ["diff", "-q", str(a), str(b)],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if r.returncode != 0:
+        if not _same_file(a, b):
             real.append(f"内容不同：{rel}")
     return real
 
@@ -414,7 +519,10 @@ def report(s: dict, prev: dict, warns: list[str], workspace: str | None) -> None
         real = s["workspace_diff"]
         local_only = s.get("workspace_local_only") or []
         print(f"\n🔀 工作区 ↔ 仓库差异（{workspace}）")
-        if real:
+        if s.get("workspace_same_as_repo"):
+            print("  单份代码模式（工作区 == 仓库根）—— 本项不适用，已跳过。")
+            print("  （两份代码 + 手动 cp 的做法已废弃；改用 worktree，见协作文档 §2.6）")
+        elif real:
             for d in real[:30]:
                 print(f"  ⚠️ {d}")
             if len(real) > 30:
@@ -466,9 +574,18 @@ def check_sync_mode(cur: dict, workspace: str | None) -> int:
 
     直接放行（退出码 0）。工作区路径是**本机信息**（不入库），
     别的机器/克隆里没有配置，此时无从检查 —— 不该因此阻塞提交。
+
+    ## 单份代码平台
+
+    工作区 == 仓库根时**本检查不适用**，同样直接放行 —— 但要**打印原因**。
+    否则使用者会把「跳过」误读成「已通过」（假绿；Windows 上就是这个情况）。
     """
     if not workspace:
         return 0  # 未配置工作区，跳过检查
+
+    if cur.get("workspace_same_as_repo"):
+        print("[check-sync] 单份代码模式（工作区 == 仓库根）—— 同步检查不适用，跳过。")
+        return 0
 
     real = cur.get("workspace_diff") or []
     if not real:

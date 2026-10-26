@@ -19,8 +19,8 @@
 
 ## 自查清单
 
-- [ ] 我跑过 `./gradlew testDebugUnitTest`，全部通过
-- [ ] 我跑过 `./gradlew assembleDebug`，能成功构建
+- [ ] 我跑过 `sh gradlew testDebugUnitTest`，全部通过
+- [ ] 我跑过 `sh gradlew assembleDebug`，能成功构建
 - [ ] 新增的逻辑有对应的测试（如果是纯 UI 改动可跳过）
 - [ ] 我的改动没有引入新的编译警告
 - [ ] 如果改了行为，我同步更新了 README 或代码注释

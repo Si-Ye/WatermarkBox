@@ -91,24 +91,41 @@ KEYSTORE, KS_PASS, KEY_ALIAS, KEY_PASS = _load_signing_config()
 
 
 def _find_apksigner():
-    """按常见位置查找 apksigner，找不到就回退到 PATH。"""
+    """按常见位置查找 apksigner，找不到就回退到 PATH。
+
+    注意：apksigner 不总是无后缀的可执行文件 —— Windows 的 SDK 里叫
+    apksigner.bat，只按 "apksigner" 去 glob 会**永远命中不了**，最后落到
+    sign_apk() 的「找不到 apksigner」。所以 glob 放宽为 apksigner*，
+    且同一 build-tools 目录内优先 .bat。
+    """
     import glob
+
+    def _lookup(base):
+        # 先按 build-tools 版本号倒序（新版优先），
+        # 再稳定排序让同目录内的 .bat 排在无后缀版本之前。
+        paths = sorted(
+            glob.glob(os.path.join(base, "build-tools", "*", "apksigner*")), reverse=True
+        )
+        return sorted(paths, key=lambda p: 0 if p.endswith(".bat") else 1)
 
     candidates = []
     sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
     if sdk:
-        candidates += sorted(
-            glob.glob(os.path.join(sdk, "build-tools", "*", "apksigner")), reverse=True
-        )
+        candidates += _lookup(sdk)
     # 常见 SDK 安装位置的回退探测
     for base in (os.path.expanduser("~/Android"), "/opt/android-sdk", "/usr/lib/android-sdk"):
-        candidates += sorted(
-            glob.glob(os.path.join(base, "build-tools", "*", "apksigner")), reverse=True
-        )
+        candidates += _lookup(base)
     for c in candidates:
         if os.path.isfile(c):
             return c
-    return "apksigner"  # 回退：依赖 PATH
+    # 回退：依赖 PATH。
+    #
+    # ⚠️ 必须用 `shutil.which` 解析，不能直接把裸名字 `"apksigner"` 交给调用方 ——
+    #    调用方 `sign_apk()` 里的判断是 `os.path.isfile(APKSIGNER)`，
+    #    而裸名字**永远不是**一个存在的文件路径，于是这条 PATH 回退
+    #    必然报「找不到 apksigner」（Linux 上同样如此，不是 Windows 专属）。
+    #    Windows 上真正的文件名是 `apksigner.bat`，which 会一并解决。
+    return shutil.which("apksigner") or "apksigner"
 
 
 APKSIGNER = os.environ.get("APKSIGNER") or _find_apksigner()
@@ -316,7 +333,10 @@ def align_arsc_strict(path):
 
 # ---------------- 4. 签名 ----------------
 def sign_apk(path):
-    if not os.path.isfile(APKSIGNER):
+    # 既接受具体文件路径（`APKSIGNER` 环境变量 / SDK build-tools 里找到的），
+    # 也接受 PATH 上的命令名（`shutil.which` 解析）。
+    # 只判 `os.path.isfile` 会把 PATH 回退判死 —— 见 `_find_apksigner()` 末尾注释。
+    if not (os.path.isfile(APKSIGNER) or shutil.which(APKSIGNER)):
         sys.exit(f"找不到 apksigner：{APKSIGNER}")
 
     signed = path + ".signed"

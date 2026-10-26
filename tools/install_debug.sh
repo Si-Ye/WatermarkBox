@@ -28,6 +28,26 @@
 
 set -u
 
+# ─────────────────────────────────────────────────────────────
+# 平台守卫（「划界支持」，见 docs/multi-session-collaboration.md §2.7）
+# 本脚本属「不支持面」：只在 Linux 下可用，且需要 $ANDROID_HOME 下有
+# build-tools（找 aapt2 校验包名）并连着一台设备。
+# 原因：脚本会 mkdir/cp 到 /storage/emulated/0/...（Windows 上会被当成
+#       相对路径，在工作区里造出垃圾目录），并用 pm install 装机。
+# 其他平台请走替代路径，见同一节的「不支持面」表。
+# 确需强跑：WMB_FORCE_UNSUPPORTED=1 sh 本脚本
+# ─────────────────────────────────────────────────────────────
+if [ "${WMB_FORCE_UNSUPPORTED:-0}" != "1" ]; then
+    case "$(uname -s)" in
+        Linux) ;;
+        *)
+            printf '%s\n' "✗ 本脚本不支持当前平台（$(uname -s)）。" >&2
+            printf '%s\n' "  替代路径见 docs/multi-session-collaboration.md §2.7「不支持面」。" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -z "$ROOT" ]; then
     echo "错误：当前目录不是 git 仓库。" >&2

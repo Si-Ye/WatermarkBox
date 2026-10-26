@@ -59,8 +59,8 @@
 
 | 要求 | 原因 |
 |---|---|
-| `./gradlew testDebugUnitTest` 全绿 | 别把红的测试合进来 |
-| `./gradlew assembleDebug` 能构建 | 编译不过的代码没法评审 |
+| `sh gradlew testDebugUnitTest` 全绿 | 别把红的测试合进来 |
+| `sh gradlew assembleDebug` 能构建 | 编译不过的代码没法评审 |
 | 新增逻辑有测试 | 这个项目的测试是用来「钉住不变量」的，不是凑数 |
 | 改动聚焦 | 一个 PR 只做一件事，方便回退 |
 
@@ -144,14 +144,33 @@ fun `DCT 与 IDCT 必须互为逆变换`() {
 
 ## 本地环境
 
-### 常规机器（Windows / macOS / Linux）
+> 📌 **支持边界（划界支持，2026-10-16）**
+> 项目正式支持**两个**开发环境：① 手机 Termux / proot（aarch64 Linux）② **Windows**。
+> 「支持面」= 构建验证（单测 + 打包 + lint）+ 协作工具（`tools/session.sh` / `pre_push_audit.sh` / Python 校验脚本 / git 钩子）——
+> **这两个平台都必须能跑通**。
+> 各类工具的平台归属、替代路径与 Windows 已知坑见
+> `docs/multi-session-collaboration.md` **§2.7**。
+
+### 桌面平台（Windows / Linux / macOS）
 
 ```bash
 git clone https://github.com/Si-Ye/WatermarkBox.git
 cd WatermarkBox
-echo "sdk.dir=/path/to/Android/Sdk" > local.properties
-./gradlew assembleDebug
+
+# SDK 定位二选一：
+#   a) 设 ANDROID_HOME 环境变量 —— Windows 上更省事，lint 也干净
+#   b) 建 local.properties —— ⚠️ 盘符那个冒号【必须转义】，否则 lintDebug 直接失败：
+echo "sdk.dir=<盘符>\\:/<SDK 路径>" > local.properties
+#      且 lint 会【缓存】对它的分析：改完要清，否则继续报旧错
+#      rm -rf app/build/intermediates/lint*
+
+sh gradlew assembleDebug
 ```
+
+- ⚠️ **一律用 `sh gradlew`，不要 `./gradlew`** —— 手机端 `/sdcard` 是 FUSE 挂载、不支持执行位，
+  而这行写法在三个平台都成立。
+- ⚠️ **Windows 上把 `python3` 换成 `python`** —— 那里的 `python3` 可能指向应用商店占位程序，
+  会**静默失败**（零输出 + 非零退出码），最坑的是会被误报成「工作区未同步」而拦下每次提交。
 
 ### 手机端（Termux / proot，aarch64）
 
@@ -159,10 +178,23 @@ echo "sdk.dir=/path/to/Android/Sdk" > local.properties
 
 ```bash
 sh setup_android_env.sh
-sh gradlew assembleDebug    # 注意用 sh，不要用 ./gradlew
+sh gradlew assembleDebug
 ```
 
 原因：`/sdcard` 是 FUSE 挂载，不支持 Unix 权限位，`chmod +x` 无效。
+
+> ⚠️ `setup_android_env.sh` **只能在 aarch64 Linux / Termux 上执行**（脚本自带平台守卫）：
+> 它用 `apt-get`，还会用捆绑的 ARM64 二进制覆盖 SDK build-tools 与 Gradle 缓存里的 aapt2——
+> 在 Windows / x86 上跑会**污染工具链**。Windows 请照上一节做。
+
+### 脚本的平台归属（**新增脚本必须声明**）
+
+跑到「不支持面」的脚本上失败**是预期行为**，正确动作是**走替代路径**，不是去「修」它：
+
+- 文件头写一行「本脚本属于 **支持面** / **不支持面**（条件：…）」；
+- 不支持面**必须带平台守卫**（跑错平台立即报错并打印替代路径，`WMB_FORCE_UNSUPPORTED=1` 可强跑）；
+- 判据：出现 `pm` / `am` / `pidof` / `/data/local/tmp` / `/storage/emulated` / `apt-get` /
+  `aapt2-arm64-v8a` → 它是不支持面。
 
 ---
 

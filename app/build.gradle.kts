@@ -146,11 +146,33 @@ android {
     }
 }
 
-// Force use of ARM64 binaries for AAPT2 in Proot environment
-configurations.all {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "com.android.tools.build" && requested.name == "aapt2") {
-            useTarget("com.android.tools.build:aapt2:${'$'}{requested.version}:linux-aarch64")
+// Proot/Termux（aarch64 Linux）下的 AAPT2 覆盖 —— **仅 aarch64 生效**。
+//
+// ## 为什么加了架构限定（2026-10-16）
+//
+// 下面这个 `linux-aarch64` 分类器**在 Maven 上不存在**。实测四个版本的 aapt2
+// （8.1.0-10154469 / 8.6.0-11315950 / 9.0.0-14304508 / 9.0.0-rc01-14304508）：
+// `linux` 与 `windows` 分类器都是 **200**，而 `linux-aarch64` 一律 **404** ——
+// Google 从未发布过它。所以这条规则在非 aarch64 平台上一直是**空转**的
+// （Windows 上 `assembleDebug` 能通过，恰恰证明它没生效）。
+//
+// 留着它本身无害，但会**误导**：维护者会以为构建依赖这个分类器，
+// 于是把「aarch64 上 aapt2 从哪来」查错方向 —— 真正的方案在
+// `setup_android_env.sh`（用捆绑的 `tools/aapt2/aapt2-arm64-v8a` 覆盖
+// SDK build-tools 与 Gradle 缓存里的 `aapt2-*-linux.jar`）。
+//
+// 所以现在：**aarch64 上保留原行为**（手机端一字不变，无法在此验证就不动它），
+// 其他架构上不挂这条规则。要彻底删掉，需先在手机端确认 aapt2 的实际来源
+// （见 docs/pending-fixes-2026-10.md 的 E5）。
+val isAarch64: Boolean =
+    System.getProperty("os.arch").lowercase() in setOf("aarch64", "arm64")
+
+if (isAarch64) {
+    configurations.all {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "com.android.tools.build" && requested.name == "aapt2") {
+                useTarget("com.android.tools.build:aapt2:${'$'}{requested.version}:linux-aarch64")
+            }
         }
     }
 }

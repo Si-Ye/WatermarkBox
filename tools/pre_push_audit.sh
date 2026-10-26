@@ -342,6 +342,19 @@ else
     fail "缺少 .gitignore"
 fi
 
+# 行尾规范文件：仓库横跨 Linux（手机 proot）与 Windows（Git-Bash），
+# 没有它时两边各按各的 core.autocrlf 处理，会产生整库假改动。
+# 2026-10-16 才补上，所以这里钉一条检查防止它再消失。
+if [ -f .gitattributes ]; then
+    if grep -qE '^\*[[:space:]]+text=auto' .gitattributes; then
+        pass ".gitattributes 存在且设置了默认行尾规则"
+    else
+        fail ".gitattributes 缺少「* text=auto」默认行尾规则"
+    fi
+else
+    fail "缺少 .gitattributes（行尾会在 Windows/Linux 之间抖动）"
+fi
+
 # ===========================================================================
 printf "\n${B}══════════════════════════════════════════${N}\n"
 if [ "$ISSUES" -eq 0 ]; then

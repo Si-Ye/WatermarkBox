@@ -27,13 +27,18 @@
 
 ```sh
 cd "$GIT_REPO"
-python3 tools/collab_status.py --workspace "$WORKSPACE"
+"$(command -v python3 || command -v python)" tools/collab_status.py --workspace "$WORKSPACE"
 ```
 
 > ⚠️ **必须先 `cd "$GIT_REPO"`**：脚本要读 git 上下文。
 > 在工作区（FUSE 挂载、无 `.git`）里跑，它读不到仓库，
 > 会输出「HEAD 空 / 与远端一致」这种**假状态** —— 比不跑更危险。
 > （2026-10-14 实测：在工作区跑时 `📌 仓库` 三项全空。）
+> Windows 等**单份代码**平台：`$WORKSPACE` 与 `$GIT_REPO` 是同一个路径，见 §2 平台支持边界。
+
+> ⚠️ **别硬写 `python3`**：Windows 上的 `python3` 可能是应用商店占位程序，
+> 会**静默失败**（零输出 + 非零退出码），而 `command -v` 仍判定它「存在」——
+> 于是失败会被误报成「工作区未同步」。上面那行 `command -v … || …` 两个平台都对。
 
 这一条命令**顶替了过去的「必做 3 件事」**（看提交历史 / 看工作区差异 / 看状态）：
 
@@ -54,12 +59,15 @@ python3 tools/collab_status.py --workspace "$WORKSPACE"
 
 ## 2. 怎么改代码（用 worktree，别再手动 `cp`）
 
-### 两套路径（背景知识）
+### 两套路径（**仅手机端 aarch64 Linux 适用**）
 
 | 占位符 | 特点 |
 |---|---|
 | `$WORKSPACE` | AI 工具**默认环境**直接读写；**FUSE 挂载，git 不可用** |
 | `$GIT_REPO` | ext4；**提交与构建都在这里**；AI 工具需 `environment=linux` 才能读写 |
+
+> ⚠️ **单份代码平台（Windows 等）不存在这个区分**：`$WORKSPACE` = `$GIT_REPO` = 仓库根，
+> `--workspace` 可省，同步检查本就不适用。别在 Windows 上照抄「两套路径」的动作。
 
 > 本机实际取值见 `docs/build-artifacts.md`（含本机信息，**不入库**）。
 > 文档里一律用占位符 —— pre-commit 钩子会拦本机绝对路径。
@@ -92,6 +100,22 @@ sh tools/session.sh rm     <名字>        # 清理（有未提交改动会拒�
 
 详见 `docs/multi-session-collaboration.md` **§2.6**。
 
+### 平台支持边界（**划界支持**，2026-10-16 定）
+
+项目**明确划分两个平台各自的支持责任**。跑到「不支持面」的工具上失败，
+是**预期行为**（脚本会自己报错并给替代路径），不是你的环境坏了 —— 别去修它。
+
+| | 正式支持 | 明确不支持 → 走替代路径 |
+|---|---|---|
+| **平台** | ① 手机 Termux / proot（aarch64 Linux）② **Windows**（Git-Bash + JDK 21 + Android SDK） | macOS、x86 Linux |
+| **构建验证** | `testDebugUnitTest` + `assembleDebug` + `lintDebug` 三个平台都必须绿 | — |
+| **协作工具** | `tools/session.sh`、`tools/pre_push_audit.sh`、纯 Python 校验脚本、git 钩子 | — |
+| **不支持面** | — | `setup_android_env.sh`（仅 aarch64）、`tools/install_debug.sh`、`tools/run_instrumented_tests.sh`（仅设备 shell）、`tools/push_release.sh` 的 tar 同步段、`tools/build_release_apk.py` |
+
+- 不支持面的脚本**自带平台守卫**：跑错平台**立即报错**并指向替代路径（不会静默做坏事）。
+- 完整对照表、Windows 上手步骤与已知坑见 `docs/multi-session-collaboration.md` **§2.7**。
+- 本轮待修项清单见 `docs/pending-fixes-2026-10.md`。
+
 ---
 
 ## 3. 项目是什么
@@ -110,6 +134,7 @@ sh tools/session.sh rm     <名字>        # 清理（有未提交改动会拒�
 | **`AGENTS.md`** | **本文件** —— AI 会话入口，开工先读 |
 | **`CONTEXT.md`** | **项目是什么、已确认的决策、职责边界（稳定信息）** |
 | **`docs/multi-session-collaboration.md`** | **协作硬性规矩 + 任务看板 + 已知坑（必读 §2 / §4 / §5）** |
+| **`docs/pending-fixes-2026-10.md`** | **待修复清单（环境 / 代码 / 文档三类，含修复顺序）** |
 | `CONTRIBUTING.md` | 代码约定、分层规则、注释规范 |
 | `README.md` | 项目介绍、构建 / 发布流程 |
 | `docs/RELEASE_PROCESS.md` | 发版流程（**发版必须照它做**） |
@@ -128,8 +153,16 @@ sh gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug \
 ```
 
 - **每轮必跑全套**（测试 + 构建 + lint）；**测试基线不许下降**。
-- ⚠️ 用 `sh gradlew`，**不要** `./gradlew` —— `/sdcard` 是 FUSE 挂载，不支持执行位。
+- ⚠️ 用 `sh gradlew`，**不要** `./gradlew` —— 手机端 `/sdcard` 是 FUSE 挂载、不支持执行位；
+  而这行写法在 Linux / Windows / Git-Bash 下**都成立**，所以统一用它，别再写 `./gradlew`。
+- ⚠️ **Windows 上 `sh` 默认不在 `PATH` 里**（Git for Windows 只加 `Git\cmd`，里面没有 `sh.exe`）：
+  在 **Git Bash 终端**里跑最省事；PowerShell / cmd 里用全路径
+  `& "$env:ProgramFiles\Git\bin\sh.exe" gradlew ...`，或改用 `cmd /c gradlew.bat ...`。
+  **别去改系统 `PATH`**（`Path` 被写坏会让 Gradle 报「找不到或无法加载主类」）。
 - ⚠️ 装机固定用 debug 包名 `com.watermarkbox.final`，**不要**动 release 签名的 `com.watermarkbox`。
+- ⚠️ **Windows**：`local.properties` 里的盘符冒号**必须转义**（`sdk.dir=C\:/path/to/Sdk`），
+  否则 `lintDebug` 直接失败；且 lint 会**缓存**对它的分析，改完要清 `app/build/intermediates/lint*`。
+  详见 `docs/multi-session-collaboration.md` §2.7。
 
 ---
 

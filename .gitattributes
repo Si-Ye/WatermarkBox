@@ -1,0 +1,99 @@
+# ============================================================
+# 行尾与文件类型规范
+# ============================================================
+#
+# ## 为什么必须有这个文件
+#
+# 本项目的开发环境横跨 **Linux（手机 proot / Termux）** 与 **Windows（Git-Bash）**。
+# 两边对行尾的默认处理不同，而 Git 在**没有 `.gitattributes`** 时会各按各的
+# `core.autocrlf` 处理 —— 后果是同一份代码在不同机器上产生**整库假改动**
+# （diff 里全是「内容看起来一样」的改动，真正的问题被淹掉）。
+#
+# 2026-10-16 实测：Windows 上 `core.autocrlf=true` 且仓库无本文件
+# → 工作区**所有**文本文件都是 CRLF（`gradlew`、`tools/*.sh`、`tools/git-hooks/*` 全中招）。
+# 当时没炸，只因 MSYS 的 `sh` 容忍 CRLF —— 换个环境（或换个人）就会出问题。
+#
+# ## 规矩
+#
+# **仓库里一律 LF**（blob 已经全是 LF，本文件只是让 Git 别再改回来）。
+# Windows 上如果想让工作区也保持 LF，把本机的 `core.autocrlf` 设为 `false` 或 `input`。
+#
+# 加完本文件的正确收尾动作：
+#
+#     git add --renormalize .      # 让索引按新规则重新归一化
+#     git status                   # 应当**没有**大量改动；有就说明 blob 里真有 CRLF
+#
+# 2026-10-16 实测：本仓库的 blob 里只剩 **3 个**文件带 CRLF
+# （`build.gradle.kts`、`app/src/main/res/xml/backup_rules.xml`、
+#  `app/src/main/res/xml/data_extraction_rules.xml`）——
+# 即 renormalize 最多只会产生这 3 个「仅行尾变化」的改动，**不是**整库翻转。
+#
+# 2026-10-26 实测（Windows 本机）：工作区**又一次**整库变成 CRLF（本机
+# `core.autocrlf=true`，而本文件只约束 Git 的读写、不约束别人写进磁盘的文件）。
+# 后果不是「假改动」而是**真故障**：`tools/run_instrumented_tests.sh` 里的
+# `反斜杠续行` 被 CRLF 打断，设备侧 `sh` 直接报
+# `syntax error: unexpected '|'` —— 脚本内容看着完全正常，只有行尾是坏的。
+#
+# 已做的处置（2026-10-26）：
+#   1. 工作区 213 个文本文件 CRLF → LF（`git` 视图不变，因为 blob 本来就是 LF）；
+#   2. 本机 `core.autocrlf=false`；
+#   3. 归一化后 `git add -A && git reset` 刷新 stat 缓存（否则 `git status`
+#      会把改过 mtime 但内容相同的文件报成 ` M`，最多 219 个假「已修改」）。
+#
+# 归一化后真正带行尾差异的实为 **8 个**文件（上面 3 个 + `.github/PULL_REQUEST_TEMPLATE.md`、
+# `README.en.md`、`docs/RELEASE_PROCESS.md`、`docs/baseline-profile.md`、
+# `docs/multi-session-setup-prompt.md` —— 这几个的 blob 里只有个别行是 CRLF）。
+#
+# 台账：`docs/pending-fixes-2026-10.md` 第四轮。
+#
+# ============================================================
+
+# 默认：交给 Git 判断是否文本，是文本就用 LF
+* text=auto eol=lf
+
+# ---- 明确按文本处理（必须 LF）----
+
+*.kt    text eol=lf
+*.kts   text eol=lf
+*.java  text eol=lf
+*.py    text eol=lf
+*.sh    text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+*.xml   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.pro   text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.txt   text eol=lf
+*.csv   text eol=lf
+
+# 无扩展名但要当文本
+gradlew  text eol=lf
+gradlew.bat text eol=crlf
+
+# ---- Windows 脚本保留 CRLF（CRLF 是它们的原生行尾）----
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# ---- 二进制：绝不做行尾转换，否则会毁文件 ----
+
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.webp   binary
+*.gif    binary
+*.ico    binary
+*.svg    text eol=lf
+*.ttf    binary
+*.otf    binary
+*.jar    binary
+*.aar    binary
+*.jks    binary
+*.keystore binary
+*.so     binary
+*.apk    binary
+*.zip    binary

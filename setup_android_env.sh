@@ -36,6 +36,35 @@ SCRIPT_DIR=""
 export GRADLE_USER_HOME
 APT_UPDATED=0
 
+# ─────────────────────────────────────────────────────────────
+# 平台守卫（「划界支持」，见 docs/multi-session-collaboration.md §2.7）
+# 本脚本属「不支持面」：只在 Linux 且 aarch64（Termux / proot ARM64）下可用。
+# 原因：脚本用 apt-get 装包，并用捆绑的 tools/aapt2/aapt2-arm64-v8a 覆盖
+#       SDK build-tools 与 Gradle 缓存里的 aapt2-*-linux.jar —— 在 x86 /
+#       Windows / macOS 上执行会把 ARM64 二进制塞进本机工具链，污染环境。
+# 其他平台请走替代路径，见同一节的「不支持面」表。
+# 确需强跑：WMB_FORCE_UNSUPPORTED=1 sh 本脚本
+# ─────────────────────────────────────────────────────────────
+if [ "${WMB_FORCE_UNSUPPORTED:-0}" != "1" ]; then
+    case "$(uname -s)" in
+        Linux) ;;
+        *)
+            printf '%s\n' "✗ 本脚本不支持当前平台（$(uname -s)）。" >&2
+            printf '%s\n' "  替代路径见 docs/multi-session-collaboration.md §2.7「不支持面」。" >&2
+            exit 1
+            ;;
+    esac
+    case "$(uname -m)" in
+        aarch64|arm64) ;;
+        *)
+            printf '%s\n' "✗ 本脚本要求 aarch64 / arm64（当前 $(uname -m)）。" >&2
+            printf '%s\n' "  继续执行会把捆绑的 ARM64 aapt2 覆盖进 SDK / Gradle 工具链，污染本机。" >&2
+            printf '%s\n' "  替代路径见 docs/multi-session-collaboration.md §2.7「不支持面」。" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 ping_host() {
   local host="$1"
   local ping_cmd=""

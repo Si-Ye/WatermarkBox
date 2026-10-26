@@ -281,26 +281,42 @@ app/src/main/java/com/watermarkbox/
 
 ### 环境
 
-- JDK 17
-- Android SDK（compileSdk 35、build-tools 35.0.0）
+- JDK **17 起**（CI 用 17；实测 **21 亦可**）
+- Android SDK（compileSdk 35、build-tools **36.0.0**）——
+  缺 build-tools 时 AGP 会自己装 36.0.0，前提是 `$ANDROID_HOME/licenses/` 里已有许可文件
+- **Windows 注意**：`python3` 要用 `python`；`local.properties` 的盘符冒号必须转义
+  （`sdk.dir=<盘符>\:/<SDK 路径>`），否则 `lintDebug` 直接失败，且 lint 会缓存该结论 ——
+  详见 `docs/multi-session-collaboration.md` §2.7
 
 ### 命令
 
 ```bash
 # 单元测试（468 个）
-./gradlew testDebugUnitTest
+sh gradlew testDebugUnitTest
 
 # Debug 包
-./gradlew assembleDebug
+sh gradlew assembleDebug
 # 产物：app/build/outputs/apk/debug/app-debug.apk
 
 # Release 包
-./gradlew assembleRelease
-# ⚠️ 在 arm64/proot 等环境下，这个产物可能**缺 AndroidManifest.xml**（装不上）。
-#    这时改用仓库自带的重新组装脚本（它会从中间产物取资源、按规范重打包并签名）：
-#      python3 tools/build_release_apk.py
-#    发布前务必校验产物完整性：
-#      python3 tools/check_apk_integrity.py --require-signature app/build/outputs/apk/release/app-release.apk
+sh gradlew assembleRelease
+```
+
+> ⚠️ **一律用 `sh gradlew`，不要 `./gradlew`** —— 手机端 `/sdcard` 是 FUSE 挂载、不支持执行位，
+> 而这行写法在 Windows / Linux / macOS 都成立。
+
+⚠️ 在 arm64/proot 等环境下，release 产物可能**缺 AndroidManifest.xml**（装不上）。
+这时改用仓库自带的重新组装脚本（它会从中间产物取资源、按规范重打包并签名）：
+
+```bash
+python3 tools/build_release_apk.py
+# Windows 上把 python3 换成 python
+```
+
+发布前务必校验产物完整性：
+
+```bash
+python3 tools/check_apk_integrity.py --require-signature app/build/outputs/apk/release/app-release.apk
 ```
 
 ### Release 签名
@@ -319,8 +335,8 @@ keyPassword=****
 ### 测试
 
 ```bash
-./gradlew testDebugUnitTest           # 单元测试（纯 JVM）
-./gradlew connectedDebugAndroidTest   # 仪器化测试（需连接设备）
+sh gradlew testDebugUnitTest           # 单元测试（纯 JVM）
+sh gradlew connectedDebugAndroidTest   # 仪器化测试（需连接设备）
 ```
 
 单元测试覆盖网络是有限度的——真正需要 Android 运行时的部分走仪器化测试：
@@ -464,7 +480,11 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 **不要**再往 `/sdcard/Download/` 里丢 —— 那是公共下载目录，
 混着各种 App 的文件，放进去过几天就找不到了。
 
-详见 [`docs/build-artifacts.md`](build-artifacts.md)。
+详见 `docs/build-artifacts.md`（**该文件不入库** —— 它记的是本机绝对路径，
+克隆仓库后本地不会有，需按自己机器的环境自行维护）。
+
+> 🖥️ 上面这个目录约定是**手机端（Operit / aarch64 Linux）专有**的；
+> Windows、macOS、桌面 Linux 上请按 `docs/build-artifacts.md` 的记录自行指定产物目录。
 
 > ⚠️ 该目录**不在 git 仓库里**：好处是不受 `.gitignore` 约束、
 > 适合放体积大的临时产物；坏处是**不会被备份** ——

@@ -23,9 +23,15 @@ export_changelog.py —— 把内置的更新说明导出为 `docs/changelog.jso
 
 ## 用法
 
-    python3 tools/export_changelog.py
+    python3 tools/export_changelog.py            # 干跑：只打印「会写什么」
+    python3 tools/export_changelog.py --apply    # 真写：覆盖 docs/changelog.json
+    python3 tools/export_changelog.py --help
 
-从仓库根目录执行，输出覆盖 `docs/changelog.json`。
+从仓库根目录执行。**默认干跑，不碰任何文件。**
+
+这是 2026-10-16 补的护栏：此前脚本没有参数解析，`--help` 会被当成普通参数
+忽略并**直接覆写** `docs/changelog.json`（真实事故：一次「想看看有什么参数」
+的调用删掉了 108 行发布历史，靠 `git checkout` 才还原）。
 
 ## 之后的维护方式
 
@@ -36,6 +42,7 @@ export_changelog.py —— 把内置的更新说明导出为 `docs/changelog.jso
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -131,7 +138,51 @@ def parse_release_history(kt_path: Path) -> list[dict]:
     return releases
 
 
-def main() -> None:
+def _display(path: Path) -> str:
+    """尽量显示成仓库相对路径，便于复制进 issue；失败就退化成绝对路径。"""
+    try:
+        # 统一用正斜杠：Windows 上 Path 的 str() 是反斜杠，
+        # 但文档与 diff 里一律用 `/`，输出保持一致。
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def _describe_change(old: str | None, new: str) -> str:
+    """一句话说明「写下去会变成什么」，供干跑预览使用。"""
+    if old is None:
+        return "文件不存在，将新建"
+    if old == new:
+        return "内容与现有文件完全一致"
+    old_lines = old.count("\n")
+    new_lines = new.count("\n")
+    return f"行数 {old_lines} → {new_lines}"
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="export_changelog.py",
+        description=(
+            "把内置更新说明（ReleaseHistory.kt + strings.xml）导出为 "
+            "docs/changelog.json。默认干跑，不写盘。"
+        ),
+        epilog="确认无误后再加 --apply 真正覆盖目标文件。",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="真正写入目标文件（缺省只打印将要发生的变化）",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help=f"输出路径，默认 {_display(OUT)}",
+    )
+    args = parser.parse_args(argv)
+
+    out_path: Path = args.out or OUT
+
     zh = parse_strings(ZH_XML)
     en = parse_strings(EN_XML)
     releases = parse_release_history(KT_FILE)
@@ -175,7 +226,7 @@ def main() -> None:
         print("[export] ❌ 以下文案在中/英资源里缺失：", file=sys.stderr)
         for k in missing:
             print(f"    {k}", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     doc = {
         "schemaVersion": SCHEMA_VERSION,
@@ -184,17 +235,26 @@ def main() -> None:
         "releases": out_releases,
     }
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
     # 保持中文可读（ensure_ascii=False），缩进 2 空格便于人工 diff
-    OUT.write_text(
-        json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    new_text = json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
+    old_text = out_path.read_text(encoding="utf-8") if out_path.exists() else None
 
     total_changes = sum(len(r["changes"]) for r in out_releases)
-    print(f"[export] ✅ 已写出 {OUT.relative_to(ROOT)}")
+    print(f"[export] 目标：{_display(out_path)}（{_describe_change(old_text, new_text)}）")
     print(f"[export]    版本 {len(out_releases)} 个 / 变更 {total_changes} 条")
-    print(f"[export]    最新版本：{out_releases[0]['version']}（{out_releases[0]['date']}）")
+    print(
+        f"[export]    最新版本：{out_releases[0]['version']}（{out_releases[0]['date']}）"
+    )
+
+    if not args.apply:
+        print("[export] ⏸  干跑结束：未写盘。确认无误后加 --apply 才会覆盖。")
+        return 0
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(new_text, encoding="utf-8")
+    print(f"[export] ✅ 已写出 {_display(out_path)}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

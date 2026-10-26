@@ -78,14 +78,14 @@ class BaselineProfileGenerator {
 2. 跑生成任务（会安装 profileable 包并测量）：
 
 ```
-./gradlew :benchmark:generateBaselineProfile
+sh gradlew :benchmark:generateBaselineProfile
 ```
 
 3. 生成物拷到 `app/src/main/baseline-prof.txt`
 4. **验证覆盖率**：
 
 ```
-./gradlew :app:assembleRelease
+sh gradlew :app:assembleRelease
 python3 tools/check_profile_coverage.py     # 「命中本应用的类数」必须非 0
 ```
 

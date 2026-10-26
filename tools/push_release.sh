@@ -10,7 +10,8 @@
 #   sh tools/push_release.sh --tag v1.4.1 "说明"       # 顺便打 tag（触发 Release）
 #
 # 环境变量：
-#   GITHUB_TOKEN    必填（推送时）。建议用完立刻在 GitHub 设置里删除该令牌。
+#   GITHUB_TOKEN    必填（推送时）。经 http.extraheader 传入，**不写入 .git/config**；
+#                   建议用完立刻在 GitHub 设置里删除该令牌。
 #   SRC_DIR         源码工作区，默认自动探测
 #   WMB_GIT_DIR     git 仓库目录，默认自动探测（优先当前目录）
 #
@@ -23,6 +24,25 @@
 # ---------------------------------------------------------------------------
 
 set -u
+
+# ---------- 推送封装 ----------
+# PUSH_AUTH_HEADER 非空时（HTTPS 分支会设置），把令牌作为本次命令的 -c 参数传给 git。
+#
+# 为什么不用 `git remote set-url` 注入令牌：
+#   那样会把令牌明文写进 .git/config，靠 EXIT trap 还原。脚本被 kill -9、
+#   终端被关、或机器断电时 trap 不触发，令牌就长期留在本地配置里。
+#   2026-10-16 的历史审查确认过这条路径，故改为 Authorization 头（GitHub 官方推荐）。
+#
+# 已知边界：头内容会出现在本机进程命令行（ps 可见）。这是有意的取舍 ——
+# 本机单人使用，写盘残留比进程可见性更值得消除。
+PUSH_AUTH_HEADER=""
+git_push() {
+    if [ -n "${PUSH_AUTH_HEADER:-}" ]; then
+        git -c http.extraheader="$PUSH_AUTH_HEADER" push "$@"
+    else
+        git push "$@"
+    fi
+}
 
 # ---------- 参数 ----------
 TAG=""
@@ -71,7 +91,11 @@ if [ -z "${SRC_DIR:-}" ]; then
     done
 fi
 
-[ -d "$SRC_DIR" ] || { echo "找不到源码工作区（可用 SRC_DIR 指定）" >&2; exit 1; }
+# 独立的工作区只在走「已废弃的 tar 同步段」时才需要（见下方 1/6）。
+# 单份代码平台（Windows 等）$WORKSPACE = $GIT_REPO = 仓库根，不必再指定 SRC_DIR。
+if [ "${WMB_LEGACY_TWO_COPY_SYNC:-0}" = "1" ]; then
+    [ -d "${SRC_DIR:-}" ] || { echo "找不到源码工作区（可用 SRC_DIR 指定）" >&2; exit 1; }
+fi
 [ -d "$GIT_DIR_PATH/.git" ] || { echo "找不到 git 仓库：$GIT_DIR_PATH" >&2; exit 1; }
 
 # ---------- 输出辅助 ----------
@@ -87,32 +111,45 @@ die()  { printf "${R}  ✗ %s${N}\n" "$1"; exit 1; }
 
 printf "${B}══════════════════════════════════════════${N}\n"
 printf "${B}  发布流程${N}\n"
-printf "  源码: %s\n" "$SRC_DIR"
+# 独立的「源码工作区」只在走旧的双份同步时才存在
+[ "${WMB_LEGACY_TWO_COPY_SYNC:-0}" = "1" ] && printf "  源码: %s\n" "$SRC_DIR"
 printf "  仓库: %s\n" "$GIT_DIR_PATH"
 [ -n "$TAG" ] && printf "  标签: %s\n" "$TAG"
 [ "$DRY_RUN" = "1" ] && printf "  模式: ${Y}试运行${N}\n"
 printf "${B}══════════════════════════════════════════${N}\n"
 
 # ===========================================================================
-step "1/6 同步工作区 → git 仓库"
+# ⚠️ 已废弃：工作区 → 仓库 tar 同步段（保留仅供参考，默认跳过）
 # ===========================================================================
-# 用 tar 管道同步，排除敏感文件与缓存。
-# 注意：/sdcard 是 FUSE 挂载，不支持 Unix 权限位，tar 会报 mode 警告，不影响内容。
-cd "$SRC_DIR" || die "无法进入源码目录"
+# 过去有两份代码（$WORKSPACE 工作区 + $GIT_REPO 仓库），改完要手动同步；
+# 现在单份代码平台（Windows 等）$WORKSPACE = $GIT_REPO = 仓库根，
+# 且改代码走 worktree（见 docs/multi-session-collaboration.md §2.6），
+# 这段 tar 管道既没必要，在单份代码上还是「仓库往自己身上拷」，故默认跳过。
+# 真要跑旧流程：WMB_LEGACY_TWO_COPY_SYNC=1 sh tools/push_release.sh "说明"
+if [ "${WMB_LEGACY_TWO_COPY_SYNC:-0}" = "1" ]; then
+    # =======================================================================
+    step "1/6 同步工作区 → git 仓库"
+    # =======================================================================
+    # 用 tar 管道同步，排除敏感文件与缓存。
+    # 注意：/sdcard 是 FUSE 挂载，不支持 Unix 权限位，tar 会报 mode 警告，不影响内容。
+    cd "$SRC_DIR" || die "无法进入源码目录"
 
-tar cf - \
-    --exclude='./dist' \
-    --exclude='./.gradle' \
-    --exclude='./.kotlin' \
-    --exclude='./app/build' \
-    --exclude='./build' \
-    --exclude='./keystore' \
-    --exclude='./keystore.properties' \
-    --exclude='./local.properties' \
-    --exclude='./.git' \
-    . 2>/dev/null | (cd "$GIT_DIR_PATH" && tar xf - 2>/dev/null)
+    tar cf - \
+        --exclude='./dist' \
+        --exclude='./.gradle' \
+        --exclude='./.kotlin' \
+        --exclude='./app/build' \
+        --exclude='./build' \
+        --exclude='./keystore' \
+        --exclude='./keystore.properties' \
+        --exclude='./local.properties' \
+        --exclude='./.git' \
+        . 2>/dev/null | (cd "$GIT_DIR_PATH" && tar xf - 2>/dev/null)
 
-ok "同步完成"
+    ok "同步完成"
+else
+    warn "跳过「工作区 → 仓库」tar 同步段（已废弃；要走旧流程设 WMB_LEGACY_TWO_COPY_SYNC=1）"
+fi
 
 # ===========================================================================
 step "2/6 暂存变更"
@@ -172,7 +209,8 @@ else
     #   HTTPS —— 需要 GITHUB_TOKEN，脚本临时注入并在结束后还原
     case "$CURRENT_URL" in
         git@*|ssh://*)
-            info "使用 SSH 凭据（$CURRENT_URL）"
+            # 原为未定义的 info()；选 warn —— 同为单行彩色提示，step 会插空行并当小标题用
+            warn "使用 SSH 凭据（$CURRENT_URL）"
             if git push origin main 2>&1 | tail -3; then
                 ok "推送成功"
             else
@@ -183,20 +221,13 @@ else
             if [ -z "${GITHUB_TOKEN:-}" ]; then
                 die "remote 是 HTTPS 且缺少 GITHUB_TOKEN。\n     建议改用 SSH：git remote set-url origin git@github.com:Si-Ye/WatermarkBox.git"
             fi
-            info "使用 HTTPS 令牌（推送后会自动清除）"
+            # 同上：未定义的 info() → 单行提示用 warn
+            warn "使用 HTTPS 令牌（经 http.extraheader 传入，不落盘）"
 
-            ORIGINAL_URL="$CURRENT_URL"
-            git remote set-url origin \
-                "https://Si-Ye:${GITHUB_TOKEN}@github.com/Si-Ye/WatermarkBox.git"
+            # 只在本次命令生效，不改动 origin 的 URL（见文件顶部 git_push 的说明）
+            PUSH_AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\r\n')"
 
-            # 无论成败都要还原 remote
-            restore_remote() {
-                git remote set-url origin "$ORIGINAL_URL"
-                printf "${Y}  · 已还原 remote（令牌已从本地清除）${N}\n"
-            }
-            trap restore_remote EXIT
-
-            if git push origin main 2>&1 | tail -3; then
+            if git_push origin main 2>&1 | tail -3; then
                 ok "推送成功"
             else
                 die "推送失败（检查令牌权限或是否已过期）"
@@ -210,7 +241,7 @@ else
             warn "标签 $TAG 已存在，跳过"
         else
             git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG" 2>&1 | tail -2
+            git_push origin "$TAG" 2>&1 | tail -2
             ok "标签 $TAG 已推送"
         fi
     fi

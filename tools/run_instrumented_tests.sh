@@ -42,6 +42,32 @@
 # 结果建议重定向到文件，避免长输出被截断：
 #   sh ... > wmb_test_out.txt 2>&1
 # ---------------------------------------------------------------------------
+# ## 本脚本必须 push 到设备执行
+#
+# 这是**设备侧脚本**，不是主机脚本：`pm` / `am` / `pidof` 只存在于
+# Android shell，主机（Windows / Linux / proot）都没有 —— 在主机上
+# 直接 `sh tools/run_instrumented_tests.sh` 只会得到误导性错误。
+#
+# 主机上的正确调用方式：
+#   adb push tools/run_instrumented_tests.sh /data/local/tmp/ && \
+#     adb shell sh /data/local/tmp/run_instrumented_tests.sh
+#
+# 设备上 `uname -s` 也是 Linux，做平台判断没有意义；
+# 因此这里改为检测 pm / am 是否存在（见下方守卫）。
+# ---------------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────
+# 设备侧守卫（「划界支持」，见 docs/multi-session-collaboration.md §2.7）
+# 本脚本属「不支持面」：只能在设备 shell（设备终端 / adb shell）里跑。
+# 其他平台请走替代路径，见同一节的「不支持面」表。
+# ─────────────────────────────────────────────────────────────
+if ! command -v pm >/dev/null 2>&1 || ! command -v am >/dev/null 2>&1; then
+  printf '%s\n' "✗ 未检测到 pm / am —— 本脚本只能在设备 shell 里执行。" >&2
+  printf '%s\n' "  请先 push 到设备再跑：" >&2
+  printf '%s\n' "    adb push tools/run_instrumented_tests.sh /data/local/tmp/ && adb shell sh /data/local/tmp/run_instrumented_tests.sh" >&2
+  printf '%s\n' "  替代路径见 docs/multi-session-collaboration.md §2.7「不支持面」。" >&2
+  exit 1
+fi
+
 # 自动探测本机的 instrumentation 组件。
 #
 # ## 为什么不能硬编码
@@ -71,18 +97,33 @@ if [ -z "$INSTRUMENTATION" ]; then
 fi
 
 # 换行分隔的列表（POSIX sh 没有数组）
+#
+# ## 这份列表的取舍（别把「脚本全绿」当成「androidTest 全绿」）
+#
+# 当前 `app/src/androidTest` 共 **57** 个 `@Test`，本列表覆盖 **53** 个。
+# 刻意不跑的 4 个是 `InvisibleWatermarkInstrumentedTest` 里的 `diagnose_*`
+# （`diagnose_compression_boundary` / `diagnose_geometry_boundary` /
+# `diagnose_scale_restore` / `diagnose_rotation_boundary`）——
+# 它们是排查用的**实验**，只打印数据、不做断言，且很慢。
+#
+# ⚠️ 2026-10-26 修的两处漏项（此前一直是 44/57 的假绿）：
+# `survives_right_angle_rotations`（有断言，却不在列表里）和整个
+# `ApkVerifierInstrumentedTest`（8 条）—— 都在设备上能跑，只是没人加进来。
+# 加完后：44 → **53**。
 METHODS="
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#embed_then_extract_recovers_text
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#survives_jpeg_quality_90
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#survives_jpeg_quality_80
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#survives_two_rounds_of_jpeg
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#survives_png_round_trip
+com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#survives_right_angle_rotations
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#clean_image_reports_no_watermark
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#different_strength_engines_can_still_embed
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#longer_text_is_recoverable
 com.watermarkbox.invisible.InvisibleWatermarkInstrumentedTest#embed_does_not_visibly_change_pixels
 com.watermarkbox.util.ExifChineseEncodingTest#chinese_survives_round_trip_through_real_exif
 com.watermarkbox.util.ExifChineseEncodingTest#without_codec_chinese_would_break
+com.watermarkbox.util.ApkVerifierInstrumentedTest
 com.watermarkbox.watermark.WatermarkRendererInstrumentedTest
 com.watermarkbox.watermark.ImageWatermarkRendererTest
 com.watermarkbox.watermark.PreviewDerivedReactivityTest
