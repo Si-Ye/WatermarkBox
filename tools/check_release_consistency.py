@@ -23,6 +23,10 @@ check_release_consistency.py —— 发版一致性校验。
 本脚本的版本号**只从 `build.gradle.kts` 取**，没有第二份手写副本，
 所以不会再出现"校验了个寂寞"。
 
+另外守一项容易漏的：`changelog.json` 顶部的 `updatedAt` 必须等于最新一版的
+`date`。它和 `releases` 数组隔了几十行，手工插入新版本时最容易被忘掉 ——
+2026-10-27 发 2.3.0 就真漏过（新版本写 10-27，`updatedAt` 停在 2.2.0 的 10-14）。
+
 ═══════════════════════════════════════════════════════════════════
 用法
 ═══════════════════════════════════════════════════════════════════
@@ -215,6 +219,27 @@ def main() -> int:
                     f"发版忘了更新说明（这是用户能直接看到的问题）",
                 )
 
+            # updatedAt 必须等于最新一版的日期。
+            #
+            # 为什么单独校验这一项：`updatedAt` 在 JSON 顶部，和 `releases` 数组
+            # 隔了几十行，**往数组开头手工插新版本时最容易漏**。2026-10-27 发
+            # 2.3.0 就真的漏了 —— 新版本日期是 10-27，`updatedAt` 还停在
+            # 2.2.0 的 10-14，线上 `changelog.json` 于是声称「最后更新 10-14」。
+            #
+            # 约定来源：`tools/export_changelog.py` 生成时就是取最新一版的日期
+            # （它天然等于"这份文档最后动过的时间"）。
+            if releases:
+                newest_version = releases[0].get("version", "")
+                newest_date = str(releases[0].get("date", "")).strip()
+                updated_at = str(doc.get("updatedAt", "")).strip()
+                if p.check(bool(updated_at), "changelog.json 的 updatedAt 为空"):
+                    p.check(
+                        updated_at == newest_date,
+                        f"changelog.json 的 updatedAt 是 {updated_at}，"
+                        f"而最新版本 {newest_version} 的 date 是 {newest_date}"
+                        f" —— updatedAt 应等于最新一版的日期",
+                    )
+
     # ---- ③ Release 说明 ----
     release_md = RELEASES_DIR / f"v{version_name}.md"
     p.check(
@@ -249,8 +274,9 @@ def print_report(p: Problems, version_name: str | None) -> None:
     print()
     print("[release-check] 修复方式：")
     print("    1. 若提示 changelog.json 版本不符 → 在 releases 数组**开头**插入新版本条目")
-    print("    2. 若提示缺少 vX.Y.Z.md → 参照 docs/releases/v2.1.0.md 的结构补一份")
-    print("    3. 详见 docs/RELEASE_PROCESS.md")
+    print("    2. 若提示 updatedAt 不符 → 把 JSON 顶部的 updatedAt 改成最新版本的 date")
+    print("    3. 若提示缺少 vX.Y.Z.md → 参照 docs/releases/v2.1.0.md 的结构补一份")
+    print("    4. 详见 docs/RELEASE_PROCESS.md")
 
 
 if __name__ == "__main__":

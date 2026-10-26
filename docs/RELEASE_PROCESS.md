@@ -146,6 +146,21 @@ grep -n 'versionCode\|versionName' app/build.gradle.kts
 | `changes[].kind` | `ADDED` / `FIXED` / `IMPROVED` / `CHANGED` | 决定符号（＋ ✓ ↑ ~）|
 | `changes[].zh` / `.en` | 字符串 | **都不能空** |
 
+> ⚠️ **别忘了文件顶部的 `updatedAt`**
+> 它不在 `releases` 数组里，而在 JSON 第 3 行，**手工插入新版本时最容易漏**：
+>
+> ```json
+> {
+>   "schemaVersion": 1,
+>   "updatedAt": "2026-10-27",     ← 必须等于最新一版的 date
+>   "releases": [ ... ]
+> }
+> ```
+>
+> 2026-10-27 发 2.3.0 时就漏了（新版本写 10-27，`updatedAt` 还停在 2.2.0 的 10-14），
+> 线上 `changelog.json` 因此声称「最后更新 10-14」。
+> 现在 `tools/check_release_consistency.py` **会拦这一项**（步骤 5 的校验里报错退出 1）。
+
 > 💡 **`kind` 的选择**
 > - `ADDED`：新功能
 > - `FIXED`：修 bug（**写用户看到的现象**，不是代码改动）
@@ -253,6 +268,9 @@ python3 tools/check_release_consistency.py
     - changelog.json 的最新版本是 2.1.0，而 versionName 是 2.1.1 —— 发版忘了更新说明（这是用户能直接看到的问题）
     - 缺少 docs/releases/v2.1.1.md —— GitHub Release 页面会没有正文（CI 的 release.yml 读这个文件）
 ```
+
+脚本一共守这些项：`versionName`↔`changelog.json` 最新版本、`changelog.json` 内部结构与倒序、
+**`updatedAt` 等于最新一版日期**、`docs/releases/vX.Y.Z.md` 存在、（可选）`--tag` 与版本号一致。
 
 **按提示修完再跑一次**，直到出现 `✅`。
 
