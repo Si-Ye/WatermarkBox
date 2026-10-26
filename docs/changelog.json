@@ -3,6 +3,67 @@
   "updatedAt": "2026-10-14",
   "releases": [
     {
+      "version": "2.3.0",
+      "date": "2026-10-27",
+      "type": "MINOR",
+      "title": {
+        "zh": "批量处理变得能用了：序号命名、拖动定位、一键分享",
+        "en": "Batches become usable: numbered names, drag to place, share in one tap"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "新增：批量导出的文件名可以带序号 —— 支持 {index} 与 {index:03}，起始序号可设；重跑失败项时序号保持不变",
+          "en": "Added: batch exports can carry a sequence number in file names — {index} or {index:03}, with a configurable start; retrying failed items keeps the original numbers"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：批量页可以直接拖动水印位置 —— 双击水印锁定后拖动，点预览区外解锁；可选「统一位置」或「每张独立」",
+          "en": "Added: drag the watermark directly on the batch preview — double-tap it to lock, tap outside the preview to unlock; choose one position for all images or one per image"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：批量处理完成后可以直接分享导出的图片",
+          "en": "Added: share the exported images straight from the completion dialog"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：首页入口卡片适配小屏与平板 —— 小屏上第三张卡片不再被压扁到点不中",
+          "en": "Improved: home entry cards adapt to small phones and tablets — on small screens the third card is no longer squashed out of reach"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：预览缓存张数按可用内存自动决定，低内存机型更稳",
+          "en": "Improved: the preview cache now follows available memory, which is steadier on low-memory devices"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：处理完成弹窗里的「分享」移到左下角，与「好」同一行",
+          "en": "Improved: the share action in the completion dialog now sits at the bottom left, level with OK"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：在设置里点「导出」会崩溃（一个正则表达式在本机系统上被当成非法写法）",
+          "en": "Fixed: tapping Export in Settings crashed the app (a regular expression the platform rejected)"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：连续快速换图时，预览或导出可能仍然是上一张",
+          "en": "Fixed: switching images quickly could leave the preview or the export showing the previous one"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：对超大图片做隐藏水印检测时会闪退，现在会给出具体原因",
+          "en": "Fixed: hidden-watermark detection crashed on very large images, and now explains what went wrong"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：从系统设置改完「安装未知应用」权限返回后，设置页状态不刷新",
+          "en": "Fixed: after changing the install-unknown-apps permission in system settings, the app's own state did not refresh"
+        }
+      ]
+    },
+    {
       "version": "2.2.0",
       "date": "2026-10-14",
       "type": "MINOR",
