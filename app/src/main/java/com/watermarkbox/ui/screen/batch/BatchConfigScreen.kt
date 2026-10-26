@@ -49,11 +49,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -66,12 +77,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.watermarkbox.R
+import com.watermarkbox.data.model.BatchPositionOverrides
+import com.watermarkbox.data.model.BatchPositionResolver
 import com.watermarkbox.data.model.ImageWatermarkStyle
+import com.watermarkbox.data.model.LayoutMode
+import com.watermarkbox.data.model.PositionScope
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.ui.component.DraggableBottomPanel
 import com.watermarkbox.ui.component.PanelDragBehavior
 import com.watermarkbox.ui.component.PanelDragHandle
+import com.watermarkbox.ui.component.SegmentedControl
 import com.watermarkbox.ui.component.ShrinkablePreviewArea
 import com.watermarkbox.ui.component.WatermarkPreview
 import com.watermarkbox.ui.screen.editor.ExportSettingsDialog
@@ -79,6 +95,7 @@ import com.watermarkbox.ui.screen.editor.PresetDialog
 import com.watermarkbox.ui.screen.editor.WatermarkPanel
 import com.watermarkbox.ui.screen.editor.WatermarkPanelState
 import com.watermarkbox.ui.theme.Spacing
+import com.watermarkbox.util.ShareUtils
 import com.watermarkbox.worker.BatchFailureReason
 import kotlinx.coroutines.launch
 
@@ -151,6 +168,33 @@ fun BatchConfigScreen(
     var showPresetDialog by remember { mutableStateOf(false) }
     // 用于缩略图点击跳页（animateScrollToPage 是挂起函数）
     val scope = rememberCoroutineScope()
+
+    // ---- 水印位置拖动（双击预览进入，点预览外退出）----
+    //
+    // 为什么需要这个"锁定"：
+    // 预览区同时要响应「左右滑切图」和「拖动水印」——两者都是单指水平拖动，
+    // 不设状态机就只能二选一。双击进入锁定态后关掉 pager 的滑动，
+    // 手势才不会被两方抢。
+    var positionLocked by rememberSaveable { mutableStateOf(false) }
+    // 预览区在整页坐标系里的矩形：用来判断「这一下点在了预览外」
+    // 「预览区域」的矩形，以及本页根布局在窗口里的原点。
+    //
+    // ⚠️ 两个都用**窗口坐标**，不能一个窗口一个局部：
+    // 预览区深埋在 pager 的页面里，拿它的 boundsInParent 得到的是
+    // 相对某层父容器的坐标，与根布局收到的触摸点不在同一套坐标里，
+    // 判断必然错（最初就是用预览"层"的 boundsInParent，结果该层是
+    // fillMaxSize，整个屏幕都被算成"预览内"，点哪都不解锁）。
+    var previewBounds by remember { mutableStateOf(Rect.Zero) }
+    var rootOrigin by remember { mutableStateOf(Offset.Zero) }
+    // 换图即解锁 —— 锁定是「针对这张图构图」的临时状态，不该跨图残留
+    LaunchedEffect(state.previewIndex) { positionLocked = false }
+
+    // 「位置」这一组参数只在水印是**单个**时才有意义：
+    // 平铺 / 对角线是铺满整张图的，没有"位置"可拖动、也没有"每张独立"的余地。
+    val supportsPosition = when (state.watermarkType) {
+        WatermarkType.TEXT -> state.textStyle.layoutMode == LayoutMode.SINGLE
+        WatermarkType.IMAGE -> state.imageStyle.layoutMode == LayoutMode.SINGLE
+    }
 
     // 处理完成后自动弹出统计
     LaunchedEffect(state.finished) {
@@ -231,12 +275,35 @@ fun BatchConfigScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                // 锁定态下，点「预览区以外」的任何地方解锁。
+                //
+                // 用 Initial 阶段**只观察、不消费**：
+                // 用户在锁定态去点按钮/滑面板时，那一下既该解锁、也该照常生效。
+                // 若在这里消费事件，反而会让整个界面"先失灵一次"。
+                .onGloballyPositioned { rootOrigin = it.positionInWindow() }
+                .pointerInput(positionLocked, previewBounds, rootOrigin) {
+                    if (!positionLocked) return@pointerInput
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val down = event.changes.firstOrNull { it.pressed }
+                                ?: continue
+                            // 触摸点是**本 Box 的局部坐标**，换算到窗口再比
+                            val absolute = down.position + rootOrigin
+                            if (!previewBounds.contains(absolute)) {
+                                positionLocked = false
+                                return@awaitPointerEventScope
+                            }
+                        }
+                    }
+                }
         ) {
             // ============ 预览区：阶段一跟着缩小，阶段二冻结 ============
             ShrinkablePreviewArea(
                 fraction = state.panelFraction,
                 behavior = PANEL_BEHAVIOR,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
             ) { previewModifier ->
                 BatchPreviewPager(
                     images = state.images,
@@ -249,8 +316,14 @@ fun BatchConfigScreen(
                     logoBitmap = state.logoBitmap,
                     pagerState = pagerState,
                     pagerCoroutineScope = scope,
+                    positions = state.positions,
+                    positionLocked = positionLocked,
+                    onLockChange = { positionLocked = it },
+                    onDragText = viewModel::dragTextPosition,
+                    onDragImage = viewModel::dragImagePosition,
                     onAddMore = onAddMore,
                     onRemove = { viewModel.removeImage(it) },
+                    onPageBounds = { previewBounds = it },
                     modifier = previewModifier
                 )
             }
@@ -264,7 +337,16 @@ fun BatchConfigScreen(
                     PanelDragHandle(
                         expanded = state.panelExpanded,
                         overlaying = PANEL_BEHAVIOR.isOverlaying(state.panelFraction),
-                        onToggle = viewModel::togglePanel
+                        onToggle = viewModel::togglePanel,
+                        // 锁定拖动位置时，把「拖动调整高度」暂时换成退出提示 ——
+                        // 这句原本浮在预览上，占画面还挡图；面板标题行本就常驻，
+                        // 借它显示状态不额外占地方。解锁后自动恢复原文案。
+                        hintRes = if (positionLocked) {
+                            R.string.batch_position_locked
+                        } else {
+                            null
+                        },
+                        hintHighlighted = positionLocked
                     )
                 }
             ) {
@@ -280,7 +362,20 @@ fun BatchConfigScreen(
                     ),
                     viewModel = viewModel,
                     onPickLogo = onPickLogo,
-                    onPickFont = { }
+                    onPickFont = { },
+                    // 位置作用域搬进参数面板（原先是浮在预览上的胶囊）。
+                    // 只有「单个」布局才有位置可拖：平铺/对角线是铺满整图的。
+                    positionScopeSection = if (supportsPosition) {
+                        {
+                            PositionScopeSection(
+                                scope = state.positions.scope,
+                                onScopeChange = viewModel::setPositionScope,
+                                onReset = viewModel::resetCurrentPosition
+                            )
+                        }
+                    } else {
+                        null
+                    }
                 )
             }
 
@@ -363,10 +458,29 @@ fun BatchConfigScreen(
 
     // ---- 完成统计 ----
     if (showSummary) {
+        val context = LocalContext.current
+        // ⚠️ 分享标题必须在**组合期**取好：`context.getString` 在
+        // Composable 里取资源会被 lint 判为 LocalContextGetResourceValueCall
+        // （它绕过了配置变更时的重组）。stringResource 才对。
+        val shareTitle = stringResource(R.string.batch_share_chooser_title)
         BatchSummaryDialog(
             success = state.successCount,
             fail = state.failCount,
             failureReasons = state.failureReasons,
+            canShare = state.successUris.isNotEmpty(),
+            canRetry = state.failedItems.isNotEmpty(),
+            onShare = {
+                ShareUtils.shareImages(
+                    context = context,
+                    uris = state.successUris,
+                    title = shareTitle
+                )
+            },
+            onRetryFailed = {
+                // 先关掉统计框：重跑会重新进入进度态
+                showSummary = false
+                viewModel.retryFailedItems()
+            },
             onDismiss = {
                 showSummary = false
                 viewModel.resetProcessing()
@@ -415,8 +529,15 @@ private fun BatchPreviewPager(
     logoBitmap: android.graphics.Bitmap?,
     pagerState: androidx.compose.foundation.pager.PagerState,
     pagerCoroutineScope: kotlinx.coroutines.CoroutineScope,
+    positions: BatchPositionOverrides,
+    positionLocked: Boolean,
+    onLockChange: (Boolean) -> Unit,
+    onDragText: (Float, Float) -> Unit,
+    onDragImage: (Float, Float) -> Unit,
     onAddMore: () -> Unit,
     onRemove: (Uri) -> Unit,
+    /** 回报当前页的矩形（窗口坐标）—— 供「点预览外解锁」判断用。 */
+    onPageBounds: (Rect) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // ---- 把「水印参数」包成 State，让 pager 内容延迟读取 ----
@@ -428,6 +549,14 @@ private fun BatchPreviewPager(
     val watermarkState = rememberUpdatedState(
         WatermarkParams(watermarkType, textStyle, imageStyle, logoBitmap)
     )
+
+    // 位置覆盖表同理，而且更要紧：拖动时它**每一帧都在变**。
+    // 若被 pager 的内容 lambda 直接捕获，拖动就会变成"每帧重排整个 pager"。
+    val positionsState = rememberUpdatedState(positions)
+    val lockedState = rememberUpdatedState(positionLocked)
+    val dragTextCallback = rememberUpdatedState(onDragText)
+    val dragImageCallback = rememberUpdatedState(onDragImage)
+
     Column(modifier = modifier.fillMaxWidth()) {
         // 预览高度：填满剩余空间（不写死），这样面板拖动时预览能跟着缩放
         Box(
@@ -449,7 +578,9 @@ private fun BatchPreviewPager(
             // - 只有真正用到参数的 `WatermarkPreview` 重组 ✅
             HorizontalPager(
                 state = pagerState,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                // 锁定态禁止翻页：把水平拖动整个让给"拖水印"
+                userScrollEnabled = !positionLocked
             ) { page ->
                 BatchPagerPage(
                     page = page,
@@ -458,8 +589,14 @@ private fun BatchPreviewPager(
                     previewBitmap = previewBitmap,
                     previewLoading = previewLoading,
                     watermark = watermarkState,
+                    positions = positionsState,
+                    locked = lockedState,
+                    onDragText = dragTextCallback,
+                    onDragImage = dragImageCallback,
+                    onLockChange = onLockChange,
                     onRemove = onRemove,
-                    onAddMore = onAddMore
+                    onAddMore = onAddMore,
+                    onPageBounds = onPageBounds
                 )
             }
         }
@@ -475,6 +612,80 @@ private fun BatchPreviewPager(
                     pagerState.animateScrollToPage(images.size)
                 }
             }
+        )
+    }
+}
+
+/**
+ * 参数面板里的「水印位置」区块：作用域切换 + 恢复默认。
+ *
+ * ## 为什么从预览挪进面板
+ *
+ * 早先它浮在预览左上角，理由是"控件离动作近"。实际用下来是反的：
+ * - 它压在图片上，正好是最该看清画面的地方；
+ * - 它和"双击拖动"这条提示叠成两行胶囊，把预览顶部占掉一大块；
+ * - 而它本质是**一组参数**（改的是导出行为），参数就该在参数面板里，
+ *   和字号、颜色、透明度放在一起，用户找的时候会往那找。
+ *
+ * 锁定提示也因此搬去了面板标题行（见 [PanelDragHandle] 的 hintRes）。
+ */
+@Composable
+private fun PositionScopeSection(
+    scope: PositionScope,
+    onScopeChange: (PositionScope) -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(R.string.batch_position_section),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = stringResource(R.string.batch_position_reset),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onReset)
+                    .padding(horizontal = Spacing.Small, vertical = Spacing.Tiny)
+                    // 小字按钮必须补足最小可点区域，否则在小屏上按不中
+                    .minimumInteractiveComponentSize()
+            )
+        }
+        Spacer(Modifier.height(Spacing.Tiny))
+        SegmentedControl(
+            options = listOf(
+                PositionScope.UNIFIED to stringResource(R.string.batch_position_scope_unified),
+                PositionScope.PER_IMAGE to stringResource(R.string.batch_position_scope_per_image)
+            ),
+            selected = scope,
+            onSelect = onScopeChange
+        )
+        Spacer(Modifier.height(Spacing.Tiny))
+        Text(
+            text = stringResource(
+                if (scope == PositionScope.UNIFIED) {
+                    R.string.batch_position_scope_unified_desc
+                } else {
+                    R.string.batch_position_scope_per_image_desc
+                }
+            ),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        // 「怎么改位置」这条发现性说明原先也浮在预览上；随控件一起搬进来，
+        // 预览区因此彻底不再有任何浮层胶囊。
+        Text(
+            text = stringResource(R.string.batch_position_hint),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -512,8 +723,16 @@ private fun BatchPagerPage(
     previewBitmap: android.graphics.Bitmap?,
     previewLoading: Boolean,
     watermark: androidx.compose.runtime.State<WatermarkParams>,
+    /** 每张图的位置覆盖（含作用域）—— 同样用 State 传递，理由见 [watermark]。 */
+    positions: androidx.compose.runtime.State<BatchPositionOverrides>,
+    /** 是否处于「拖动位置」锁定态。 */
+    locked: androidx.compose.runtime.State<Boolean>,
+    onDragText: androidx.compose.runtime.State<(Float, Float) -> Unit>,
+    onDragImage: androidx.compose.runtime.State<(Float, Float) -> Unit>,
+    onLockChange: (Boolean) -> Unit,
     onRemove: (Uri) -> Unit,
-    onAddMore: () -> Unit
+    onAddMore: () -> Unit,
+    onPageBounds: (Rect) -> Unit
 ) {
     if (page >= images.size) {
         AddMorePage(onClick = onAddMore)
@@ -523,31 +742,74 @@ private fun BatchPagerPage(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            // 报出本页矩形（窗口坐标）。
+            // 这一层才是用户眼里的"预览区域"：它只有 pager 那么大，
+            // 不含参数面板和顶部工具栏 —— 点后者才算"点到预览外面"。
+            .onGloballyPositioned {
+                if (page == previewIndex) onPageBounds(it.boundsInWindow())
+            }
             .padding(8.dp)
     ) {
         // 只有当前页才用已加载的 bitmap，其它页显示占位，
         // 避免横向预加载时把多张大图同时留在内存里。
         val isCurrent = page == previewIndex
         val params = watermark.value
+        val overrides = positions.value
+        // 这张图自己的位置（每张独立作用域下才有值；统一模式恒为 null）
+        val uriKey = images.getOrNull(page)?.toString().orEmpty()
+        // 位置覆盖 → 本页真正生效的样式。
+        // ⚠️ 与 Worker 导出调的是**同一个纯函数**（BatchPositionResolver），
+        // 所以「预览看到的」与「导出的」不可能对不上。
+        val textConfig = BatchPositionResolver.applyText(
+            params.textStyle,
+            overrides.textFor(uriKey)
+        )
+        val imageConfig = BatchPositionResolver.applyImage(
+            params.imageStyle,
+            overrides.imageFor(uriKey)
+        )
+        val isLocked = isCurrent && locked.value
+
         WatermarkPreview(
             bitmap = if (isCurrent) previewBitmap else null,
             watermarkType = params.type,
-            textConfig = params.textStyle,
-            imageConfig = params.imageStyle,
+            textConfig = textConfig,
+            imageConfig = imageConfig,
             logoBitmap = params.logo,
             // 批量页的 {filename} 占位符在导出时才解析，
             // 预览时不假装知道文件名（传 null 让它显示占位符原文）
             sourceFileName = null,
             isLoading = isCurrent && previewLoading,
-            // 关掉单指平移，把手势让给外层 HorizontalPager 切图。
-            // 详见该参数文档。
-            panEnabled = false,
+            // 平时关掉单指平移，把手势让给外层 HorizontalPager 切图；
+            // 锁定后翻页已禁用，此时放开缩放 —— 用户常要在放大后精调位置。
+            panEnabled = isLocked,
             // ⚠️ 只有当前页参与水印绘制。
             //
             // pager 会把相邻页也短暂组合起来，若它们也绘制：
             // - 每个实例都有自己的 WatermarkRenderer（Paint 池 + 字体缓存）
             // - 拖参数时全部触发绘制，但相邻页 bitmap 为 null，画了也看不到
             enabled = isCurrent,
+            // 锁定态才允许拖动水印，且**不再受"缩放必须≈1"的限制** ——
+            // 放大后微调位置是正常需求，限制住反而别扭
+            onWatermarkDrag = if (isLocked) {
+                { x, y ->
+                    when (params.type) {
+                        WatermarkType.TEXT -> onDragText.value(x, y)
+                        WatermarkType.IMAGE -> onDragImage.value(x, y)
+                    }
+                }
+            } else {
+                null
+            },
+            dragRegardlessOfZoom = isLocked,
+            // 锁定态给水印描虚线框：明确告诉用户"现在拖的是它"
+            showWatermarkBounds = isLocked,
+            // 双击预览 → 进入拖动位置锁定态（仅当前页响应）
+            onWatermarkDoubleTap = if (isCurrent) {
+                { onLockChange(true) }
+            } else {
+                null
+            },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -783,6 +1045,10 @@ private fun BatchSummaryDialog(
     success: Int,
     fail: Int,
     failureReasons: Map<BatchFailureReason, Int>,
+    canShare: Boolean,
+    canRetry: Boolean,
+    onShare: () -> Unit,
+    onRetryFailed: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -832,8 +1098,36 @@ private fun BatchSummaryDialog(
                 )
             }
         },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.batch_ok)) }
-        }
+        // 底部一行：左侧是「下一步动作」（分享 / 重跑失败项），右侧是「好」。
+        //
+        // 为什么要塞进 dismissButton、把 confirmButton 留空：
+        // Material3 的 AlertDialog 会把两个按钮槽当成一组**靠右**排列，
+        // 于是「分享」只能贴在「好」左边、离对话框左边缘还差一大截，
+        // 看着像悬在中间。要让「分享」真正落在左下角、和「好」同一条水平线，
+        // 只能自己接管这一行 —— 用一个 SpaceBetween 的 Row 把两端撑开。
+        dismissButton = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Tiny)) {
+                    // 只在该动作确实可用时才出现：全部成功时没有「重跑失败项」，
+                    // 全部失败时没有「分享」。
+                    if (canShare) {
+                        TextButton(onClick = onShare) {
+                            Text(stringResource(R.string.batch_share_success, success))
+                        }
+                    }
+                    if (canRetry) {
+                        TextButton(onClick = onRetryFailed) {
+                            Text(stringResource(R.string.batch_retry_failed, fail))
+                        }
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.batch_ok)) }
+            }
+        },
+        confirmButton = {}
     )
 }

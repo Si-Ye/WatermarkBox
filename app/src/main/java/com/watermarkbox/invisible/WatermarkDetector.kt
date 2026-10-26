@@ -250,6 +250,13 @@ class WatermarkDetector(private val context: Context) {
                     }
                 }
             }
+        } catch (oom: OutOfMemoryError) {
+            // 频域检测要开 `FloatArray(w * height)`（每像素 4 字节，等价于一份位图），
+            // 旋转兜底还会再多一张副本 —— `DETECT_COPIES` 已按 3 份预检，
+            // 但预检是估算，仍可能漏（位图走 native 堆、数组走 Java 堆，是两套账）。
+            //
+            // 不在这里兜，OOM 会顺着协程把进程带走 —— 用户看到的就是「点检测，应用闪退」。
+            return@withContext DetectResult.Error(ERROR_IMAGE_TOO_LARGE)
         } finally {
             bitmap.recycle()
         }

@@ -1,6 +1,7 @@
 package com.watermarkbox.ui.screen.update
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,6 +17,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+
+/**
+ * 日志 TAG。
+ *
+ * 下载 / 安装链路的失败以前是**静默**的（只改 UI 状态、不记日志），
+ * 用户报「点了没反应」时日志里什么都没有，只能猜。
+ * 现在这里所有失败分支都必须带上原始异常落日志 —— 见
+ * [UpdateViewModel.downloadInApp] 与 [UpdateViewModel.installDownloaded]。
+ */
+private const val TAG = "UpdateVM"
 
 /**
  * 「检查更新」的界面状态。
@@ -225,7 +236,12 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
 
                     is ApkVerifier.Result.Failed -> {
                         // 校验失败必须删掉文件，绝不交给系统安装器
-                        runCatching { file.delete() }
+                        runCatching { file.delete() }.onFailure {
+                            // 删不掉也不该阻断提示，但要留痕：文件残留在
+                            // filesDir/updates/ 里会占空间，且下次下载前 cleanup
+                            // 也删不掉 —— 排查时这是关键线索。
+                            Log.w(TAG, "校验失败后删除 APK 失败: ${file.absolutePath}", it)
+                        }
                         _uiState.value = UpdateUiState.VerifyFailed(
                             reason = verified.reason,
                             detail = verified.detail
@@ -233,7 +249,10 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
             } catch (e: Exception) {
-                _uiState.value = UpdateUiState.Failed(UpdateChecker.ErrorKind.NETWORK)
+                // 分类 + 记日志：原来一律当成「网络失败」，用户照着提示换网络
+                // 重试仍然失败（真实原因可能是超时、HTTP 403、写盘失败）。
+                Log.e(TAG, "应用内下载/校验失败: url=$url", e)
+                _uiState.value = UpdateUiState.Failed(UpdateChecker.classifyFailure(e))
             }
         }
     }
@@ -275,20 +294,43 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
      * 现在改为：**把清理推迟到下次下载前**（[downloadInApp] 开头会 cleanup），
      * 那时安装器一定早已读完。代价只是文件多留一会儿（几 MB，可接受）。
      *
-     * @return true 表示成功唤起；false 表示仍无权限或文件缺失
+     * ## 失败为什么要分类型
+     *
+     * 原来只有「成功 / 失败」两态，失败一律进 [UpdateUiState.NeedPermission]，
+     * 用户被引导去设置里授权 —— 可权限早就给了，回来重试还是同一句提示。
+     * 现在按 [ApkInstaller.InstallOutcome] 分派：只有真的缺权限才引导授权。
      */
-    fun installDownloaded(): Boolean {
-        val apk = downloadedApk ?: return false
+    fun installDownloaded() {
+        val apk = downloadedApk ?: run {
+            Log.w(TAG, "installDownloaded: 无已下载 APK")
+            _uiState.value = UpdateUiState.Failed(UpdateChecker.ErrorKind.UNKNOWN)
+            return
+        }
         val context = getApplication<Application>()
         // 唤起安装器前释放 job 引用，避免安装期间被误 cancel
         job = null
-        val ok = ApkInstaller.install(context, apk)
-        if (ok) {
-            _uiState.value = UpdateUiState.Idle
-        } else {
-            _uiState.value = UpdateUiState.NeedPermission
+        when (val outcome = ApkInstaller.install(context, apk)) {
+            ApkInstaller.InstallOutcome.Started -> {
+                _uiState.value = UpdateUiState.Idle
+            }
+
+            ApkInstaller.InstallOutcome.NoPermission -> {
+                _uiState.value = UpdateUiState.NeedPermission
+            }
+
+            ApkInstaller.InstallOutcome.NoFile -> {
+                // 文件在「下载完成」与「点击安装」之间被系统清理了。
+                // 引导授权没有意义，得让用户重新下载。
+                Log.w(TAG, "installDownloaded: APK 已不存在或为空: ${apk.absolutePath}")
+                downloadedApk = null
+                _uiState.value = UpdateUiState.Failed(UpdateChecker.ErrorKind.UNKNOWN)
+            }
+
+            is ApkInstaller.InstallOutcome.FailedToLaunch -> {
+                Log.e(TAG, "installDownloaded: 唤起安装器失败", outcome.cause)
+                _uiState.value = UpdateUiState.Failed(UpdateChecker.ErrorKind.UNKNOWN)
+            }
         }
-        return ok
     }
 
     /** 跳转到「安装未知应用」授权页。 */

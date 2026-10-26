@@ -1,7 +1,11 @@
 package com.watermarkbox.worker
 
 import com.watermarkbox.data.model.ExportSettings
+import com.watermarkbox.data.model.ImagePosition
+import com.watermarkbox.data.model.ImagePositionEntry
+import com.watermarkbox.data.model.ImagePositionTable
 import com.watermarkbox.data.model.ImageWatermarkStyle
+import com.watermarkbox.data.model.PositionScope
 import com.watermarkbox.data.model.TextWatermarkStyle
 import kotlinx.serialization.json.Json
 
@@ -53,4 +57,34 @@ object JsonCodec {
         return runCatching { json.decodeFromString(ExportSettings.serializer(), raw) }
             .getOrDefault(ExportSettings())
     }
+
+    // ---- 每张图的独立位置（批量页「每张独立」作用域）----
+
+    fun encodePositions(positions: Map<String, ImagePosition>): String =
+        json.encodeToString(
+            ImagePositionTable.serializer(),
+            ImagePositionTable(
+                entries = positions.map { (uri, pos) ->
+                    ImagePositionEntry(uri = uri, x = pos.x, y = pos.y)
+                }
+            )
+        )
+
+    /**
+     * 解码位置表。
+     *
+     * 容错：解析失败返回空表 —— 空表意味着"所有图都用共享配置的位置"，
+     * 也就是**退回统一模式的行为**，而不是让整批导出失败。
+     */
+    fun decodePositions(raw: String?): Map<String, ImagePosition> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        val table = runCatching {
+            json.decodeFromString(ImagePositionTable.serializer(), raw)
+        }.getOrNull() ?: return emptyMap()
+        return table.entries.associate { it.uri to ImagePosition(it.x, it.y) }
+    }
+
+    /** 解码位置作用域，无法识别时退回统一模式。 */
+    fun decodePositionScope(raw: String?): PositionScope =
+        PositionScope.entries.firstOrNull { it.name == raw } ?: PositionScope.UNIFIED
 }

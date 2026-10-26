@@ -162,13 +162,37 @@ object ApkInstaller {
     }
 
     /**
+     * 唤起安装器的结果。
+     *
+     * ## 为什么不再返回 Boolean
+     *
+     * 原实现三种失败都返回 `false`，上层一律当成「没有安装权限」，
+     * 于是弹出「去设置授权」——用户照着做完，回来重试还是同一个提示，
+     * 死循环。真实原因其实是文件被系统清理掉了，或安装器没唤起来。
+     * 分出类型后，上层才能给出对症的提示并记日志。
+     */
+    sealed interface InstallOutcome {
+        /** 已成功唤起系统安装界面。 */
+        data object Started : InstallOutcome
+
+        /** 缺少「安装未知应用」权限，需引导用户去设置开启。 */
+        data object NoPermission : InstallOutcome
+
+        /** 下载的 APK 不存在或为空（可能被系统清理）。 */
+        data object NoFile : InstallOutcome
+
+        /** 安装器没被唤起来（如 startActivity 抛异常）。 */
+        data class FailedToLaunch(val cause: Throwable) : InstallOutcome
+    }
+
+    /**
      * 用系统安装器安装已下载的 APK。
      *
-     * @return true 表示成功唤起安装界面；false 表示文件缺失或无权限
+     * 失败原因用 [InstallOutcome] 区分，不再压成一个 Boolean。
      */
-    fun install(context: Context, apk: File): Boolean {
-        if (!apk.exists() || apk.length() == 0L) return false
-        if (!canInstall(context)) return false
+    fun install(context: Context, apk: File): InstallOutcome {
+        if (!apk.exists() || apk.length() == 0L) return InstallOutcome.NoFile
+        if (!canInstall(context)) return InstallOutcome.NoPermission
 
         val uri: Uri = FileProvider.getUriForFile(
             context,
@@ -181,7 +205,11 @@ object ApkInstaller {
             // 临时授予读取权限：系统安装器需要靠它打开 Content URI
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return runCatching { context.startActivity(intent) }.isSuccess
+        return runCatching { context.startActivity(intent) }
+            .fold(
+                onSuccess = { InstallOutcome.Started },
+                onFailure = { InstallOutcome.FailedToLaunch(it) }
+            )
     }
 
     /**

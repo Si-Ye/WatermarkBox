@@ -166,22 +166,28 @@ fun SettingsScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val needPermissionAudit = awaitingPermission || state.inAppDownload
     DisposableEffect(lifecycleOwner, needPermissionAudit) {
-        if (!needPermissionAudit) {
-            onDispose {}
-        } else {
-            val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                    val granted = ApkInstaller.canInstall(context)
-                    // 只在真实状态与界面状态不一致时写入，避免无谓的 DataStore 写入
-                    if (granted != state.inAppDownload) {
-                        viewModel.setInAppDownload(granted)
+        // 只在需要校正时才挂观察者：挂/摘对称，onDispose 里永远有实事可做。
+        //
+        // 早期写法是 `if (!needPermissionAudit) { onDispose {} } else { … }` ——
+        // 两个分支各写一份 onDispose 契约，空的那个既没意义，
+        // 也让「到底有没有挂上观察者」要读两处才能确认。
+        val observer =
+            if (!needPermissionAudit) {
+                null
+            } else {
+                androidx.lifecycle.LifecycleEventObserver { _, event ->
+                    if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                        val granted = ApkInstaller.canInstall(context)
+                        // 只在真实状态与界面状态不一致时写入，避免无谓的 DataStore 写入
+                        if (granted != state.inAppDownload) {
+                            viewModel.setInAppDownload(granted)
+                        }
+                        if (awaitingPermission) awaitingPermission = false
                     }
-                    if (awaitingPermission) awaitingPermission = false
                 }
             }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-        }
+        if (observer != null) lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { if (observer != null) lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // 进入设置页时若距上次检查已过一天，顺带查一次（静默）。

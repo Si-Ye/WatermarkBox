@@ -142,6 +142,14 @@ class EditorViewModel(application: Application) :
     private val _uiState = MutableStateFlow(EditorUiState())
     val uiState: StateFlow<EditorUiState> = _uiState.asStateFlow()
 
+    /**
+     * 图片加载的代号：每调一次 [loadImage] 自增，协程每次回写前比对。
+     *
+     * 只存在主线程写（`loadImage` 由界面线程调用，协程回写也在主线程），
+     * 所以不需要原子类型。跨进程/跨线程都不涉及。
+     */
+    private var loadToken = 0
+
     init {
         // 启动时加载已导入字体
         refreshCustomFonts()
@@ -165,6 +173,13 @@ class EditorViewModel(application: Application) :
     // ------------------------------------------------------------------
 
     fun loadImage(uri: Uri) {
+        // 令牌：连续换图（相册里连点两张）时，只让**最后一次**的回写生效。
+        //
+        // 没有它的话，先启动的那次可能后完成 —— 界面上显示 A 的画面，
+        // 而 `imageUri` / `sourceFileName` 已经是 B，导出时会拿 B 的文件名
+        // 保存 A 的内容（导出名与画面错位，见 pending-fixes C3）。
+        // 做法与 `DetectViewModel.detectToken` 一致：递增 → 每次回写前比对。
+        val token = ++loadToken
         _uiState.update { it.copy(isLoading = true, errorMessage = null, imageUri = uri) }
         viewModelScope.launch {
             val name = imageRepository.queryDisplayName(uri)
@@ -188,12 +203,16 @@ class EditorViewModel(application: Application) :
                 imageRepository.loadPreviewBitmap(
                     uri,
                     maxEdge = BitmapUtils.PREVIEW_PLACEHOLDER_MAX_EDGE,
-                    // ⚠️ 低清**不写缓存** —— 否则会把高清挤出 LRU（容量只有 2 张）
+                    // ⚠️ 低清**不写缓存** —— 否则会把高清挤出 LRU
+                    // （容量由内存预算算出，通常只有 1 张）
                     cache = false
                 )
             } else {
                 null
             }
+
+            // 解码期间可能又换了图：这次的结果整体作废，别再往 state 里写。
+            if (token != loadToken) return@launch
 
             val first = cached ?: lowRes
             if (first == null) {
@@ -219,13 +238,18 @@ class EditorViewModel(application: Application) :
             // ---- 没命中缓存 → 后台解高清并替换 ----
             if (cached == null) {
                 val hiRes = imageRepository.loadPreviewBitmap(uri)   // 默认即高清 + 写缓存
-                if (hiRes != null && hiRes !== lowRes) {
+                if (hiRes != null && hiRes !== lowRes && token == loadToken) {
                     _uiState.update { it.copy(previewBitmap = hiRes) }
                     // ⚠️ **不 recycle** lowRes：它可能正被某一帧绘制。
                     // 与 `LruCacheMap`「淘汰不 recycle」的取舍一致 ——
                     // 宁可晚一点释放，也不要崩。
                 }
             }
+
+            // 到这里再校验一次：下面要套用「默认水印文字 / 默认水印图」，
+            // 这些是**针对当前这张图**的初始化，过期的那次要整体跳过。
+            if (token != loadToken) return@launch
+
             // 新图片套用设置里的「默认水印文字」。
             // 只在用户还没手动改过文字时套用 —— 否则会覆盖掉用户刚输入的内容。
             // 判断依据：当前文字仍是上次的默认值（即用户没动过）。
@@ -577,6 +601,20 @@ class EditorViewModel(application: Application) :
                             infoMessage = UiMessage(R.string.editor_info_exported, result.displayName)
                         )
                     }
+                }
+            } catch (oom: OutOfMemoryError) {
+                // 渲染 / 频域嵌入 / PNG 编码阶段仍可能 OOM（预检是估算，且位图与数组
+                // 分属 native 堆与 Java 堆两套账）。这类失败必须说清原因：
+                // 用户能做的只有「换张小点的图」，而「导出失败，请重试」
+                // 会让他反复重试同一个必然失败的操作。
+                //
+                // 注意顺序：`OutOfMemoryError` 是 `Throwable`，必须排在下面的
+                // `catch (t: Throwable)` **之前**，否则永远轮不到这里。
+                _uiState.update {
+                    it.copy(
+                        isExporting = false,
+                        errorMessage = UiMessage(R.string.editor_error_export_oom)
+                    )
                 }
             } catch (t: Throwable) {
                 _uiState.update {

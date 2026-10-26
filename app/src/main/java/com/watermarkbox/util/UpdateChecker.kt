@@ -12,8 +12,10 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.net.URL
+import java.net.UnknownHostException
 
 /**
  * 检查更新：从 GitHub Releases API 拉取最新版本并比较。
@@ -94,6 +96,38 @@ object UpdateChecker {
 
         /** 其它未知错误。 */
         UNKNOWN
+    }
+
+    /**
+     * 把下载 / 安装链路上的异常归到 [ErrorKind]。
+     *
+     * ## 为什么需要它
+     *
+     * [ApkInstaller.download] 会把超时包成 `IOException("timeout", e)`、
+     * 把非 2xx 包成 `IOException("HTTP 503")`。若上层只按**顶层类型**判断，
+     * 所有异常都会落到「网络失败」，于是用户照着提示换网络、重试，结果依旧失败 ——
+     * 提示与病灶不符比没有提示更浪费时间。
+     *
+     * 所以这里沿 cause 链找真正的异常类型，再回退到消息前缀。
+     *
+     * @return 不会抛异常，且对任意 [Throwable]（含 null cause）都有确定结果。
+     */
+    fun classifyFailure(t: Throwable): ErrorKind {
+        var cur: Throwable? = t
+        // 深度上限：异常链理论上可能自引用，不能让日志/分类把线程拖死
+        var depth = 0
+        while (cur != null && depth < 8) {
+            when (cur) {
+                is SocketTimeoutException -> return ErrorKind.TIMEOUT
+                is UnknownHostException, is SocketException -> return ErrorKind.NETWORK
+                else -> Unit
+            }
+            cur = cur.cause
+            depth++
+        }
+        // HTTP 状态码在下载实现里以消息形式携带（`IOException("HTTP 503")`）
+        if (t.message?.startsWith("HTTP ") == true) return ErrorKind.HTTP
+        return ErrorKind.UNKNOWN
     }
 
     /**

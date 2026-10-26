@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.ExportFormat
 import com.watermarkbox.data.repository.ExportRepository
+import com.watermarkbox.ui.component.FileNameTemplateSection
 import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
@@ -85,13 +86,11 @@ fun ExportSettingsDialog(
     // 完整草稿：所有改动只动它，绝不外泄
     var draft by remember(settings) { mutableStateOf(settings) }
 
-    // 两个文本框另用独立的本地状态。
+    // 输出目录框用独立本地状态。
     //
     // 原因：`draft` 是 remember(settings) 的，外部 settings 一变就会重置；
     // 而输入过程中「刚清空还没打完」这种中间态不该被打断光标。
-    var fileName by remember(settings.fileNameTemplate) {
-        mutableStateOf(settings.fileNameTemplate)
-    }
+    // 文件名模板的本地状态已在 [FileNameTemplateSection] 内部处理。
     var outputDir by remember(settings.customOutputDir) {
         mutableStateOf(settings.customOutputDir.orEmpty())
     }
@@ -195,21 +194,10 @@ fun ExportSettingsDialog(
                 Spacer(Modifier.height(Spacing.Item))
 
                 SectionLabel(stringResource(R.string.editor_export_naming))
-                OutlinedTextField(
-                    value = fileName,
-                    onValueChange = {
-                        fileName = it
-                        draft = draft.copy(fileNameTemplate = it)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.settings_filename_template)) },
-                    supportingText = {
-                        Text(
-                            text = stringResource(R.string.settings_filename_placeholders),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
+                // 与「设置 → 导出」共用同一份模板编辑区（含序号开关 / 位数 / 预览）
+                FileNameTemplateSection(
+                    settings = draft,
+                    onChange = { draft = it }
                 )
 
                 Spacer(Modifier.height(Spacing.Item))

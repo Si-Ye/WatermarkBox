@@ -1,10 +1,12 @@
 package com.watermarkbox.ui.component
 
 import android.graphics.Bitmap
+import android.graphics.RectF
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,12 +30,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -148,7 +154,34 @@ fun WatermarkPreview(
      * 拖动水印只在「单指 + 未缩放」时生效，此时会抢在图片平移之前消费手势；
      * 双指缩放 / 缩放后的平移仍交给图片。
      */
-    onWatermarkDrag: ((x: Float, y: Float) -> Unit)? = null
+    onWatermarkDrag: ((x: Float, y: Float) -> Unit)? = null,
+
+    /**
+     * 双击回调（null = 不识别双击）。
+     *
+     * 批量页用它进入「拖动位置」态：双击 → 锁定 → 拖动水印 → 点别处退出。
+     * 把双击识别放在本组件里，是因为它需要和内部的拖动手势**共享同一块区域**，
+     * 放到外部 Composable 会因为手势竞争而不稳定。
+     */
+    onWatermarkDoubleTap: (() -> Unit)? = null,
+
+    /**
+     * 是否给水印画一圈虚线描边。
+     *
+     * 拖动位置态下打开：用户得先知道"水印在哪、能拖什么"。
+     * 平铺 / 对角线模式没有"单个水印"，此时不画。
+     */
+    showWatermarkBounds: Boolean = false,
+
+    /**
+     * 是否**无视缩放状态**也允许拖动水印。
+     *
+     * 默认 `false`：图片放大后单指拖动的语义是"平移图片"，不该抢去拖水印。
+     *
+     * 批量页拖动位置态传 `true`：那里有意允许"先双指放大看清细节、再拖水印"，
+     * 且批量页关掉了图片单指平移（`panEnabled=false`），手势不会打架。
+     */
+    dragRegardlessOfZoom: Boolean = false
 ) {
     // ---- 缩放/平移状态 ----
     var scale by remember { mutableFloatStateOf(1f) }
@@ -187,7 +220,8 @@ fun WatermarkPreview(
         WatermarkType.TEXT -> textConfig.layoutMode == LayoutMode.SINGLE
         WatermarkType.IMAGE -> imageConfig.layoutMode == LayoutMode.SINGLE
     }
-    val dragEnabled = onWatermarkDrag != null && isSingleMode && scale <= 1.01f
+    val dragEnabled = onWatermarkDrag != null && isSingleMode &&
+        (dragRegardlessOfZoom || scale <= 1.01f)
 
     // ⚠️ 手势回调必须先包成 State 再交给手势 Modifier。
     //
@@ -199,11 +233,26 @@ fun WatermarkPreview(
     // 包成 State 后：key 只由尺寸决定（拖动中不变），而回调永远是「最新那个」。
     val dragCallback = rememberUpdatedState(onWatermarkDrag)
 
+    // 双击回调同样包成 State —— 理由与 dragCallback 一致：
+    // 直接当 key 会让手势协程随重组反复重建。
+    val doubleTapCallback = rememberUpdatedState(onWatermarkDoubleTap)
+
     Box(
         modifier = modifier
             .background(Color(0xFF1A1A1A))
             .clipToBounds()
-            .onSizeChanged { containerSize = it },
+            .onSizeChanged { containerSize = it }
+            // 双击：只在调用方提供回调时才挂手势处理器。
+            // 不挂时（编辑页）完全不影响既有手势链。
+            .then(
+                if (onWatermarkDoubleTap != null) {
+                    Modifier.pointerInput(Unit) {
+                        detectTapGestures(onDoubleTap = { doubleTapCallback.value?.invoke() })
+                    }
+                } else {
+                    Modifier
+                }
+            ),
         contentAlignment = Alignment.Center
     ) {
         when {
@@ -289,7 +338,8 @@ fun WatermarkPreview(
                                 textConfig = textConfig,
                                 imageConfig = imageConfig,
                                 logoBitmap = logoBitmap,
-                                sourceFileName = sourceFileName
+                                sourceFileName = sourceFileName,
+                                drawBounds = showWatermarkBounds
                             )
                         }
                     }
@@ -347,7 +397,14 @@ private fun DrawScope.drawWatermarkLayer(
     textConfig: TextWatermarkStyle,
     imageConfig: ImageWatermarkStyle,
     logoBitmap: Bitmap?,
-    sourceFileName: String?
+    sourceFileName: String?,
+    /**
+     * 是否给水印画一圈虚线描边（拖动位置态下用）。
+     *
+     * 描边范围取自渲染器回报的**旋转包围盒**（见 WatermarkRenderer.rotatedAabb），
+     * 因此水印旋转时框也会跟着转 —— 直接画未旋转的矩形会在 90° 时明显偏出去。
+     */
+    drawBounds: Boolean = false
 ) {
     val bw = bitmap.width.toFloat()
     val bh = bitmap.height.toFloat()
@@ -373,6 +430,9 @@ private fun DrawScope.drawWatermarkLayer(
     // 会有一截画到图片外面（黑底上）。
     //
     // 裁剪矩形就是上面算出的「图片实际绘制矩形」。
+    //
+    // 描边用的边界容器：只有需要时才分配（每帧一个 RectF，避免常态下的多余分配）。
+    val bounds = if (drawBounds) RectF() else null
     clipRect(left = left, top = top, right = left + drawW, bottom = top + drawH) {
         // 把画布坐标系映射成「原图坐标系」——
         // 于是下面可以直接用原图尺寸作为基准（base == target，scale = 1）
@@ -389,17 +449,50 @@ private fun DrawScope.drawWatermarkLayer(
                 )
                 when (watermarkType) {
                     WatermarkType.TEXT ->
-                        renderer.drawInto(canvas.nativeCanvas, textConfig, sourceFileName, ctx)
+                        renderer.drawInto(
+                            canvas.nativeCanvas,
+                            textConfig,
+                            sourceFileName,
+                            ctx,
+                            boundsOut = bounds
+                        )
 
                     WatermarkType.IMAGE -> {
                         val logo = logoBitmap
                         if (logo != null && !logo.isRecycled) {
-                            renderer.drawImageInto(canvas.nativeCanvas, logo, imageConfig, ctx)
+                            renderer.drawImageInto(
+                                canvas.nativeCanvas,
+                                logo,
+                                imageConfig,
+                                ctx,
+                                boundsOut = bounds
+                            )
                         }
                     }
                 }
             }
         }
+    }
+
+    // 虚线描边：画在**变换之外**，用屏幕坐标 —— 否则描边粗细会被 fitScale 缩放
+    // （原图 4000px 缩到 400dp 时，1px 描边会细到看不见）。
+    if (bounds != null && !bounds.isEmpty) {
+        val pad = 4.dp.toPx()
+        val strokeWidth = 1.5.dp.toPx()
+        val dash = PathEffect.dashPathEffect(
+            floatArrayOf(8.dp.toPx(), 6.dp.toPx())
+        )
+        val outlineLeft = left + bounds.left * fitScale - pad
+        val outlineTop = top + bounds.top * fitScale - pad
+        val outlineWidth = bounds.width() * fitScale + pad * 2
+        val outlineHeight = bounds.height() * fitScale + pad * 2
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.85f),
+            topLeft = Offset(outlineLeft, outlineTop),
+            size = Size(outlineWidth, outlineHeight),
+            cornerRadius = CornerRadius(6.dp.toPx()),
+            style = Stroke(width = strokeWidth, pathEffect = dash)
+        )
     }
 }
 

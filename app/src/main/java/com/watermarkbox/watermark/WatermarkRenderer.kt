@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import androidx.core.graphics.withRotation
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.compose.ui.graphics.toArgb
 import com.watermarkbox.data.model.FontFamilyOption
@@ -170,10 +171,20 @@ class WatermarkRenderer {
         config: TextWatermarkStyle,
         sourceFileName: String? = null,
         ctx: RenderContext,
-        cancel: RenderCancelCheck = RenderCancelCheck.Never
+        cancel: RenderCancelCheck = RenderCancelCheck.Never,
+        /**
+         * 可选：把**单个水印的实际绘制范围**写到这里（坐标系 = [ctx] 的目标坐标系，
+         * 即导出时就是原图像素，预览时是"原图坐标系"）。
+         *
+         * 用途：预览页在「拖动水印」态给水印画一圈虚线描边，让用户看清能拖什么。
+         *
+         * 只对 [LayoutMode.SINGLE] 有意义：平铺 / 对角线是满画面的图案，
+         * 没有"一个水印"的概念，此时不会写入（保持调用方传进来的原值不变）。
+         */
+        boundsOut: RectF? = null
     ) {
         when (config.layoutMode) {
-            LayoutMode.SINGLE -> drawSingle(canvas, config, sourceFileName, ctx)
+            LayoutMode.SINGLE -> drawSingle(canvas, config, sourceFileName, ctx, boundsOut)
             LayoutMode.TILED -> drawTiled(canvas, config, sourceFileName, ctx, cancel)
             LayoutMode.DIAGONAL -> drawDiagonal(canvas, config, sourceFileName, ctx, cancel)
         }
@@ -186,13 +197,55 @@ class WatermarkRenderer {
         canvas: Canvas,
         logo: Bitmap,
         config: ImageWatermarkStyle,
-        ctx: RenderContext
+        ctx: RenderContext,
+        boundsOut: RectF? = null
     ) {
         when (config.layoutMode) {
-            LayoutMode.SINGLE -> drawImageSingle(canvas, logo, config, ctx)
+            LayoutMode.SINGLE -> drawImageSingle(canvas, logo, config, ctx, boundsOut)
             LayoutMode.TILED -> drawImageTiled(canvas, logo, config, ctx)
             LayoutMode.DIAGONAL -> drawImageDiagonal(canvas, logo, config, ctx)
         }
+    }
+
+    /**
+     * 计算「绕中心旋转后的矩形」的**轴对齐包围盒**。
+     *
+     * 描边要贴着水印画，而水印本身可能是旋转的（`rotationDegrees`）。
+     * 直接画未旋转的矩形会在旋转 90° 时明显错位，所以这里算 AABB。
+     */
+    private fun rotatedAabb(
+        left: Float,
+        top: Float,
+        width: Float,
+        height: Float,
+        angleDeg: Float
+    ): RectF {
+        if (angleDeg == 0f) return RectF(left, top, left + width, top + height)
+        val cx = left + width / 2f
+        val cy = top + height / 2f
+        val rad = Math.toRadians(angleDeg.toDouble())
+        val cos = kotlin.math.cos(rad).toFloat()
+        val sin = kotlin.math.sin(rad).toFloat()
+        val hw = width / 2f
+        val hh = height / 2f
+        // 四个角相对中心的偏移，旋转后取极值
+        var minX = Float.MAX_VALUE
+        var minY = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var maxY = -Float.MAX_VALUE
+        for (sx in intArrayOf(-1, 1)) {
+            for (sy in intArrayOf(-1, 1)) {
+                val dx = sx * hw
+                val dy = sy * hh
+                val rx = dx * cos - dy * sin
+                val ry = dx * sin + dy * cos
+                minX = minOf(minX, cx + rx)
+                maxX = maxOf(maxX, cx + rx)
+                minY = minOf(minY, cy + ry)
+                maxY = maxOf(maxY, cy + ry)
+            }
+        }
+        return RectF(minX, minY, maxX, maxY)
     }
 
     /**
@@ -286,7 +339,8 @@ class WatermarkRenderer {
         canvas: Canvas,
         config: TextWatermarkStyle,
         sourceFileName: String?,
-        ctx: RenderContext
+        ctx: RenderContext,
+        boundsOut: RectF? = null
     ) {
         val paint = buildPaint(config, ctx)
         val text = resolveText(config, sourceFileName)
@@ -347,6 +401,21 @@ class WatermarkRenderer {
         // 都是「原地打转」，位置不会被旋转带跑偏。
         val blockCenterX = baseLineX + blockWidth / 2f
         val blockCenterY = topY + blockHeight / 2f
+
+        // 描边用：把水印块的旋转包围盒交给调用方（预览页画虚线框 + 双击命中判定）。
+        // 注意用旋转后的 AABB —— 水印旋转 90° 时未旋转矩形会明显偏出去。
+        boundsOut?.let {
+            it.set(
+                rotatedAabb(
+                    left = blockLeft,
+                    top = topY,
+                    width = blockWidth,
+                    height = blockHeight,
+                    angleDeg = config.rotationDegrees
+                )
+            )
+        }
+
         // 用 KTX 的 withRotation 代替手写 save/rotate/restore：
         // 它内部就是 save → rotate → block → restore，而且**异常时也会 restore**
         // —— 手写版本一旦中间抛异常，save 就永远回不来了。
@@ -716,7 +785,8 @@ class WatermarkRenderer {
         canvas: Canvas,
         logo: Bitmap,
         config: ImageWatermarkStyle,
-        ctx: RenderContext
+        ctx: RenderContext,
+        boundsOut: RectF? = null
     ) {
         val paint = buildLogoPaint(config)
 
@@ -749,6 +819,12 @@ class WatermarkRenderer {
         }
 
         val dst = Rect(left.toInt(), top.toInt(), (left + w).toInt(), (top + h).toInt())
+
+        // 描边用：logo 的旋转包围盒（语义同 drawSingle）
+        boundsOut?.let {
+            it.set(rotatedAabb(left, top, w, h, config.rotationDegrees))
+        }
+
 
         // 绕 logo 自身中心旋转（不是画布中心）。
         // 绕画布中心转会把边角的 logo 甩出画面，详见 renderSingle 的踩坑记录。

@@ -70,7 +70,15 @@ fun WatermarkPanel(
      * `IllegalStateException: Vertically scrollable component was measured
      * with an infinity maximum height constraints`。
      */
-    scrollable: Boolean = true
+    scrollable: Boolean = true,
+    /**
+     * 「水印位置作用域」区块（批量页专用）。
+     *
+     * 传 null 时不显示 —— 编辑页只有一张图，没有"统一 / 每张独立"这个概念。
+     * 放在类型切换**之后**：它管的是位置，与文字/图片哪一类无关，
+     * 但必须先让用户看到自己在配哪一类水印。
+     */
+    positionScopeSection: (@Composable () -> Unit)? = null
 ) {
     // 只有需要内部滚动时才挂 verticalScroll —— 见上方 scrollable 的说明。
     val scrollModifier = if (scrollable) {
@@ -96,6 +104,12 @@ fun WatermarkPanel(
         )
 
         Spacer(Modifier.height(Spacing.Item))
+
+        // ============ 水印位置作用域（批量页才传）============
+        if (positionScopeSection != null) {
+            positionScopeSection()
+            Spacer(Modifier.height(Spacing.Item))
+        }
 
         when (state.watermarkType) {
             WatermarkType.TEXT -> TextWatermarkPanelContent(

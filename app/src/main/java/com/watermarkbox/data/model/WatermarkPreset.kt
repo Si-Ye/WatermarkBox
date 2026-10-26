@@ -36,6 +36,7 @@ data class WatermarkPreset(
  * @param preserveExif     是否保留原图 EXIF
  * @param defaultWatermarkText 新图片的默认水印文字（设置页可改）
  * @param defaultLogoUri       新图片的默认图片水印 logo（设置页可选；null = 无）
+ * @param indexStart           批量导出时序号占位符 `{index}` 的起始值（每批从它开始）
  */
 @Serializable
 data class ExportSettings(
@@ -47,6 +48,16 @@ data class ExportSettings(
     val preserveExif: Boolean = false,
     val defaultWatermarkText: String = TextWatermarkStyle.Default.text,
     val defaultLogoUri: String? = null,
+    /**
+     * 批量导出时 `{index...}` 占位符的起始序号；第 i 张（0 基）用 `indexStart + i`。
+     *
+     * 放在导出设置里而不是全局设置：它必须跟着 `fileNameTemplate` 一起保存、
+     * 一起随预设导入导出，否则会出现「模板里有序号，起始号却是另一套」的错位。
+     * 默认 1 —— 老预设没有这个字段时反序列化就是 1（`ignoreUnknownKeys` 已开）。
+     *
+     * 语义是「每批从它开始」，不记忆上一批跑到几号。
+     */
+    val indexStart: Int = 1,
     /**
      * 开启隐藏水印时，是否**默认**同时启用 DCT 频域嵌入。
      *

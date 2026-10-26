@@ -18,6 +18,7 @@ import com.watermarkbox.R
 import com.watermarkbox.data.model.ExportFormat
 import com.watermarkbox.data.model.ExportSettings
 import com.watermarkbox.data.repository.ExportRepository
+import com.watermarkbox.ui.component.FileNameTemplateSection
 import com.watermarkbox.ui.component.LabeledSlider
 import com.watermarkbox.ui.component.SectionLabel
 import com.watermarkbox.ui.component.SegmentedControl
@@ -61,24 +62,10 @@ internal fun ExportCategory(
     Spacer(Modifier.height(Spacing.Item))
 
     SectionLabel(stringResource(R.string.settings_naming_title))
-    var fileName by remember(settings.fileNameTemplate) {
-        mutableStateOf(settings.fileNameTemplate)
-    }
-    OutlinedTextField(
-        value = fileName,
-        onValueChange = {
-            fileName = it
-            viewModel.updateFileNameTemplate(it)
-        },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        label = { Text(stringResource(R.string.settings_filename_template)) },
-        supportingText = {
-            Text(
-                text = stringResource(R.string.settings_filename_placeholders),
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
+    // 模板 + 序号开关 + 位数 + 起始号 + 实时预览，与「导出设置」弹窗共用同一份实现
+    FileNameTemplateSection(
+        settings = settings,
+        onChange = viewModel::updateExportSettings
     )
 
     Spacer(Modifier.height(Spacing.Item))

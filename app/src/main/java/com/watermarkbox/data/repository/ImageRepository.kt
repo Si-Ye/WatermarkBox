@@ -32,11 +32,17 @@ class ImageRepository(private val context: Context) {
      *
      * 留 3 张后，滑到相邻页是**瞬时**的（切过去之前就已经解码好了）。
      *
-     * ## 为什么容量是 3
+     * ## 容量是**算出来的**，不再是写死的数
      *
-     * 每张预览图最大边 1024 → 约 4 MB（ARGB_8888）。
-     * 3 张 ≈ 12 MB，在批量页这个场景里可以接受；
-     * 再多就会跟「上限 100 张」的批量规模一起把内存吃紧。
+     * 预览图最大边 [BitmapUtils.PREVIEW_MAX_EDGE]（4096），一张 4:3 的约 **48 MB** ——
+     * 3 张就是 144 MB，任何机型都吃不消。
+     *
+     * 所以容量交给 [BitmapBudget.previewCacheCapacity]：按进程堆预算算能放几张
+     * （1～3）。largeHeap 机型通常 2 张（当前页 + 相邻一张），小堆机型自动退到 1 张。
+     *
+     * 早期这里写死「1024 边 → 4 MB → 3 张 ≈ 12 MB」，那是**降采样时代**的数：
+     * 底图换成原分辨率后实际占用是它的 12 倍，而容量却还按旧数字拍的板
+     * （见 pending-fixes C2）。
      *
      * ## 为什么淘汰时**不** recycle
      *
@@ -44,7 +50,9 @@ class ImageRepository(private val context: Context) {
      * recycle 掉它就会炸「Canvas: trying to use a recycled bitmap」。
      * 这里只丢引用交给 GC —— 宁可晚一点释放，也不要崩。
      */
-    private val previewCache = LruCacheMap<Uri, Bitmap>(capacity = PREVIEW_CACHE_CAPACITY)
+    private val previewCache = LruCacheMap<Uri, Bitmap>(
+        capacity = BitmapBudget.previewCacheCapacity(BitmapUtils.PREVIEW_MAX_EDGE)
+    )
 
     /**
      * 取已缓存的预览图（**不触发解码**）。
@@ -70,7 +78,7 @@ class ImageRepository(private val context: Context) {
      * @param maxEdge 最大边长；默认 [BitmapUtils.PREVIEW_MAX_EDGE]（高清）
      * @param cache 是否写入 LRU 缓存。
      *   **低清占位图必须传 `false`** —— 它只是"先看一眼"的临时物，
-     *   缓存它会把**高清版挤出去**（容量只有 [PREVIEW_CACHE_CAPACITY] 张），
+     *   缓存它会把**高清版挤出去**（容量只有 [BitmapBudget.previewCacheCapacity] 张），
      *   下一帧又得重新解码，反而更慢。
      */
     suspend fun loadPreviewBitmap(
@@ -170,18 +178,4 @@ class ImageRepository(private val context: Context) {
         previewCache.clear()
     }
 
-    private companion object {
-        /**
-         * 预览缓存容量。
-         *
-         * ## 为什么从 3 降到 2
-         *
-         * 预览底图现在是**原图分辨率**（见 [BitmapUtils.PREVIEW_MAX_EDGE]）：
-         * 一张 1200 万像素的图约 **48 MB** —— 3 张就是 144 MB，太重。
-         *
-         * 降到 2（当前页 + 相邻一张）后约 96 MB，仍能保证
-         * 「滑到隔壁看一眼」是瞬时的（批量页最常用的动作）。
-         */
-        const val PREVIEW_CACHE_CAPACITY = 2
-    }
 }

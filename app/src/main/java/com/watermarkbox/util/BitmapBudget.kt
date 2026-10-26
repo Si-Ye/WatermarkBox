@@ -5,7 +5,11 @@ package com.watermarkbox.util
  *
  * ## 为什么需要它
  *
- * 预览会降采样到 1024 边（约 3 MB），所以预览永远不会炸。
+ * ## 预览也在账上
+ *
+ * 预览会降采样到 [BitmapUtils.PREVIEW_MAX_EDGE]（4096 边），单张 4:3 约 48 MB。
+ * 它的**缓存张数**由 [previewCacheCapacity] 按预算算出（1～3 张），不再写死 ——
+ * 写死张数等于让缓存占用不受这里任何约束（见 pending-fixes C2）。
  * 但**导出 / 批量 / 频域检测**都必须用原尺寸：
  *
  * | 图 | ARGB_8888 一张 |
@@ -121,6 +125,52 @@ object BitmapBudget {
      * @param withDct 是否启用 DCT 隐藏水印嵌入
      */
     fun exportCopies(withDct: Boolean): Int = if (withDct) EXPORT_COPIES else 2
+
+    /**
+     * 预览缓存最多占预算的比例。
+     *
+     * ## 为什么是 0.35，而不是跟导出链路平均分
+     *
+     * 预览缓存是**唯一按「张」计量**的位图缓存，缓存的又是用户**正在看**的图：
+     * 少一张的代价是「滑回上一页要重新解码 200～400ms」—— 用户直接能感觉到。
+     * 而导出链路的预检本来就会在装不下时给出明确提示，代价是可控的。
+     *
+     * 取值校核（单张按 4096×3072、ARGB_8888 估 ≈ 48 MB）：
+     *
+     * | 堆上限 | 预算(60%) | 缓存份额(35%) | 可放张数 |
+     * |---|---|---|---|
+     * | 512 MB（largeHeap） | 307 MB | 107 MB | 2 |
+     * | 256 MB | 153 MB | 53 MB | 1 |
+     *
+     * 也就是：**largeHeap 机型维持「当前页 + 相邻一张」**（与过去写死 2 的体感一致），
+     * 小堆机型自动退到 1 张 —— 而不是过去那样两种机型都写死 2 张。
+     */
+    private const val PREVIEW_CACHE_SHARE = 0.35
+
+    /** 预览缓存张数上限：再多就明显挤占导出预算，边际收益也低。 */
+    const val PREVIEW_CACHE_MAX_IMAGES = 3
+
+    /**
+     * 预览缓存该留几张（1～[PREVIEW_CACHE_MAX_IMAGES]）。
+     *
+     * 单张尺寸按 **4:3** 估（`height = maxEdge * 3 / 4`）：实际照片极少是正方形，
+     * 按正方形算会高估 1/3，把容量硬压到 1。
+     *
+     * 这是**估算**而非精确字节计量 —— 精确计量要给 `LruCacheMap` 加 `sizeOf`，
+     * 影响面比这个缺陷本身大，暂不做（见 pending-fixes C2 的说明）。
+     *
+     * @param maxEdge 预览图的最大边长（[BitmapUtils.PREVIEW_MAX_EDGE]）
+     * @param maxHeapBytes 进程堆上限；测试可注入
+     */
+    fun previewCacheCapacity(
+        maxEdge: Int,
+        maxHeapBytes: Long = Runtime.getRuntime().maxMemory()
+    ): Int {
+        if (maxEdge <= 0) return 1
+        val perImage = bytesOf(maxEdge, maxEdge * 3 / 4, 1)
+        val share = (budgetBytes(maxHeapBytes) * PREVIEW_CACHE_SHARE).toLong()
+        return (share / perImage).toInt().coerceIn(1, PREVIEW_CACHE_MAX_IMAGES)
+    }
 
     /** [copies] 份 width×height 的 ARGB_8888 位图共需多少字节。 */
     fun bytesOf(width: Int, height: Int, copies: Int = 1): Long =

@@ -15,17 +15,23 @@ import com.watermarkbox.R
 import com.watermarkbox.util.BitmapUtils
 import com.watermarkbox.util.UiMessage
 import com.watermarkbox.data.model.BatchLimits
+import com.watermarkbox.data.model.BatchPositionOverrides
+import com.watermarkbox.data.model.BatchPositionResolver
 import com.watermarkbox.data.model.ExportSettings
 import com.watermarkbox.data.model.FontFamilyOption
 import com.watermarkbox.data.model.GravityPosition
+import com.watermarkbox.data.model.ImagePosition
 import com.watermarkbox.data.model.ImageWatermarkStyle
 import com.watermarkbox.data.model.InvisibleSource
 import com.watermarkbox.data.model.InvisibleWatermarkConfig
 import com.watermarkbox.data.model.LayoutMode
+import com.watermarkbox.data.model.PositionScope
 import com.watermarkbox.data.model.TextWatermarkStyle
 import com.watermarkbox.data.model.WatermarkColor
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
+import com.watermarkbox.data.repository.BatchFailureItem
+import com.watermarkbox.data.repository.BatchRunStore
 import com.watermarkbox.data.repository.ImageRepository
 import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.invisible.InvisibleContentResolver
@@ -34,6 +40,8 @@ import com.watermarkbox.worker.BatchFailureReason
 import com.watermarkbox.worker.BatchWatermarkWorker
 import com.watermarkbox.worker.JsonCodec
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,6 +68,14 @@ data class BatchUiState(
     val imageStyle: ImageWatermarkStyle = ImageWatermarkStyle.Default,
     /** logo Bitmap */
     val logoBitmap: Bitmap? = null,
+    /**
+     * 每张图的位置覆盖（含「统一 / 每张独立」的作用域）。
+     *
+     * 默认 [PositionScope.UNIFIED]：位置就存在 [textStyle]/[imageStyle] 里，
+     * 所有图共用。切到 PER_IMAGE 后，拖动只写进这里的覆盖表 ——
+     * 详见 [BatchPositionOverrides] 与 [PositionScope]。
+     */
+    val positions: BatchPositionOverrides = BatchPositionOverrides(),
     /** 导出设置 */
     val exportSettings: ExportSettings = ExportSettings(),
     /** 隐藏水印配置（v1.3.0） */
@@ -84,6 +100,13 @@ data class BatchUiState(
     val failureReasons: Map<BatchFailureReason, Int> = emptyMap(),
     /** 是否已结束（用于展示统计） */
     val finished: Boolean = false,
+    // ---- 本次导出的逐张清单（由 BatchRunStore 落盘，见 BatchWatermarkWorker）----
+    /** 本次 runId（= WorkRequest id），结果清单的落盘键 */
+    val runId: String? = null,
+    /** 成功保存的 uri 列表（结果页「分享」用） */
+    val successUris: List<String> = emptyList(),
+    /** 失败项（含**当时用的序号**，重跑失败项时沿用，见 BatchFailureItem） */
+    val failedItems: List<BatchFailureItem> = emptyList(),
     /** 错误提示 */
     val errorMessage: UiMessage? = null,
     // ---- 预览（v1.4.0：批量页支持左右滑切换图片）----
@@ -142,6 +165,8 @@ class BatchViewModel(application: Application) :
     private val imageRepository = ImageRepository(application)
     private val settingsRepository = SettingsRepository(application)
     private val workManager = WorkManager.getInstance(application)
+    /** 逐张结果清单的落盘仓库（Worker 写，本类读） */
+    private val runStore = BatchRunStore(application)
 
     private val _uiState = MutableStateFlow(BatchUiState())
     val uiState: StateFlow<BatchUiState> = _uiState.asStateFlow()
@@ -224,6 +249,127 @@ class BatchViewModel(application: Application) :
         _uiState.update { it.copy(imageStyle = it.imageStyle.block()) }
     }
 
+    // ------------------------------------------------------------------
+    // 水印位置（批量页支持拖动，含「统一 / 每张独立」两种作用域）
+    // ------------------------------------------------------------------
+
+    /**
+     * 切换位置作用域。
+     *
+     * 切回 [PositionScope.UNIFIED] 时**清空覆盖表** —— 这不是丢功能，而是语义要求：
+     * 统一模式下"位置"只有一个真值，留着旧覆盖会让用户下次切回 PER_IMAGE 时
+     * 看到一批说不清来由的旧位置。清理后行为可预期：统一 = 一条位置，
+     * 每张独立 = 从当前共享位置起重新拖。
+     */
+    fun setPositionScope(scope: PositionScope) {
+        _uiState.update { state ->
+            if (state.positions.scope == scope) {
+                state
+            } else if (scope == PositionScope.UNIFIED) {
+                state.copy(positions = state.positions.cleared())
+            } else {
+                state.copy(positions = state.positions.copy(scope = scope))
+            }
+        }
+    }
+
+    /**
+     * 拖动水印改位置（文字水印）—— 按当前作用域分发。
+     *
+     * 统一模式：直接改共享配置（与编辑页 [EditorViewModel.updateCustomPosition] 同一语义）。
+     * 每张独立：只给**当前预览这张**记覆盖。
+     */
+    fun dragTextPosition(x: Float, y: Float) {
+        val state = _uiState.value
+        if (state.positions.scope == PositionScope.PER_IMAGE) {
+            val key = state.previewUri?.toString() ?: return
+            _uiState.update {
+                it.copy(
+                    positions = it.positions.copy(
+                        text = it.positions.text + (key to ImagePosition(x, y))
+                    )
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    textStyle = BatchPositionResolver.applyText(
+                        it.textStyle,
+                        ImagePosition(x, y)
+                    )
+                )
+            }
+        }
+    }
+
+    /** 拖动 logo 改位置（图片水印）—— 语义同 [dragTextPosition]。 */
+    fun dragImagePosition(x: Float, y: Float) {
+        val state = _uiState.value
+        if (state.positions.scope == PositionScope.PER_IMAGE) {
+            val key = state.previewUri?.toString() ?: return
+            _uiState.update {
+                it.copy(
+                    positions = it.positions.copy(
+                        image = it.positions.image + (key to ImagePosition(x, y))
+                    )
+                )
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    imageStyle = BatchPositionResolver.applyImage(
+                        it.imageStyle,
+                        ImagePosition(x, y)
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * 「回到默认位置」—— 只作用于**当前预览这张**。
+     *
+     * - 每张独立：删掉这张的覆盖（回到共享配置的位置）
+     * - 统一：把共享配置的 gravity 恢复成九宫格默认（右下角）
+     *
+     * 之所以"统一模式下也允许点"：用户拖歪了想撤销，这比在九宫格里重新点一遍快。
+     */
+    fun resetCurrentPosition() {
+        val state = _uiState.value
+        val key = state.previewUri?.toString()
+        _uiState.update {
+            if (it.positions.scope == PositionScope.PER_IMAGE) {
+                val newPositions = if (key == null) {
+                    it.positions
+                } else {
+                    it.positions.copy(
+                        text = it.positions.text - key,
+                        image = it.positions.image - key
+                    )
+                }
+                it.copy(positions = newPositions)
+            } else {
+                it.copy(
+                    textStyle = BatchPositionResolver.resetToDefault(it.textStyle),
+                    imageStyle = BatchPositionResolver.resetToDefault(it.imageStyle)
+                )
+            }
+        }
+    }
+
+    /**
+     * 某张图**实际生效**的文字水印样式（预览与导出共用同一判定）。
+     *
+     * 统一模式：就是共享配置。
+     * 每张独立：有覆盖则套用，没有则沿用共享配置。
+     */
+    fun effectiveTextStyle(uri: Uri?, state: BatchUiState = _uiState.value): TextWatermarkStyle =
+        BatchPositionResolver.applyText(state.textStyle, state.positions.textFor(uri?.toString() ?: ""))
+
+    /** 图片水印版：[effectiveTextStyle]。 */
+    fun effectiveImageStyle(uri: Uri?, state: BatchUiState = _uiState.value): ImageWatermarkStyle =
+        BatchPositionResolver.applyImage(state.imageStyle, state.positions.imageFor(uri?.toString() ?: ""))
+
     fun loadLogo(uri: Uri) {
         viewModelScope.launch {
             val bitmap = imageRepository.loadBitmapForLogo(uri, maxEdge = 512)
@@ -272,6 +418,7 @@ class BatchViewModel(application: Application) :
      */
     fun startProcessing(overrideSettings: ExportSettings? = null) {
         val state = _uiState.value
+        if (state.isProcessing) return
         // 本次生效的导出设置：优先用调用方传入的临时值
         val exportSettings = overrideSettings ?: state.exportSettings
         if (state.images.isEmpty()) {
@@ -284,12 +431,57 @@ class BatchViewModel(application: Application) :
             _uiState.update { it.copy(errorMessage = UiMessage(R.string.batch_error_logo_required)) }
             return
         }
-        if (state.isProcessing) return
 
+        // 整批重新编号：从本次设置的「起始序号」开始，逐张 +1。
+        // ⚠️ 用**本次生效**的 exportSettings 取起始号 —— 用户在参数框里
+        // 改了起始号，期望这一批立刻按新号命名。
+        val indices = state.images.indices.map { exportSettings.indexStart + it }
+        enqueue(state.images, indices, exportSettings)
+    }
+
+    /**
+     * 只重跑**失败项**（结果页的「重跑失败项」）。
+     *
+     * 序号沿用上一次的（[BatchFailureItem.index]），而不是重新从 1 编排 ——
+     * 重跑出来的文件必须占据它**原本的位置**，否则会与已成功那批撞名。
+     * 这就是「失败重跑保号」的全部意义。
+     */
+    fun retryFailedItems(overrideSettings: ExportSettings? = null) {
+        val state = _uiState.value
+        if (state.isProcessing) return
+        val items = state.failedItems
+        if (items.isEmpty()) return
+        enqueue(
+            uris = items.map { it.uri.toUri() },
+            indices = items.map { it.index },
+            exportSettings = overrideSettings ?: state.exportSettings
+        )
+    }
+
+    /**
+     * 真正入队。整批与「重跑失败项」共用这一条路径。
+     *
+     * @param uris    本批要处理的图片（整批 = 全部；重跑 = 只有失败项）
+     * @param indices 与 [uris] 等长的**序号**，Worker 直接用它命名
+     */
+    private fun enqueue(uris: List<Uri>, indices: List<Int>, exportSettings: ExportSettings) {
+        val state = _uiState.value
         val input = Data.Builder()
             .putStringArray(
                 BatchWatermarkWorker.KEY_URIS,
-                state.images.map { it.toString() }.toTypedArray()
+                uris.map { it.toString() }.toTypedArray()
+            )
+            .putIntArray(BatchWatermarkWorker.KEY_INDICES, indices.toIntArray())
+            // 位置作用域与「每张独立」的覆盖表。
+            // 统一模式下覆盖表传空 —— Worker 侧拿到空表就等于"全用共享配置"。
+            .putString(BatchWatermarkWorker.KEY_POSITION_SCOPE, state.positions.scope.name)
+            .putString(
+                BatchWatermarkWorker.KEY_TEXT_POSITIONS,
+                JsonCodec.encodePositions(state.positions.text)
+            )
+            .putString(
+                BatchWatermarkWorker.KEY_IMAGE_POSITIONS,
+                JsonCodec.encodePositions(state.positions.image)
             )
             .putString(BatchWatermarkWorker.KEY_TYPE, state.watermarkType.name)
             .putString(
@@ -348,11 +540,15 @@ class BatchViewModel(application: Application) :
             it.copy(
                 isProcessing = true,
                 done = 0,
-                total = state.images.size,
+                total = uris.size,
                 successCount = 0,
                 failCount = 0,
                 failureReasons = emptyMap(),
-                finished = false
+                finished = false,
+                // 上一批的清单先清掉，避免结果页在首批进度期间还显示旧数据
+                runId = null,
+                successUris = emptyList(),
+                failedItems = emptyList()
             )
         }
 
@@ -459,6 +655,11 @@ class BatchViewModel(application: Application) :
                                 BatchWatermarkWorker.KEY_FAIL_UNKNOWN
                             )
                         }
+                        // 逐张清单从落盘处取：Data 装不下 100 张图的 uri 清单，
+                        // 详见 BatchWatermarkWorker 的类注释。
+                        val runResult = withContext(Dispatchers.IO) {
+                            runStore.read(info.id.toString())
+                        }
                         _uiState.update {
                             it.copy(
                                 isProcessing = false,
@@ -466,7 +667,10 @@ class BatchViewModel(application: Application) :
                                 done = it.total,
                                 successCount = success,
                                 failCount = fail,
-                                failureReasons = reasons
+                                failureReasons = reasons,
+                                runId = info.id.toString(),
+                                successUris = runResult?.success.orEmpty(),
+                                failedItems = runResult?.failed.orEmpty()
                             )
                         }
                     }

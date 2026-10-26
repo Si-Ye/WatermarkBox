@@ -124,6 +124,16 @@ class ExportRepository(private val context: Context) {
             }
 
             ExportResult(uri = uri, displayName = displayName)
+        } catch (oom: OutOfMemoryError) {
+            // 内存不足要**单独上报**，不能跟普通失败一起吞成 null：
+            //
+            // 两者的用户处方正好相反 —— 普通失败可以「重试」，
+            // 内存不足重试必然再失败，得先换张小图。所以清完脏条目后原样抛出，
+            // 由 ViewModel 转成专门话术（见 `editor_error_export_oom`）。
+            uri?.let {
+                runCatching { context.contentResolver.delete(it, null, null) }
+            }
+            throw oom
         } catch (t: Throwable) {
             // 失败时清理已插入的空条目，避免相册出现损坏文件
             uri?.let {

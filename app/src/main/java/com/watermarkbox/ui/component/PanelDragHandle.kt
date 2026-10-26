@@ -44,6 +44,10 @@ import com.watermarkbox.ui.theme.Spacing
  * @param overlaying 面板是否已进入"覆盖预览"阶段（决定提示文案颜色）
  * @param onToggle   点击回调（收起/展开）
  * @param title      标题文案，默认「水印参数」
+ * @param hintRes    覆盖右侧提示文案（null = 用默认的「拖动调整高度 / 覆盖预览」）。
+ *                   批量页在「拖动水印」锁定态下把这里换成退出提示 ——
+ *                   那句话原本浮在预览上，占画面又容易和图片内容打架。
+ * @param hintHighlighted 覆盖文案是否用强调色（临时态提示需要被看见）
  */
 @Composable
 fun PanelDragHandle(
@@ -51,7 +55,9 @@ fun PanelDragHandle(
     overlaying: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    @StringRes titleRes: Int = R.string.panel_title
+    @StringRes titleRes: Int = R.string.panel_title,
+    @StringRes hintRes: Int? = null,
+    hintHighlighted: Boolean = false
 ) {
     // 无障碍：整行可点，但视觉上只有一条细杠 + 文字，
     // TalkBack 需要两件它看不出来的事：「这是个按钮」以及「当前是展开还是收起」。
@@ -79,14 +85,22 @@ fun PanelDragHandle(
             color = MaterialTheme.colorScheme.onSurface
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // 临时提示（传入 hintRes）优先：它是"此刻正在发生的状态"，
+            // 比「拖动调整高度」这种常驻说明更该被看见
             Text(
                 text = stringResource(
-                    if (overlaying) R.string.panel_hint_overlay
-                    else R.string.panel_hint_drag
+                    when {
+                        hintRes != null -> hintRes
+                        overlaying -> R.string.panel_hint_overlay
+                        else -> R.string.panel_hint_drag
+                    }
                 ),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (overlaying) MaterialTheme.colorScheme.secondary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = when {
+                    hintHighlighted -> MaterialTheme.colorScheme.primary
+                    overlaying -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 modifier = Modifier.padding(end = 4.dp)
             )
             Icon(

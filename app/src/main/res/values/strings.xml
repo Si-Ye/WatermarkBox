@@ -117,10 +117,19 @@
     <string name="settings_export_jpeg_quality">JPEG 质量</string>
     <string name="settings_naming_title">文件命名与输出</string>
     <string name="settings_filename_template">文件名模板</string>
-    <string name="settings_filename_placeholders">占位符：{原文件名} {date} {time} {timestamp} {index}</string>
+    <string name="settings_filename_placeholders">占位符：{原文件名} {date} {time} {timestamp} {index} {index:04}</string>
     <string name="settings_output_dir">输出目录（留空用默认）</string>
     <string name="settings_output_dir_default">默认：%1$s</string>
     <string name="settings_keep_exif">保留原图 EXIF 信息</string>
+
+    <!-- 文件名序号 -->
+    <string name="settings_index_toggle">文件名带序号</string>
+    <string name="settings_index_toggle_hint">批量导出时在文件名里插入序号；单张导出会自动把这一段去掉，不留空括号或重复下划线。位数由占位符决定，序号超过位数时不截断。</string>
+    <string name="settings_index_digits">序号位数</string>
+    <string name="settings_index_start">起始序号</string>
+    <string name="settings_index_start_hint">每批都从这个号开始，不记忆上一批跑到几号。</string>
+    <string name="settings_index_preview_batch">批量第 1 张</string>
+    <string name="settings_index_preview_single">单张导出</string>
 
     <!-- 其他分类 -->
     <string name="settings_presets_title">水印预设</string>
@@ -180,7 +189,10 @@
     <string name="update_error_timeout">连接超时，GitHub 可能访问受限，可尝试浏览器打开</string>
     <string name="update_error_not_found">未找到可用的发布版本</string>
     <string name="update_error_parse">版本信息解析失败</string>
-    <string name="update_error_unknown">检查更新失败（%1$s）</string>
+    <!-- 无占位符：这条文案在 UI 里是**不带格式化参数**使用的
+         （见 SettingsScreen 的 ErrorKind.messageRes() 分支）。
+         原先写成「检查更新失败（%1$s）」却没传参，界面会原样显示 %1$s。 -->
+    <string name="update_error_unknown">更新失败，请稍后重试</string>
 
     <!-- 应用内下载 -->
     <string name="update_downloading">正在下载…%1$d%%</string>
@@ -548,6 +560,7 @@
     <string name="editor_error_no_image">没有可导出的图片</string>
     <string name="editor_error_source_load">原图加载失败，无法导出</string>
     <string name="editor_error_image_too_large">图片过大：按原分辨率处理约需 %1$d MB，超出本机可用内存。请先缩小图片再导出</string>
+    <string name="editor_error_export_oom">内存不足，导出失败：图片太大，请先缩小图片再试</string>
     <string name="editor_export_progress_title">正在导出</string>
     <string name="editor_export_stage_source">解码原图…</string>
     <string name="editor_export_stage_render">渲染水印…</string>
@@ -602,6 +615,14 @@
     <string name="batch_presets">预设</string>
     <string name="batch_export_settings">导出设置</string>
     <string name="batch_remove_one">移除这张</string>
+    <string name="batch_position_scope_unified">统一位置</string>
+    <string name="batch_position_scope_per_image">每张独立</string>
+    <string name="batch_position_hint">双击预览可拖动水印位置</string>
+    <string name="batch_position_locked">拖动水印 · 点预览外退出</string>
+    <string name="batch_position_reset">恢复默认</string>
+    <string name="batch_position_section">水印位置</string>
+    <string name="batch_position_scope_unified_desc">拖动任意一张，所有图片都跟着变（适合统一构图）</string>
+    <string name="batch_position_scope_per_image_desc">每张图各自记住自己的位置（适合逐张排版）</string>
     <string name="batch_add_more">添加更多图片</string>
     <string name="batch_add_more_limit">还可以加 %1$d 张以内</string>
     <string name="batch_jump_add_more">跳到添加更多</string>
@@ -617,6 +638,9 @@
     <string name="batch_fail_reason_item">%1$s：%2$d 张</string>
     <string name="batch_saved_hint">已保存到相册。</string>
     <string name="batch_ok">好</string>
+    <string name="batch_share_success">分享这 %1$d 张</string>
+    <string name="batch_retry_failed">重跑失败的 %1$d 张</string>
+    <string name="batch_share_chooser_title">分享水印图片</string>
     <string name="batch_error_logo">Logo 加载失败</string>
     <string name="batch_error_no_images">请先选择图片</string>
     <string name="batch_error_logo_required">图片水印需要先选择 Logo</string>
