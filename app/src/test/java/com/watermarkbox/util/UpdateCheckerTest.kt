@@ -5,6 +5,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 /**
  * 检查更新的纯逻辑单元测试。
@@ -250,4 +254,67 @@ class UpdateCheckerTest {
         assertNull(parseDigest("   "))
     }
 
+    // ------------------------------------------------------------------
+    // classifyFailure：把下载/安装异常归到对症的 ErrorKind
+    //
+    // 背景：原先 downloadInApp 的 catch 一律标成 NETWORK，于是「超时」
+    // 「HTTP 403」「写盘失败」都被提示成「请检查网络」，用户照做也没用。
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `超时归为 TIMEOUT`() {
+        assertEquals(
+            UpdateChecker.ErrorKind.TIMEOUT,
+            UpdateChecker.classifyFailure(SocketTimeoutException("timeout"))
+        )
+    }
+
+    @Test
+    fun `被包装的超时仍归为 TIMEOUT（download 会包一层 IOException）`() {
+        val wrapped = IOException("timeout", SocketTimeoutException("timeout"))
+        assertEquals(UpdateChecker.ErrorKind.TIMEOUT, UpdateChecker.classifyFailure(wrapped))
+    }
+
+    @Test
+    fun `DNS 解析失败归为 NETWORK`() {
+        assertEquals(
+            UpdateChecker.ErrorKind.NETWORK,
+            UpdateChecker.classifyFailure(UnknownHostException("api.github.com"))
+        )
+    }
+
+    @Test
+    fun `连接被拒归为 NETWORK`() {
+        assertEquals(
+            UpdateChecker.ErrorKind.NETWORK,
+            UpdateChecker.classifyFailure(ConnectException("Connection refused"))
+        )
+    }
+
+    @Test
+    fun `HTTP 非 2xx 归为 HTTP`() {
+        // download 里非 2xx 是以消息形式携带的
+        assertEquals(
+            UpdateChecker.ErrorKind.HTTP,
+            UpdateChecker.classifyFailure(IOException("HTTP 503"))
+        )
+    }
+
+    @Test
+    fun `写盘失败等其它 IOException 归为 UNKNOWN 而不是 NETWORK`() {
+        // 「磁盘满」不是网络问题，提示用户去检查网络是误导
+        assertEquals(
+            UpdateChecker.ErrorKind.UNKNOWN,
+            UpdateChecker.classifyFailure(IOException("No space left on device"))
+        )
+    }
+
+    @Test
+    fun `异常链自引用不会死循环`() {
+        // 极端情况防护：cause 指回自己。分类必须仍然返回而不是挂住。
+        val self = object : IOException("boom") {
+            override val cause: Throwable get() = this
+        }
+        assertEquals(UpdateChecker.ErrorKind.UNKNOWN, UpdateChecker.classifyFailure(self))
+    }
 }

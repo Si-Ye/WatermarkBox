@@ -193,4 +193,65 @@ class BitmapBudgetTest {
         // 1x1 的小图在任何真实环境都放得下
         assertTrue(BitmapBudget.fitsFullResolution(1, 1))
     }
+
+    // ------------------------------------------------------------------
+    // previewCacheCapacity：预览缓存张数由预算算出（不再是写死的 2）
+    // ------------------------------------------------------------------
+
+    /**
+     * largeHeap 机型（512MB 堆）维持「当前页 + 相邻一张」= 2 张。
+     *
+     * 单张按 4096×3072 ≈ 48 MB 估，份额 0.35 → 107 MB → 2 张。
+     * 这是**行为不变**的那一档：过去写死 2，现在算出来还是 2 —— 区别在于
+     * 它现在是「算得出来的 2」，堆变小会自动退，而不是所有机型一律 2。
+     */
+    @Test
+    fun `largeHeap 下预览缓存仍留两张`() {
+        assertEquals(2, BitmapBudget.previewCacheCapacity(4096, 512 * mb))
+    }
+
+    /**
+     * 256MB 堆自动退到 1 张。
+     *
+     * 过去这里同样是写死的 2 —— 约 96 MB，占该机堆预算（153 MB）的 63%，
+     * 却没被任何预算逻辑算过账（见 pending-fixes C2）。
+     */
+    @Test
+    fun `小堆机型预览缓存退到一张`() {
+        assertEquals(1, BitmapBudget.previewCacheCapacity(4096, 256 * mb))
+    }
+
+    /** 上限夹到 [BitmapBudget.PREVIEW_CACHE_MAX_IMAGES]：堆再大也不多缓存。 */
+    @Test
+    fun `超大堆也不超过张数上限`() {
+        assertEquals(
+            BitmapBudget.PREVIEW_CACHE_MAX_IMAGES,
+            BitmapBudget.previewCacheCapacity(4096, 8L * 1024 * mb)
+        )
+    }
+
+    /**
+     * 下限是 1：堆再小也不能算出 0。
+     *
+     * 算出 0 或负数会让 `LruCacheMap` 的 `require(capacity > 0)` 直接抛异常，
+     * 而 0 张意味着每次切换图片都要重新解码。
+     */
+    @Test
+    fun `堆极小时至少留一张`() {
+        assertEquals(1, BitmapBudget.previewCacheCapacity(4096, 64 * mb))
+        assertEquals(1, BitmapBudget.previewCacheCapacity(4096, 1))
+    }
+
+    /** 边长非法（探测失败 / 传错）时兜底 1，不抛异常。 */
+    @Test
+    fun `非法边长兜底一张`() {
+        assertEquals(1, BitmapBudget.previewCacheCapacity(0, 512 * mb))
+        assertEquals(1, BitmapBudget.previewCacheCapacity(-100, 512 * mb))
+    }
+
+    /** 默认参数可直接调用（真实设备上 maxMemory 不会返回 0）。 */
+    @Test
+    fun `预览缓存容量的默认参数可直接调用`() {
+        assertTrue(BitmapBudget.previewCacheCapacity(BitmapUtils.PREVIEW_MAX_EDGE) >= 1)
+    }
 }
