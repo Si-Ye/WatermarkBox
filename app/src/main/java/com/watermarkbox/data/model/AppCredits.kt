@@ -59,7 +59,15 @@ object AppCredits {
             // 运行时从 GitHub 拉头像与昵称；内置资源只作兜底
             githubUser = "Si-Ye"
         ),
-        Credit(name = "Operit", isLead = false, role = "开发协助")
+        // 头像由本机素材 `res/大肥鱼-Ciallo.png` 加工而来（`res/` 不入库）：
+        // 裁到头/帽/比耶手势那块 → 外部白底换成与主创头像同族的淡蓝渐变 → 清掉左缘手绘星号
+        // （不处理会在 56dp 圆里变成一个黑点）。原图直接塞进圆里会脸太小、白底在深色界面上刺眼。
+        Credit(
+            name = "DeepSeek V4.1 Flash",
+            isLead = false,
+            role = "开发协助",
+            avatarRes = R.drawable.deepseek_avatar
+        )
     )
 
     /** 主创（第 1 位）。 */

@@ -414,9 +414,9 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 | 项 | 值 |
 |---|---|
 | **发版流程** | **`docs/RELEASE_PROCESS.md`（发版必须照它做）** |
-| 本地 HEAD | 见 `git log`（本轮：**2.3.1 开发中** —— 导出长边档位 + 批量清单 CSV + 徽章配色；上一版 `2.3.0` 已发布）|
-| 远端 | `origin/main` 停在 `7fb37b6`；本地 **ahead 3**（新图标 `0590c17` + 本轮两个功能提交 + 徽章文档）—— **未推送** |
-| **ahead** | **3（未经人类明示不要 push）** |
+| 本地 HEAD | 见 `git log`（本轮：**2.3.1 开发中** —— 导出长边档位 + 批量清单 CSV + 徽章配色 + 关于页制作人改名/头像；上一版 `2.3.0` 已发布）|
+| 远端 | `origin/main` 停在 `7fb37b6`；本地 **ahead 6**（新图标 `0590c17` + 导出档位 `e3d5977` + 清单 CSV `8196b77` + 徽章文档 `3935427` + 看板刷新 `586ff09` + 关于页制作人）—— **未推送** |
+| **ahead** | **6（未经人类明示不要 push）** |
 | 单测基线 | **545 个用例，全绿**（2.3.1 本轮 523 → 545：导出档位 + 清单 CSV）|
 | lint | 0 错误（2 条警告，均为既有问题；1 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
@@ -456,6 +456,7 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 | 任务 | 负责 | 说明 |
 |---|---|---|
 | **2.3.1 · B 导出长边档位 + C 批量清单 CSV** | 等人类验证 | 已提交（`e3d5977` / `8196b77`）并装进模拟器；点击验收清单见本轮交接。重点：①超大图选小一档能否导出成功 ②批量结果页「导出清单」CSV 中文不乱码、列不错位 |
+| **2.3.1 · A 关于页制作人改名 + 头像** | 等人类验证（头像/命名已口头认可） | `AppCredits.kt` 里 `Operit` → `DeepSeek V4.1 Flash`（`role` 仍是「开发协助」，文案映射不变），并新增 `drawable-nodpi/deepseek_avatar.png`（256×256，由 `res/大肥鱼-Ciallo.png` 裁脸 + 白底换淡蓝渐变 + 清掉左缘手绘星号）|
 | **导出内存预算修复的验证** | 等人类验证 | 见 §5.9，大图导出是否不再报「图片过大」|
 
 ### 📋 待办（需要人类拍板或处理）
@@ -471,6 +472,13 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 ### ✅ 近期完成（别惊讶于这些改动）
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
+- **（2.3.1）关于页制作人：Operit → DeepSeek V4.1 Flash** ——
+  `AppCredits.entries` 第 2 项改名并补 `avatarRes`（`role` 仍是「开发协助」，
+  这样 `localizedCreditRole()` 的中英映射不用动）。新头像由 `res/大肥鱼-Ciallo.png`
+  （本机素材，`res/` 在 `.gitignore` 里）加工而来：裁到头/帽/比耶手势那块 →
+  外部白底泛洪换成与主创头像同族的淡蓝渐变（围裙、帽褶这些被描边围住的白**没动**）→
+  清掉左缘手绘星号（不处理的话在 56dp 圆里会成为一个黑点）。产出 256×256 PNG，
+  与 `siye_avatar.png` 同规格同目录（`drawable-nodpi`）。**别再改回按名字反射查表**。
 - **（2.3.1）导出长边档位 + 批量清单 CSV** ——
   ① `ExportSettings` 新增 `maxLongEdge`（0 原图 / 4096 / 2048 / 1080，默认 0，老配置零变化）；
   预检与实际缩放共用 `BitmapBudget.fitLongEdge`，不再各算一遍。
