@@ -337,9 +337,9 @@ private fun AppIdentityHeader(onCheckUpdate: () -> Unit = {}) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 应用图标（与启动器图标同源，见 branding/ic_launcher.svg）
+        // 应用图标（与启动器图标同源，见 branding/ic_launcher.png）
         //
-        // 图标**自带圆角**（矢量图内画好了），所以这里不 clip；
+        // 图标**自带圆角**（图内画好了，边角透明），所以这里不 clip；
         // 外层那圈淡色底也不再需要 —— 它会从图标的圆角外露出来，
         // 在深色模式下看起来像「图标外面套了一个方框」。
         Image(

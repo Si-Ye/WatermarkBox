@@ -43,6 +43,24 @@
       <line x1="0" y1="0" x2="0" y2="18"
             stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="5"/>
     </pattern>
+    <linearGradient id="icbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#8B5CF6"/>
+      <stop offset="52%"  stop-color="#4358F5"/>
+      <stop offset="100%" stop-color="#22C8F0"/>
+    </linearGradient>
+
+    <radialGradient id="icgloss" cx="0.26" cy="0.16" r="0.72">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="60%"  stop-color="#FFFFFF" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="icdrop" x1="0.2" y1="0" x2="0.85" y2="1">
+      <stop offset="0%"   stop-color="#F2FDFF"/>
+      <stop offset="45%"  stop-color="#9CE9F8"/>
+      <stop offset="100%" stop-color="#2FB4DC"/>
+    </linearGradient>
+
   </defs>
 
   <!-- ============ 背景 ============ -->
@@ -53,32 +71,41 @@
 
   <!-- ============ 左侧图标（目标框 56..188 × 84..216，132×132）============ -->
   <!-- ⚠️ 这里的平移必须写**目标框的中心** (122, 150)，不能写左上角 (56, 84)：
-       图形坐标系以中心为原点，框是 -512..+512（×0.129 = ±66）。
-       写左上角的话整个图标会被画到画布左上角、左边直接裁掉一半。 -->
+       图形坐标系以中心为原点，坐标 = 母版 1024 画布减 512（框是 -512..+512，×0.129 = ±66）。
+       写左上角的话整个图标会被画到画布左上角、左边直接裁掉一半。
+
+  2026-10-28 换成新图标（母版 branding/ic_launcher.png，GPT-Image2 生成）：
+  紫→蓝渐变圆角方 + 白色相框 + 山形 + 青色水滴。
+  这里是**矢量复刻** —— 不用 <image> 引外部 PNG，GitHub 会剥掉 SVG 里的外链。
+  坐标直接取自母版：相框 156..866 / 196..880，山与水滴同母版比例。 -->
   <g transform="translate(122, 150) scale(0.129)">
-    <rect x="-512" y="-512" width="1024" height="1024" rx="200" fill="#0D1454"/>
-    <!-- ⚠️ 这里**不能**再加 translate：背景方框是 -512..+512（中心 0,0），
-         下面所有图形坐标也都是相对中心的。早先多写了一层
-         transform="translate(512, 512)"，结果整个图形被推到方框的右下角 —— 看着就是「图标错位」。
-         对应的矢量资源是 res/drawable/ic_app_logo.xml（它已被展开为 0..1024 绝对坐标，是对的）。 -->
-    <g>
-      <rect x="-240" y="-216" width="480" height="84" rx="26"
-            fill="#FFFFFF" opacity="0.95"/>
-      <path d="M -220 -100 L -220 180 Q -220 228 -172 228
-               L 172 228 Q 220 228 220 180 L 220 -100 Z"
-            fill="none" stroke="#FFFFFF" stroke-width="44"
-            stroke-linejoin="round" stroke-linecap="round"/>
-      <path d="M 0 -50 C -88 28 -124 70 -124 122
-               C -124 190 -68 234 0 234
-               C 68 234 124 190 124 122
-               C 124 70 88 28 0 -50 Z"
-            fill="#FF6F00"/>
-      <circle cx="-44" cy="126" r="28" fill="#FFFFFF" opacity="0.42"/>
-      <rect x="-190" y="14" width="48" height="20" rx="10"
-            fill="#FFFFFF" opacity="0.55"/>
-      <rect x="142" y="14" width="48" height="20" rx="10"
-            fill="#FFFFFF" opacity="0.55"/>
-    </g>
+    <rect x="-512" y="-512" width="1024" height="1024" rx="200" fill="url(#icbg)"/>
+    <rect x="-512" y="-512" width="1024" height="1024" rx="200" fill="url(#icgloss)"/>
+
+    <!-- 相框：外圈圆角矩形减内圈（奇偶填充），线宽与母版一致 -->
+    <path d="M -268 -316 L 266 -316 A 88 88 0 0 1 354 -228 L 354 280
+             A 88 88 0 0 1 266 368 L -268 368
+             A 88 88 0 0 1 -356 280 L -356 -228
+             A 88 88 0 0 1 -268 -316 Z
+             M -252 -250 L 250 -250 A 40 40 0 0 1 290 -210 L 290 270
+             A 40 40 0 0 1 250 310 L -252 310
+             A 40 40 0 0 1 -292 270 L -292 -210
+             A 40 40 0 0 1 -252 -250 Z"
+          fill="#FFFFFF" fill-opacity="0.97" fill-rule="evenodd"/>
+
+    <!-- 山形：小峰 + 主峰，底边压到相框内沿 -->
+    <path d="M -286 312 L -196 238 L -92 118 L 2 196 L 140 22 L 250 140 L 268 312 Z"
+          fill="#EDF2FF" fill-opacity="0.94"/>
+
+    <!-- 青色水滴（右下角压在相框边上，与母版同位置） -->
+    <path d="M 306 44
+             C 205 142 166 192 166 250
+             C 166 330 228 382 306 382
+             C 384 382 446 330 446 250
+             C 446 192 407 142 306 44 Z"
+          fill="url(#icdrop)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="7"/>
+    <ellipse cx="252" cy="286" rx="27" ry="36"
+             fill="#FFFFFF" fill-opacity="0.5" transform="rotate(-18 262 288)"/>
   </g>
 
   <!-- ============ 文字区 ============ -->

@@ -1,12 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   自适应图标（Android 8.0+）。
-  前景：盒子 + 水滴（图形）
-  背景：品牌深蓝实色
-  单色：Android 13+ 主题图标
+
+  2026-10-28 换用新图标（GPT-Image2 生成的材质化图标）。分三层，理由如下：
+
+  背景 @mipmap/ic_launcher_background
+    把母版放大 1.7 倍、高斯模糊后居中的产物（不透明）。启动器只会显示中间
+    66%（72/108dp 安全区），所以不能直接拿母版当背景 —— 那样边缘会被蒙版
+    切掉。模糊放大后的底色与前景的紫色/蓝色同源，蒙版边缘看不到接缝。
+
+  前景 @mipmap/ic_launcher_foreground
+    母版缩到画布 **70%** 居中、四周透明。70% 是算出来的：蒙版（圆/圆角方）
+    只露出中间 66%，而白色相框几乎贴到母版边缘，只有 ≤70% 才能保证相框
+    四个圆角完整落进安全区。**不要把比例调回满幅** —— 满幅时相框角会被蒙版
+    削掉一块。
+
+  单色 @mipmap/ic_launcher_monochrome
+    Android 13+ 主题图标，同样按 70% 缩放（系统只取 alpha 通道自己上色）。
+
+  改图标时要一起换的六类文件见 branding/README.md。
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
+    <background android:drawable="@mipmap/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
     <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>

@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 圆形自适应图标（Android 8.0+） -->
+<!--
+  圆形自适应图标（Android 8.0+）。
+  与 ic_launcher.xml 共用同一套背景/前景/单色层 —— 圆的形状由启动器蒙版决定，
+  这里不做额外裁切（前景已按 70% 留出安全区，见 ic_launcher.xml 的说明）。
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
+    <background android:drawable="@mipmap/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
     <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>

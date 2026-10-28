@@ -45,6 +45,14 @@ Thumbs.db
 /.operit/
 /.backup/
 
+# ===== 临时工作目录（验证截图、图标派生中间产物）=====
+# .tmp-shots/  记录真机验收截图（一次性的，用完就删）
+# .tmp-icon/   图标派生脚本的中间产物（母版在 branding/ 里，成品在 res/mipmap 里）
+/.tmp-*/
+# 顶层 res/ 是「丢一张图进来」的随手目录（2026-10 换图标时放 icon.png），
+# 母版已经进了 branding/，这里不入库，免得与 app/src/main/res 混淆
+/res/
+
 # ===== 含本机路径的本地文档（不应开源）=====
 # docs/build-artifacts.md 记录本设备的绝对路径（工作区/git 仓库/归档目录），
 # 对"这台设备上的会话"很有用，但不适合进公开仓库：

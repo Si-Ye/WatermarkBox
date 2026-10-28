@@ -36,7 +36,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -465,19 +464,20 @@ fun HomeScreen(
 }
 
 /**
- * 品牌 Logo —— 与应用图标完全一致的矢量图。
+ * 品牌 Logo —— 与应用图标完全一致的那张图。
  *
- * 使用 `R.drawable.ic_app_logo`（由 branding/ic_launcher.svg 转换而来），
- * 保证「启动器图标」与「App 内品牌标识」视觉统一。
+ * 使用 `R.drawable.ic_app_logo`（由 `branding/ic_launcher.png` 缩放而来，
+ * 与启动器的 `ic_launcher.webp` 同源），保证「启动器图标」与「App 内品牌标识」视觉统一。
+ *
+ * ⚠️ 这里**不 clip**：新图标自带圆角（图内已画好，边角是透明的），
+ * 外层再 clip 一次只会得到「更大的圆角 + 透明屑」，形状反而不一致。
  *
  * 尺寸由调用方传入：小屏要缩，否则会把入口卡片挤扁。
  */
 @Composable
 private fun AppLogo(size: Dp) {
     Box(
-        modifier = Modifier
-            .size(size)
-            .clip(RoundedCornerShape(size / 4)),
+        modifier = Modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
         Image(
