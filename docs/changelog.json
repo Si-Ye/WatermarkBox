@@ -1,7 +1,48 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-27",
+  "updatedAt": "2026-10-28",
   "releases": [
+    {
+      "version": "2.3.1",
+      "date": "2026-10-28",
+      "type": "MINOR",
+      "title": {
+        "zh": "导出能自己定尺寸：四档长边、批量清单可导出",
+        "en": "Exports pick their own size: four long-edge caps, batch list as CSV"
+      },
+      "changes": [
+        {
+          "kind": "ADDED",
+          "zh": "新增：导出尺寸可以限制长边 —— 原图 / 4096 / 2048 / 1080，超大图不必再因为「图片太大」直接失败",
+          "en": "Added: export size can be capped by long edge — original / 4096 / 2048 / 1080, so oversized photos no longer fail with 'image too large'"
+        },
+        {
+          "kind": "ADDED",
+          "zh": "新增：批量结果页可以导出这一批的逐张清单（CSV，含文件名、成功失败与失败原因）",
+          "en": "Added: batch results can export a per-image CSV with file name, outcome and failure reason"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：批量处理的结果现在有明确提示 —— 此前失败与被跳过的图是静默的，只留下一个数字",
+          "en": "Improved: batch runs now tell you what happened — failures and skips used to be silent"
+        },
+        {
+          "kind": "IMPROVED",
+          "zh": "优化：关于页开发者署名更新为 DeepSeek V4.1 Flash，并配上头像",
+          "en": "Improved: About page now credits DeepSeek V4.1 Flash, with an avatar"
+        },
+        {
+          "kind": "FIXED",
+          "zh": "修复：批量「添加更多」页显示的剩余张数与实际上限对不上；矮屏上该页图标还会被压成细条",
+          "en": "Fixed: the add-more screen showed a stale remaining-slot count, and its icon was squashed on short screens"
+        },
+        {
+          "kind": "CHANGED",
+          "zh": "变更：换用新应用图标（自适应三层），在圆形、方形、squircle 等遮罩下都不再裁掉相框圆角",
+          "en": "Changed: new adaptive app icon (three layers) that keeps its frame and rounded corners under every mask shape"
+        }
+      ]
+    },
     {
       "version": "2.3.0",
       "date": "2026-10-27",
