@@ -632,7 +632,8 @@
     <string name="batch_position_scope_unified_desc">拖动任意一张，所有图片都跟着变（适合统一构图）</string>
     <string name="batch_position_scope_per_image_desc">每张图各自记住自己的位置（适合逐张排版）</string>
     <string name="batch_add_more">添加更多图片</string>
-    <string name="batch_add_more_limit">还可以加 %1$d 张以内</string>
+    <string name="batch_add_more_limit">还可以加 %1$d 张</string>
+    <string name="batch_add_more_full">已达 %1$d 张上限</string>
     <string name="batch_jump_add_more">跳到添加更多</string>
     <string name="batch_start">开始处理（%1$d 张）</string>
     <string name="batch_done_title">批量处理完成</string>

@@ -627,6 +627,7 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="batch_position_scope_per_image_desc">Each image keeps its own position (per-image layout)</string>
     <string name="batch_add_more">Add more images</string>
     <string name="batch_add_more_limit">Slots left: %1$d</string>
+    <string name="batch_add_more_full">Limit reached: %1$d</string>
     <string name="batch_jump_add_more">Jump to Add more</string>
     <string name="batch_start">Start processing (%1$d)</string>
     <string name="batch_done_title">Batch processing finished</string>

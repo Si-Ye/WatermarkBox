@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
@@ -791,7 +793,11 @@ private fun BatchPagerPage(
     onPageBounds: (Rect) -> Unit
 ) {
     if (page >= images.size) {
-        AddMorePage(onClick = onAddMore)
+        // 余量按「上限 - 已选」实时算：删图后这个数会自己变回来
+        AddMorePage(
+            onClick = onAddMore,
+            remaining = (BatchViewModel.MAX_BATCH_SIZE - images.size).coerceAtLeast(0)
+        )
         return
     }
 
@@ -901,46 +907,114 @@ private fun BatchPagerPage(
  *
  * 刻意做成一个大号虚线感卡片而不是小按钮 —— 它是这一页的**唯一内容**，
  * 在滑动语境下要让人一眼看出"这里还有一页，点它加图"。
+ *
+ * ## 为什么图标用 [requiredSize] 而不是 [size]
+ *
+ * 预览区高度由 [ShrinkablePreviewArea] 按面板占比压缩：面板往上拉，
+ * 这一页可用的高度就变矮。而 `Modifier.size()` 会**服从**父容器的
+ * maxHeight 约束（`enforceIncoming`），高度不够时会把 48dp 的图标
+ * 压成十几甚至几 dp，看起来"几乎看不见"。
+ * `requiredSize()` 不服从父约束，图标恒定 48dp —— 空间不够时宁可
+ * 让整张卡片被裁，也不把图标缩小。
+ *
+ * ## 为什么矮的时候换成横向紧凑布局
+ *
+ * 竖排卡片（图标 48 + 标题 + 余量说明 + 72dp 内边距）要约 172dp，
+ * 面板拉高后经常不够。矮于 [COMPACT_HEIGHT_THRESHOLD] 时改成
+ * 图标在左、文字在右：高度降到约 80dp，信息一条不少，也不必滚动。
+ *
+ * @param remaining 还能加几张（上限 - 已选）。为 0 时卡片变成不可点的「已达上限」。
  */
 @Composable
-private fun AddMorePage(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+private fun AddMorePage(onClick: () -> Unit, remaining: Int) {
+    val reachLimit = remaining <= 0
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                .clickable(onClick = onClick)
-                .padding(horizontal = 40.dp, vertical = 36.dp)
-        ) {
+        // 竖排卡片需要约 172dp；够不到就切紧凑布局
+        val compact = maxHeight < COMPACT_HEIGHT_THRESHOLD
+
+        val cardModifier = Modifier
+            .padding(16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+            .clickable(enabled = !reachLimit, onClick = onClick)
+            .padding(
+                horizontal = if (compact) 24.dp else 40.dp,
+                vertical = if (compact) 16.dp else 36.dp
+            )
+
+        val limitText = if (reachLimit) {
+            stringResource(R.string.batch_add_more_full, BatchViewModel.MAX_BATCH_SIZE)
+        } else {
+            stringResource(R.string.batch_add_more_limit, remaining)
+        }
+
+        val icon: @Composable () -> Unit = {
             Icon(
                 imageVector = Icons.Filled.AddPhotoAlternate,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.requiredSize(48.dp)
             )
-            Spacer(Modifier.height(12.dp))
+        }
+
+        val title: @Composable () -> Unit = {
             Text(
                 text = stringResource(R.string.batch_add_more),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(Modifier.height(4.dp))
+        }
+
+        val limit: @Composable () -> Unit = {
             Text(
-                text = stringResource(R.string.batch_add_more_limit, BatchViewModel.MAX_BATCH_SIZE),
+                text = limitText,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
+
+        if (compact) {
+            // 横向：高度只剩图标那一行，文字靠右对齐
+            Row(
+                modifier = cardModifier,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                icon()
+                Spacer(Modifier.width(16.dp))
+                Column(horizontalAlignment = Alignment.Start) {
+                    title()
+                    Spacer(Modifier.height(4.dp))
+                    limit()
+                }
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = cardModifier
+            ) {
+                icon()
+                Spacer(Modifier.height(12.dp))
+                title()
+                Spacer(Modifier.height(4.dp))
+                limit()
+            }
+        }
     }
 }
+
+/**
+ * 「添加更多」页从竖排切横向紧凑布局的高度阈值。
+ *
+ * 竖排卡片实测约 172dp（图标 48 + 间距 16 + 两行文字 36 + 上下内边距 72），
+ * 取 200dp 留一点余量，避免在临界高度上抖动。
+ */
+private val COMPACT_HEIGHT_THRESHOLD = 200.dp
+
 
 /**
  * 缩略图指示行。
