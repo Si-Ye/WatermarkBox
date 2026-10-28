@@ -11,14 +11,14 @@
 <br>
 <br>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-1A237E.svg?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-3E3EF6.svg?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-3DDC84.svg?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Compose-Material%203-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 
-[![Release](https://img.shields.io/github/v/release/Si-Ye/WatermarkBox?style=flat-square&label=Release&color=FF6F00)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
+[![Release](https://img.shields.io/github/v/release/Si-Ye/WatermarkBox?style=flat-square&label=Release&color=AE71FB)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/Si-Ye/WatermarkBox/build.yml?style=flat-square&label=Build&branch=main)](https://github.com/Si-Ye/WatermarkBox/actions/workflows/build.yml)
-[![APK](https://img.shields.io/badge/APK-3.6%20MB-607D8B.svg?style=flat-square)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
+[![APK](https://img.shields.io/badge/APK-3.6%20MB-3D84FD.svg?style=flat-square)](https://github.com/Si-Ye/WatermarkBox/releases/latest)
 
 **[中文文档](README.md)**　·　[**English**](README.en.md)
 

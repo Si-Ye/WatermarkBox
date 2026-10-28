@@ -40,3 +40,18 @@
 - `ic_app_logo` 本身带圆角，调用方**不要再 clip**（见 `HomeScreen.AppLogo` 注释）。
 - 换完必须在真机/模拟器上看一眼**启动器**（蒙版效果只有启动器才体现），
   再看一眼关于页与首页 AppLogo。命令见 `docs/build-artifacts.md` §5。
+
+## 配色（README 徽章用）
+
+新图标的渐变有三个端点色，README 里**身份类**徽章直接取这三个值：
+
+| 徽章 | 色值 | 取自母版 |
+|---|---|---|
+| License | `#3E3EF6` | 中心（靛蓝） |
+| Release | `#AE71FB` | 左下（紫） |
+| APK | `#3D84FD` | 右上（蓝） |
+
+**技术类**徽章（Platform / Kotlin / Compose）保持各家官方色，不跟着改 ——
+那些是厂商 logo 的颜色，刷成品牌色反而显得不专业。
+
+中文 `README.md` 与 `README.en.md` 必须同步改：这两份的徽章行曾经漂移过一次。
