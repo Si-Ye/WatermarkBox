@@ -414,13 +414,13 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 | 项 | 值 |
 |---|---|
 | **发版流程** | **`docs/RELEASE_PROCESS.md`（发版必须照它做）** |
-| 本地 HEAD | 见 `git log`（本轮收尾：**发布 2.2.0** —— 预览架构重构 + README 截图整理 + 11 项修复）|
-| 远端 | `origin/main` 已推送到本轮发版提交；tag **`v2.2.0`** 已推（触发 CI 自动发布）|
-| **ahead** | **0（本轮已推送 —— 人类明确要求发布 2.2.0）** |
-| 单测基线 | **468 个用例，全绿** |
-| lint | 0 错误（6 条 baseline）|
+| 本地 HEAD | 见 `git log`（本轮：**2.3.1 开发中** —— 导出长边档位 + 批量清单 CSV + 徽章配色；上一版 `2.3.0` 已发布）|
+| 远端 | `origin/main` 停在 `7fb37b6`；本地 **ahead 3**（新图标 `0590c17` + 本轮两个功能提交 + 徽章文档）—— **未推送** |
+| **ahead** | **3（未经人类明示不要 push）** |
+| 单测基线 | **545 个用例，全绿**（2.3.1 本轮 523 → 545：导出档位 + 清单 CSV）|
+| lint | 0 错误（2 条警告，均为既有问题；1 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
-| 版本 | **2.2.0（versionCode 14）已发布** |
+| 版本 | **2.3.0（versionCode 15）已发布**；2.3.1 正在开发，版本号待人类授权后才动 |
 
 > ⚠️ **`v2.1.1` 从未对外发布**（它的推送 / tag / Release 曾按人类要求全部回退）。
 > `docs/changelog.json` 里仍保留 2.1.1 条目 —— 其内容已并入 2.2.0，
@@ -455,6 +455,7 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 
 | 任务 | 负责 | 说明 |
 |---|---|---|
+| **2.3.1 · B 导出长边档位 + C 批量清单 CSV** | 等人类验证 | 已提交（`e3d5977` / `8196b77`）并装进模拟器；点击验收清单见本轮交接。重点：①超大图选小一档能否导出成功 ②批量结果页「导出清单」CSV 中文不乱码、列不错位 |
 | **导出内存预算修复的验证** | 等人类验证 | 见 §5.9，大图导出是否不再报「图片过大」|
 
 ### 📋 待办（需要人类拍板或处理）
@@ -470,6 +471,15 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 ### ✅ 近期完成（别惊讶于这些改动）
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
+- **（2.3.1）导出长边档位 + 批量清单 CSV** ——
+  ① `ExportSettings` 新增 `maxLongEdge`（0 原图 / 4096 / 2048 / 1080，默认 0，老配置零变化）；
+  预检与实际缩放共用 `BitmapBudget.fitLongEdge`，不再各算一遍。
+  ② 批量结果页新增「导出清单」：`BatchRunCsv`（纯 Kotlin，RFC 4180 转义 + UTF-8 BOM + 按导出序号排序）；
+  `BatchRunResult` 补 `successIndices`（成功项此前不带序号，重跑失败项时下标会对不上号）。
+  ③ 批量页补了 Snackbar 出口 —— 此前 `errorMessage` 写进 state 却没人显示，
+  「图片太大 / 处理被中断」全被静默吞掉。**别再删这个出口**。
+- **（2.3.1）README 徽章配色跟新图标统一** —— 身份类徽章取母版三端点色（`#3E3EF6` / `#AE71FB` / `#3D84FD`），
+  技术类徽章保持官方色；规则与取值来源写在 `branding/README.md`。
 - **（本轮）批量页：位置作用域搬进参数面板，预览区彻底无浮层** ——
   「统一位置 / 每张独立」从预览左上角的胶囊浮层移到「水印参数」面板
   （`WatermarkPanel(positionScopeSection = ...)`，紧随水印类型切换之后）；
