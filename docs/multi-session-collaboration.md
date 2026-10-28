@@ -414,13 +414,14 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 | 项 | 值 |
 |---|---|
 | **发版流程** | **`docs/RELEASE_PROCESS.md`（发版必须照它做）** |
-| 本地 HEAD | 见 `git log`（本轮：**2.3.1 开发中** —— 导出长边档位 + 批量清单 CSV + 徽章配色 + 关于页制作人改名/头像；上一版 `2.3.0` 已发布）|
-| 远端 | `origin/main` 停在 `7fb37b6`；本地 **ahead 6**（新图标 `0590c17` + 导出档位 `e3d5977` + 清单 CSV `8196b77` + 徽章文档 `3935427` + 看板刷新 `586ff09` + 关于页制作人）—— **未推送** |
-| **ahead** | **6（未经人类明示不要 push）** |
+| 本地 HEAD | 见 `git log`（本轮：**2.3.1 开发完成、已推送** —— 导出长边档位 + 批量清单 CSV + 徽章配色 + 关于页制作人改名/头像 + 批量页「添加更多」修复；上一版 `2.3.0` 已发布）|
+| 远端 | `origin/main` 已与本地同步；本地 **ahead 0 / behind 0**（本轮 7 个提交已推送）|
+| **ahead** | **0（已推送；下一次推送仍须人类明示）** |
 | 单测基线 | **545 个用例，全绿**（2.3.1 本轮 523 → 545：导出档位 + 清单 CSV）|
+| 仪器化 | **59 例，全绿**（MuMu 实例 0 · Android 15 · x86_64）|
 | lint | 0 错误（2 条警告，均为既有问题；1 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
-| 版本 | **2.3.0（versionCode 15）已发布**；2.3.1 正在开发，版本号待人类授权后才动 |
+| 版本 | **2.3.0（versionCode 15）已发布**；2.3.1 代码已齐但**未发版** —— 版本号 / changelog / tag 待人类授权后再动 |
 
 > ⚠️ **`v2.1.1` 从未对外发布**（它的推送 / tag / Release 曾按人类要求全部回退）。
 > `docs/changelog.json` 里仍保留 2.1.1 条目 —— 其内容已并入 2.2.0，
@@ -455,8 +456,7 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 
 | 任务 | 负责 | 说明 |
 |---|---|---|
-| **2.3.1 · B 导出长边档位 + C 批量清单 CSV** | 等人类验证 | 已提交（`e3d5977` / `8196b77`）并装进模拟器；点击验收清单见本轮交接。重点：①超大图选小一档能否导出成功 ②批量结果页「导出清单」CSV 中文不乱码、列不错位 |
-| **2.3.1 · A 关于页制作人改名 + 头像** | 等人类验证（头像/命名已口头认可） | `AppCredits.kt` 里 `Operit` → `DeepSeek V4.1 Flash`（`role` 仍是「开发协助」，文案映射不变），并新增 `drawable-nodpi/deepseek_avatar.png`（256×256，由 `res/大肥鱼-Ciallo.png` 裁脸 + 白底换淡蓝渐变 + 清掉左缘手绘星号）|
+| **2.3.1 发版** | 待人类授权 | 代码已齐并推送（7 个提交、545 单测 + 59 仪器化全绿）。版本号 `2.3.1` / `docs/changelog.json` 条目 / `docs/releases/v2.3.1.md` / `v2.3.1` tag **都还没动** —— 一旦授权就照 `docs/RELEASE_PROCESS.md` 走（打 tag 会触发 CI 发布，属对外动作）|
 | **导出内存预算修复的验证** | 等人类验证 | 见 §5.9，大图导出是否不再报「图片过大」|
 
 ### 📋 待办（需要人类拍板或处理）
@@ -464,7 +464,7 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 | 任务 | 阻塞点 |
 |---|---|
 | Baseline Profile | 收益评估偏小，优先级低 |
-| **推送本地提交** | **必须等人类明示** |
+| **推送本地提交** | 本轮已推送（2026-10-28，ahead 0）；**下一次仍须人类明示** |
 | **代码审查报告剩余项** | `docs/code-review-2026-10.md` 共 15 项，**已收口**：13 项已修（H1 / H2 / M1–M5 / L1 / L2 / L5 / L6 / L7 / L8），2 项复核后判定**不改**（L3 / L4，收益极小）。详见报告 §0 的「修订状态」表 |
 | **CI 发布结果确认** | `v2.2.0` 的 tag 已推 —— 需到 Actions / Releases 页面确认转绿、APK 附件在（人类或下个会话）|
 | **Windows 环境适配 + 第二轮审查待修项** | **已拍板：走「划界支持」**（2026-10-16，见 §2.7）。清单见 `docs/pending-fixes-2026-10.md`（环境 E1–E11 / 代码 C1–C11 / 文档 D1–D6）。**2026-10-16 已修 22 项**（E1–E11、C1、C2、C3、C5、C7、D1–D6，含 P0 的 E2 / E3 / E4 / C1），**剩 6 项**（C4、C6、C8–C11）—— 这 6 项是**老大明确决定不修**的（改载荷格式影响已发布图片、DI 重构回归面最大、378 行死代码是既定保留决策等，理由见清单 §0）。复验：全量构建 53/53 通过、**474 单测**（468 → 474）0 失败、lint 0 error |
@@ -472,6 +472,16 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 ### ✅ 近期完成（别惊讶于这些改动）
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
+- **（2.3.1）批量页「添加更多」页：余量实时 + 图标不再被压扁** ——
+  ① 余量文案改为 `MAX_BATCH_SIZE - 已选`（删图后自己变回来），选满显示
+  「已达 100 张上限」且卡片不可点（新字符串 `batch_add_more_full`，中英各一条）。
+  ② **图标从 `size(48.dp)` 改成 `requiredSize(48.dp)`** —— 关键坑：
+  `size()` 会服从父容器 maxHeight（`enforceIncoming`），而预览区高度由
+  `ShrinkablePreviewArea` 按面板占比压缩，参数面板往上一拉就把 48dp 图标
+  压成几 dp，看起来"几乎看不见"。`requiredSize()` 不服从父约束。
+  ③ 高度不足 `COMPACT_HEIGHT_THRESHOLD`（200dp）时切**横向紧凑布局**
+  （图标在左、文字在右，约 80dp 高），竖排卡片要约 172dp，矮了会被裁掉一半。
+  **别把 requiredSize 改回 size，也别删紧凑分支** —— 这两处正是本 bug 的修法。
 - **（2.3.1）关于页制作人：Operit → DeepSeek V4.1 Flash** ——
   `AppCredits.entries` 第 2 项改名并补 `avatarRes`（`role` 仍是「开发协助」，
   这样 `localizedCreditRole()` 的中英映射不用动）。新头像由 `res/大肥鱼-Ciallo.png`
