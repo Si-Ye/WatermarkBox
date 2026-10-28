@@ -120,6 +120,9 @@ class BatchWatermarkWorker(
         // 成功清单：结果页的「分享」要用；失败清单：结果页的「重跑失败项」要用。
         // 两者都落盘（见类注释），Data 里只留计数。
         val savedUris = mutableListOf<String>()
+        // 与 savedUris 一一对应的导出序号 —— 清单导出 CSV 时靠它回答
+        // 「成功的那几行分别是第几张」。两行必须同进同出，见下面写入处。
+        val savedIndices = mutableListOf<Int>()
         val failed = mutableListOf<BatchFailureItem>()
         // 失败按原因归类：结果页要说清「为什么失败」，不只是一个数字
         val reasons = mutableMapOf<BatchFailureReason, Int>()
@@ -155,7 +158,12 @@ class BatchWatermarkWorker(
             )
             if (outcome.failure == null) {
                 success++
-                outcome.savedUri?.let { savedUris.add(it) }
+                // uri 与序号必须成对写入：只写一个会让 CSV 的序号列错位，
+                // 而错位的对账表比没有对账表更危险。
+                outcome.savedUri?.let {
+                    savedUris.add(it)
+                    savedIndices.add(seq)
+                }
             } else {
                 failed.add(
                     BatchFailureItem(
@@ -180,7 +188,11 @@ class BatchWatermarkWorker(
         // 清单落盘（runId 用 WorkRequest 的 id，UI 侧同一个 id 来取）
         runStore.write(
             runId = id.toString(),
-            result = BatchRunResult(success = savedUris, failed = failed)
+            result = BatchRunResult(
+                success = savedUris,
+                failed = failed,
+                successIndices = savedIndices
+            )
         )
         runStore.prune()
 
@@ -231,7 +243,10 @@ class BatchWatermarkWorker(
                 // 链路峰值：原图 + 渲染结果 + （开了 DCT 才有）频域副本。
                 // 早期固定传 3，导致「只写 EXIF、不开 DCT」的用户
                 // 也被按 3 份扣预算 —— 白白砍掉 1/3，大图直接判"太大"。
-                copies = BitmapBudget.exportCopies(withDct = invisibleDct)
+                copies = BitmapBudget.exportCopies(withDct = invisibleDct),
+                // 尺寸档位：整批共用同一份导出设置，
+                // 于是「这批图太大」只要调小档位就能一次跑完
+                maxEdge = exportSettings.maxEdge.edge
             )
             when (outcome) {
                 is BitmapLoadOutcome.Ok -> source = outcome.bitmap

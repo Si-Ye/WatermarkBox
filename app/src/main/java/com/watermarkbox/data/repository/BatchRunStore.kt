@@ -10,11 +10,22 @@ import java.io.File
  *
  * @param success 成功保存后的 uri
  * @param failed  失败项的 uri + **它在这次导出里的序号** + 失败原因
+ * @param successIndices 与 [success] **一一对应**的导出序号（2.3.1 新增）。
+ *
+ * 失败项一直带着序号（重跑失败项靠它保号），成功项却没带 ——
+ * 于是导出 CSV 时「成功那几行是第几张」根本无从得知，
+ * 只能拿列表下标冒充。重跑失败项时序号是原批次的，
+ * 用下标会直接对不上号，所以这里补上真实序号。
+ *
+ * 旧安装写入的 JSON 没有这个字段 → 反序列化为空列表，
+ * 此时 CSV 的序号列留空（[BatchRunCsv] 会把它们排在最后），
+ * **不猜、不伪造**。
  */
 @Serializable
 data class BatchRunResult(
     val success: List<String> = emptyList(),
-    val failed: List<BatchFailureItem> = emptyList()
+    val failed: List<BatchFailureItem> = emptyList(),
+    val successIndices: List<Int> = emptyList()
 ) {
     val isEmpty: Boolean get() = success.isEmpty() && failed.isEmpty()
 }

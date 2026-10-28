@@ -31,7 +31,9 @@ import com.watermarkbox.data.model.WatermarkColor
 import com.watermarkbox.data.model.WatermarkPreset
 import com.watermarkbox.data.model.WatermarkType
 import com.watermarkbox.data.repository.BatchFailureItem
+import com.watermarkbox.data.repository.BatchRunCsv
 import com.watermarkbox.data.repository.BatchRunStore
+import com.watermarkbox.data.repository.CsvTexts
 import com.watermarkbox.data.repository.ImageRepository
 import com.watermarkbox.data.repository.SettingsRepository
 import com.watermarkbox.invisible.InvisibleContentResolver
@@ -109,6 +111,8 @@ data class BatchUiState(
     val failedItems: List<BatchFailureItem> = emptyList(),
     /** 错误提示 */
     val errorMessage: UiMessage? = null,
+    /** 成功提示（如「清单已导出」）；与 errorMessage 一样由界面用 Snackbar 呈现 */
+    val infoMessage: UiMessage? = null,
     // ---- 预览（v1.4.0：批量页支持左右滑切换图片）----
     /**
      * 当前正在预览的图片下标。
@@ -167,6 +171,13 @@ class BatchViewModel(application: Application) :
     private val workManager = WorkManager.getInstance(application)
     /** 逐张结果清单的落盘仓库（Worker 写，本类读） */
     private val runStore = BatchRunStore(application)
+    /**
+     * 应用上下文。
+     *
+     * 新版 `AndroidViewModel` 把 `application` 收成了私有属性，
+     * 子类里不能再直接引用 —— 需要取字符串资源 / ContentResolver 时用它。
+     */
+    private val app: Application = application
 
     private val _uiState = MutableStateFlow(BatchUiState())
     val uiState: StateFlow<BatchUiState> = _uiState.asStateFlow()
@@ -396,6 +407,92 @@ class BatchViewModel(application: Application) :
     }
 
     fun clearError() = _uiState.update { it.copy(errorMessage = null) }
+
+    fun clearInfo() = _uiState.update { it.copy(infoMessage = null) }
+
+    // ------------------------------------------------------------------
+    // 清单导出（CSV）
+    // ------------------------------------------------------------------
+
+    /**
+     * 把本次导出的逐张清单写成 CSV，写到用户通过 SAF 选定的 [uri]。
+     *
+     * ## 为什么写文件而不是直接分享文本
+     *
+     * 清单的用途是对账（丢进 Excel 看），而 `EXTRA_TEXT` 分享出去
+     * 到了聊天软件里就是一段纯文本，表格结构全丢。
+     * 走 SAF 还顺带解决了「不需要任何存储权限」和「位置由用户决定」。
+     *
+     * ## 为什么先查一遍文件名
+     *
+     * 清单里只存了 uri。`ContentResolver` 查询是挂起函数，
+     * 而 [BatchRunCsv] 是纯函数（单测要能在 JVM 上跑），
+     * 所以名称必须在进 `build` 之前一次性查好，用 Map 注入。
+     */
+    fun exportCsv(uri: Uri) {
+        val runId = _uiState.value.runId
+        if (runId == null) {
+            _uiState.update { it.copy(errorMessage = UiMessage(R.string.batch_csv_export_failed)) }
+            return
+        }
+
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    val result = runStore.read(runId) ?: return@runCatching false
+                    if (result.isEmpty) return@runCatching false
+
+                    val names = HashMap<String, String?>()
+                    (result.success + result.failed.map { it.uri }).forEach { raw ->
+                        names[raw] = imageRepository.queryDisplayName(raw.toUri())
+                    }
+
+                    val texts = CsvTexts(
+                        columnIndex = app.getString(R.string.batch_csv_col_index),
+                        columnResult = app.getString(R.string.batch_csv_col_result),
+                        columnName = app.getString(R.string.batch_csv_col_name),
+                        columnLocation = app.getString(R.string.batch_csv_col_location),
+                        // 与结果页「失败原因」标题同源，避免两处文案各自漂移
+                        columnReason = app.getString(R.string.batch_fail_reason_title),
+                        success = app.getString(R.string.batch_csv_result_ok),
+                        failed = app.getString(R.string.batch_csv_result_failed)
+                    )
+                    val csv = BatchRunCsv.build(
+                        result = result,
+                        texts = texts,
+                        nameOf = { names[it] },
+                        reasonLabel = ::reasonLabel
+                    )
+
+                    // "wt" = write + truncate：SAF 的 uri 可能指向已存在的同名文件，
+                    // 不截断会留下上一份清单的尾巴（与预设导出同一个坑）
+                    app.contentResolver.openOutputStream(uri, "wt")?.use { out ->
+                        out.write(csv.toByteArray(Charsets.UTF_8))
+                        out.flush()
+                    } ?: return@runCatching false
+                    true
+                }.getOrDefault(false)
+            }
+
+            _uiState.update {
+                it.copy(
+                    errorMessage = if (ok) null else UiMessage(R.string.batch_csv_export_failed),
+                    infoMessage = if (ok) UiMessage(R.string.batch_csv_exported) else null
+                )
+            }
+        }
+    }
+
+    /**
+     * 失败原因枚举名 → 当前语言文案。
+     *
+     * 认不出的名字原样返回：清单文件可能来自更新的版本，
+     * 丢掉原始名字等于把唯一线索也丢了。
+     */
+    private fun reasonLabel(name: String): String =
+        runCatching { BatchFailureReason.valueOf(name) }.getOrNull()
+            ?.let { app.getString(it.labelRes) }
+            ?: name
 
     // ------------------------------------------------------------------
     // 执行批量处理

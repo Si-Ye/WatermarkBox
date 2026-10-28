@@ -648,6 +648,17 @@ Detection has two passes: first the EXIF metadata (enough if the image was never
     <string name="batch_error_logo_required">An image watermark needs a Logo</string>
     <string name="batch_error_interrupted">Processing was interrupted or failed</string>
     <string name="batch_error_cancelled">Batch processing cancelled</string>
+    <!-- Batch list CSV export (2.3.1) -->
+    <string name="batch_csv_export">Export list</string>
+    <string name="batch_csv_exported">List exported</string>
+    <string name="batch_csv_export_failed">Could not export the list</string>
+    <string name="batch_csv_file_prefix">batch-list</string>
+    <string name="batch_csv_col_index">Index</string>
+    <string name="batch_csv_col_result">Result</string>
+    <string name="batch_csv_col_name">File name</string>
+    <string name="batch_csv_col_location">Location</string>
+    <string name="batch_csv_result_ok">Succeeded</string>
+    <string name="batch_csv_result_failed">Failed</string>
     <string name="editor_screen_title">Edit watermark</string>
     <string name="editor_panel_presets">Presets</string>
     <string name="editor_export">Export</string>

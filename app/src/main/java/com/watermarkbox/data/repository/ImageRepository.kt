@@ -108,16 +108,21 @@ class ImageRepository(private val context: Context) {
      *                导致"只写 EXIF"的用户也被多扣 1/3，
      *                大图直接判 TooLarge（实测 256MB 堆下上限仅
      *                约 1120 万像素，随手拍的照片就超了）。
+     * @param maxEdge 长边上限（像素）；0 = 保持原图。
+     *                非 0 时解码与预检都按缩小后的尺寸走，
+     *                于是大图不再必然失败（见 [BitmapUtils.loadFullResolution]）。
      */
     suspend fun loadFullResolutionBitmap(
         uri: Uri,
-        withDct: Boolean = true
+        withDct: Boolean = true,
+        maxEdge: Int = 0
     ): BitmapLoadOutcome =
         withContext(Dispatchers.IO) {
             BitmapUtils.loadFullResolution(
                 context = context,
                 uri = uri,
-                copies = BitmapBudget.exportCopies(withDct = withDct)
+                copies = BitmapBudget.exportCopies(withDct = withDct),
+                maxEdge = maxEdge
             )
         }
 

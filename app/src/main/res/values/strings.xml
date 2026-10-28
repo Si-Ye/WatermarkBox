@@ -654,6 +654,17 @@
     <string name="batch_error_logo_required">图片水印需要先选择 Logo</string>
     <string name="batch_error_interrupted">处理被中断或失败</string>
     <string name="batch_error_cancelled">已取消批量处理</string>
+    <!-- 批量清单导出 CSV（2.3.1）-->
+    <string name="batch_csv_export">导出清单</string>
+    <string name="batch_csv_exported">清单已导出</string>
+    <string name="batch_csv_export_failed">清单导出失败</string>
+    <string name="batch_csv_file_prefix">批量清单</string>
+    <string name="batch_csv_col_index">序号</string>
+    <string name="batch_csv_col_result">结果</string>
+    <string name="batch_csv_col_name">文件名</string>
+    <string name="batch_csv_col_location">位置</string>
+    <string name="batch_csv_result_ok">成功</string>
+    <string name="batch_csv_result_failed">失败</string>
     <string name="editor_screen_title">编辑水印</string>
     <string name="editor_panel_presets">预设</string>
     <string name="editor_export">导出</string>

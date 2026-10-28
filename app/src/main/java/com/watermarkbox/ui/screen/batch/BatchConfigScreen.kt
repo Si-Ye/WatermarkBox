@@ -1,11 +1,14 @@
 package com.watermarkbox.ui.screen.batch
 
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +40,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -96,8 +101,19 @@ import com.watermarkbox.ui.screen.editor.WatermarkPanel
 import com.watermarkbox.ui.screen.editor.WatermarkPanelState
 import com.watermarkbox.ui.theme.Spacing
 import com.watermarkbox.util.ShareUtils
+import com.watermarkbox.util.resolve
 import com.watermarkbox.worker.BatchFailureReason
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+/**
+ * 清单 CSV 文件名里的时间戳。
+ *
+ * 用固定 pattern 而不是本地化格式：文件名要跨设备可读、可排序，
+ * 「2026年10月28日」这种带中文的格式在部分文件管理器上会被转义成乱码。
+ */
+private val CSV_TIMESTAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
 
 /**
  * 面板拖拽的两段式行为，与编辑页保持一致
@@ -169,6 +185,39 @@ fun BatchConfigScreen(
     // 用于缩略图点击跳页（animateScrollToPage 是挂起函数）
     val scope = rememberCoroutineScope()
 
+    // ---- 提示出口（Snackbar）----
+    //
+    // 批量页此前把 errorMessage 写进 state 却**没有任何地方显示**：
+    // 「图片太大」「处理被中断」这类提示全部静默丢失，用户只看到一个
+    // 不再变化的进度条，完全不知道发生了什么。这里补上统一出口 ——
+    // 同时也给「清单已导出」这类成功反馈一个位置。
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorText = state.errorMessage?.resolve()
+    val infoText = state.infoMessage?.resolve()
+    LaunchedEffect(state.errorMessage) {
+        if (errorText != null) {
+            snackbarHostState.showSnackbar(errorText)
+            viewModel.clearError()
+        }
+    }
+    LaunchedEffect(state.infoMessage) {
+        if (infoText != null) {
+            snackbarHostState.showSnackbar(infoText)
+            viewModel.clearInfo()
+        }
+    }
+
+    // ---- 清单导出（CSV）----
+    //
+    // 用 SAF（CreateDocument）而不是自己往某个固定目录写：
+    // 不需要存储权限、位置由用户决定、重名由系统询问。
+    // 与预设导出同一套思路，但 launcher 放在**用到它的这个页面**里 ——
+    // 预设那份之所以挂在 Activity，是因为入口分散在多处。
+    val csvFilePrefix = stringResource(R.string.batch_csv_file_prefix)
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri -> if (uri != null) viewModel.exportCsv(uri) }
+
     // ---- 水印位置拖动（双击预览进入，点预览外退出）----
     //
     // 为什么需要这个"锁定"：
@@ -227,6 +276,7 @@ fun BatchConfigScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             // 与单张编辑页保持完全一致：居中标题 + 右上两个图标
             CenterAlignedTopAppBar(
@@ -469,6 +519,12 @@ fun BatchConfigScreen(
             failureReasons = state.failureReasons,
             canShare = state.successUris.isNotEmpty(),
             canRetry = state.failedItems.isNotEmpty(),
+            canExportCsv = state.successUris.isNotEmpty() || state.failedItems.isNotEmpty(),
+            onExportCsv = {
+                csvLauncher.launch(
+                    "${csvFilePrefix}_${LocalDateTime.now().format(CSV_TIMESTAMP)}.csv"
+                )
+            },
             onShare = {
                 ShareUtils.shareImages(
                     context = context,
@@ -1021,14 +1077,6 @@ private fun BatchActionBar(
     }
 }
 
-/** 失败原因 → 文案资源。 */
-private fun BatchFailureReason.labelRes(): Int = when (this) {
-    BatchFailureReason.SOURCE_TOO_LARGE -> R.string.batch_fail_reason_too_large
-    BatchFailureReason.SOURCE_UNREADABLE -> R.string.batch_fail_reason_unreadable
-    BatchFailureReason.SAVE_FAILED -> R.string.batch_fail_reason_save_failed
-    BatchFailureReason.UNKNOWN -> R.string.batch_fail_reason_unknown
-}
-
 /**
  * 完成统计对话框。
  *
@@ -1047,6 +1095,8 @@ private fun BatchSummaryDialog(
     failureReasons: Map<BatchFailureReason, Int>,
     canShare: Boolean,
     canRetry: Boolean,
+    canExportCsv: Boolean,
+    onExportCsv: () -> Unit,
     onShare: () -> Unit,
     onRetryFailed: () -> Unit,
     onDismiss: () -> Unit
@@ -1081,7 +1131,7 @@ private fun BatchSummaryDialog(
                             Text(
                                 text = stringResource(
                                     R.string.batch_fail_reason_item,
-                                    stringResource(reason.labelRes()),
+                                    stringResource(reason.labelRes),
                                     count
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
@@ -1096,6 +1146,21 @@ private fun BatchSummaryDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                // 清单导出放在正文里，不进底部那一行按钮：
+                // 底部已经有「分享 / 重跑失败 / 好」，窄屏上再加一个必然挤到换行。
+                // 这里是**次要动作**，左对齐的文本按钮正合适。
+                if (canExportCsv) {
+                    Spacer(Modifier.height(2.dp))
+                    TextButton(
+                        onClick = onExportCsv,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.batch_csv_export),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         },
         // 底部一行：左侧是「下一步动作」（分享 / 重跑失败项），右侧是「好」。
