@@ -177,6 +177,62 @@ object BitmapBudget {
         width.toLong() * height.toLong() * BYTES_PER_PIXEL * copies
 
     /**
+     * 把 [width]×[height] 等比缩到「长边不超过 [maxEdge]」后的尺寸。
+     *
+     * @param maxEdge 长边上限；<= 0 表示不缩放，原样返回
+     * @return (宽, 高)，两边都至少为 1
+     *
+     * ## 为什么要单独抽出来
+     *
+     * 预检要算「缩完有多大」，缩放又要真的缩到那个尺寸 ——
+     * 两处必须用**同一个取整规则**，否则预检说放得下、实际却多出几个像素。
+     * 这里不碰任何 Android API，可以直接单测。
+     */
+    fun fitLongEdge(width: Int, height: Int, maxEdge: Int): Pair<Int, Int> {
+        if (width <= 0 || height <= 0) return width to height
+        if (maxEdge <= 0) return width to height
+        val maxSide = maxOf(width, height)
+        if (maxSide <= maxEdge) return width to height
+        val scale = maxEdge.toDouble() / maxSide
+        val w = (width * scale).toInt().coerceAtLeast(1)
+        val h = (height * scale).toInt().coerceAtLeast(1)
+        return w to h
+    }
+
+    /**
+     * 选了导出尺寸档位时，链路的**峰值**字节数。
+     *
+     * ## 为什么不能直接套 [bytesOf] × copies
+     *
+     * 降采样后的链路有两个先后不同的峰值，取大的那个才是真的峰值：
+     *
+     * ```
+     * ① 缩放瞬间：解码出的位图 + 缩放结果      （2 份，尺寸不同）
+     * ② 缩放完成后：原图(=缩放结果) + 渲染结果 + 频域副本 （copies 份，同尺寸）
+     * ```
+     *
+     * 只按 ② 算会**漏掉 ①**：`inSampleSize` 只能取 2 的幂，
+     * 解码结果落在 `[maxEdge, 2×maxEdge)`，缩放那一刻它可能比目标大一倍。
+     * 而只按 ① 算又会漏掉 DCT 那份副本。
+     *
+     * @param decodeWidth  解码器实际输出的宽（已含 inSampleSize 降采样）
+     * @param targetWidth  最终要用的宽（长边 = 档位上限）
+     */
+    fun scaledExportPeakBytes(
+        decodeWidth: Int,
+        decodeHeight: Int,
+        targetWidth: Int,
+        targetHeight: Int,
+        copies: Int
+    ): Long {
+        if (decodeWidth <= 0 || decodeHeight <= 0) return 0
+        val duringScale = bytesOf(decodeWidth, decodeHeight, 1) +
+            bytesOf(targetWidth, targetHeight, 1)
+        val afterScale = bytesOf(targetWidth, targetHeight, copies)
+        return maxOf(duringScale, afterScale)
+    }
+
+    /**
      * 这份图能不能按全分辨率处理完。
      *
      * 尺寸非法（探测失败）直接判 false —— 调用方会走「加载失败」分支。

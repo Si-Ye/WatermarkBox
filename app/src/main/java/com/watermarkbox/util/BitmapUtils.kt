@@ -329,12 +329,23 @@ object BitmapUtils {
      *
      * @param copies 峰值同时存在几份同位图（见 [BitmapBudget] 的说明）
      * @param maxHeapBytes 进程堆上限；测试可注入
+     * @param maxEdge 长边上限（像素）；0 = 保持原图。
+     *
+     *        非 0 时做两件事，缺一不可：
+     *        1. 解码时按它算 `inSampleSize` —— 解码器**直接少解像素**，
+     *           峰值从「原图尺寸」降到「接近目标尺寸」；
+     *        2. 预检按**降采样后**的尺寸算 —— 于是原本必然判「太大」的大图，
+     *           选一个小档位后就能正常导出。
+     *
+     *        只做 2 不做 1 等于「先整张解出来再缩」，OOM 风险一点没减；
+     *        只做 1 不做 2 则会出现「预检说放不下、其实放得下」。
      */
     fun loadFullResolution(
         context: Context,
         uri: Uri,
         copies: Int = BitmapBudget.EXPORT_COPIES,
-        maxHeapBytes: Long = Runtime.getRuntime().maxMemory()
+        maxHeapBytes: Long = Runtime.getRuntime().maxMemory(),
+        maxEdge: Int = 0
     ): BitmapLoadOutcome {
         // ---- 第一步：只读头部拿尺寸（几乎不占内存）----
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -345,21 +356,49 @@ object BitmapUtils {
         } catch (t: Throwable) {
             return BitmapLoadOutcome.Failed(t)
         }
-        val width = bounds.outWidth
-        val height = bounds.outHeight
-        if (width <= 0 || height <= 0) return BitmapLoadOutcome.Failed(null)
+        val rawWidth = bounds.outWidth
+        val rawHeight = bounds.outHeight
+        if (rawWidth <= 0 || rawHeight <= 0) return BitmapLoadOutcome.Failed(null)
 
-        // ---- 第二步：动手前先算 ----
-        val required = BitmapBudget.bytesOf(width, height, copies)
+        // ---- 第二步：动手前先算（按**实际要解码**的尺寸算）----
+        //
+        // inSampleSize 只能取 2 的幂，所以解码结果的长边落在 [maxEdge, 2*maxEdge)。
+        // 预检按这个真实尺寸来，不按原图 —— 这正是「档位」能救活大图的原因。
+        val sampleSize = if (maxEdge > 0) {
+            calculateInSampleSize(rawWidth, rawHeight, maxEdge)
+        } else {
+            1
+        }
+        val decodeWidth = (rawWidth / sampleSize).coerceAtLeast(1)
+        val decodeHeight = (rawHeight / sampleSize).coerceAtLeast(1)
+        val (targetWidth, targetHeight) = BitmapBudget.fitLongEdge(
+            decodeWidth,
+            decodeHeight,
+            maxEdge
+        )
+
+        val required = if (maxEdge > 0) {
+            // 两个峰值取大者：缩放瞬间（解码图 + 目标图）与缩放后（copies 份目标图）
+            BitmapBudget.scaledExportPeakBytes(
+                decodeWidth = decodeWidth,
+                decodeHeight = decodeHeight,
+                targetWidth = targetWidth,
+                targetHeight = targetHeight,
+                copies = copies
+            )
+        } else {
+            // 不缩放：与升级前完全一致的口径
+            BitmapBudget.bytesOf(rawWidth, rawHeight, copies)
+        }
         val budget = BitmapBudget.budgetBytes(maxHeapBytes)
         if (required > budget) {
-            return BitmapLoadOutcome.TooLarge(width, height, required, budget)
+            return BitmapLoadOutcome.TooLarge(targetWidth, targetHeight, required, budget)
         }
 
         // ---- 第三步：解码（已预检，OOM 概率很低；仍单独兜一层）----
         return try {
             val options = BitmapFactory.Options().apply {
-                inSampleSize = 1
+                inSampleSize = sampleSize
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
             val decoded = context.contentResolver.openInputStream(uri)?.use { input ->
@@ -370,11 +409,20 @@ object BitmapUtils {
                 readExifOrientation(input)
             } ?: ExifInterface.ORIENTATION_NORMAL
 
-            BitmapLoadOutcome.Ok(applyExifOrientation(decoded, orientation))
+            // 旋正后再精确收到目标长边。
+            // inSampleSize 是 2 的幂，收窄这一刀不能省 —— 否则「选 2048」
+            // 实际可能导出 4095 宽的图，用户看到的数字对不上。
+            val rotated = applyExifOrientation(decoded, orientation)
+            val final = if (maxEdge > 0) {
+                scaleToMaxEdge(rotated, maxEdge).also { if (it !== rotated) rotated.recycle() }
+            } else {
+                rotated
+            }
+            BitmapLoadOutcome.Ok(final)
         } catch (oom: OutOfMemoryError) {
             // 估算漏了（比如旋正副本叠加、别处同时占着内存）。
             // 当作「放不下」上报 —— 总比让它在渲染阶段把进程带走好。
-            BitmapLoadOutcome.TooLarge(width, height, required, budget)
+            BitmapLoadOutcome.TooLarge(targetWidth, targetHeight, required, budget)
         } catch (t: Throwable) {
             BitmapLoadOutcome.Failed(t)
         }
@@ -474,13 +522,14 @@ object BitmapUtils {
     /**
      * 生成用于预览显示的软引用安全副本。
      * 若目标已是需要的尺寸则直接返回；否则等比缩放到 maxEdge。
+     *
+     * 尺寸换算走 [BitmapBudget.fitLongEdge] —— **单一来源**：
+     * 预检算的尺寸与这里真缩的尺寸必须是同一个数，否则会出现
+     * 「预检说放得下、实际多出几像素」或「导出尺寸与档位对不上」。
      */
     fun scaleToMaxEdge(source: Bitmap, maxEdge: Int): Bitmap {
-        val maxSide = maxOf(source.width, source.height)
-        if (maxSide <= maxEdge) return source
-        val scale = maxEdge.toFloat() / maxSide
-        val w = (source.width * scale).toInt().coerceAtLeast(1)
-        val h = (source.height * scale).toInt().coerceAtLeast(1)
+        val (w, h) = BitmapBudget.fitLongEdge(source.width, source.height, maxEdge)
+        if (w == source.width && h == source.height) return source
         return source.scale(w, h)
     }
 }

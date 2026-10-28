@@ -72,4 +72,60 @@ class ExportSettingsTest {
         assertEquals(1, settings.indexStart)
         assertEquals("{原文件名}_watermarked", settings.fileNameTemplate)
     }
+
+    // ------------------------------------------------------------------
+    // maxEdge（导出尺寸档位）—— 2.3.1 新增
+    // ------------------------------------------------------------------
+
+    /**
+     * 老安装（2.3.0 及更早）存下的 JSON 没有 `maxEdge`，
+     * 升级后必须回落为 **原图**，而不是某个缩小档。
+     *
+     * 这是「不要擅自降低老用户画质」的底线：若回落成 2048，
+     * 用户升级后所有导出会**静默变小**，且他根本不知道发生了什么。
+     */
+    @Test
+    fun `老格式 JSON 缺 maxEdge 时回落为原图`() {
+        val legacy = """
+            {
+              "format": "JPEG",
+              "jpegQuality": 92,
+              "fileNameTemplate": "{原文件名}_wm",
+              "indexStart": 3
+            }
+        """.trimIndent()
+
+        val settings = json.decodeFromString(ExportSettings.serializer(), legacy)
+
+        assertEquals(ExportMaxEdge.ORIGINAL, settings.maxEdge)
+        assertEquals(0, settings.maxEdge.edge)
+        assertEquals("原图档不缩放", false, settings.maxEdge.scalesDown)
+        // 老字段仍然完好
+        assertEquals(3, settings.indexStart)
+        assertEquals(92, settings.jpegQuality)
+    }
+
+    @Test
+    fun `档位能往返且按常量名序列化`() {
+        val original = ExportSettings(maxEdge = ExportMaxEdge.P2048)
+        val text = json.encodeToString(ExportSettings.serializer(), original)
+
+        // 按枚举常量名存（不是序号），改名会立刻暴露而不是静默错位
+        assertTrue("应存常量名：$text", text.contains("\"P2048\""))
+
+        val decoded = json.decodeFromString(ExportSettings.serializer(), text)
+        assertEquals(ExportMaxEdge.P2048, decoded.maxEdge)
+        assertEquals(original, decoded)
+    }
+
+    @Test
+    fun `各档位的长边取值固定`() {
+        assertEquals(0, ExportMaxEdge.ORIGINAL.edge)
+        assertEquals(4096, ExportMaxEdge.P4096.edge)
+        assertEquals(2048, ExportMaxEdge.P2048.edge)
+        assertEquals(1080, ExportMaxEdge.P1080.edge)
+
+        // 只有「原图」不缩放，其余三档都要缩放
+        assertEquals(1, ExportMaxEdge.entries.count { !it.scalesDown })
+    }
 }

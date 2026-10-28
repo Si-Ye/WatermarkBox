@@ -1,5 +1,7 @@
 package com.watermarkbox.data.model
 
+import androidx.annotation.StringRes
+import com.watermarkbox.R
 import kotlinx.serialization.Serializable
 
 /**
@@ -64,8 +66,62 @@ data class ExportSettings(
      * 这只是给编辑页一个初始值 —— 用户在编辑页仍可单独关掉。
      * 默认 `false`：DCT 有画质代价，不该替用户默认接受。
      */
-    val invisibleDctByDefault: Boolean = false
+    val invisibleDctByDefault: Boolean = false,
+    /**
+     * 导出尺寸：**长边上限**档位。
+     *
+     * ## 为什么要这个开关
+     *
+     * 导出链路按原图分辨率走，一张 5000 万像素的照片要占约 200 MB 位图内存。
+     * 超过 [com.watermarkbox.util.BitmapBudget] 的预算时，过去只能整单失败
+     * 并提示「图太大」—— 用户除了换台手机没有任何出路。
+     *
+     * 而绝大多数用途（发朋友圈、发群、存手机相册）根本不需要原图分辨率。
+     * 给出「缩到长边 2048」这一档，大图就从**必然失败**变成**正常可用**：
+     * 预检按缩小后的尺寸算，解码时也用 `inSampleSize` 直接少解像素。
+     *
+     * ## 为什么默认 [ExportMaxEdge.ORIGINAL]
+     *
+     * 导出工具的本分是「不要擅自降低画质」。老预设没有这个字段，
+     * 反序列化后也是 ORIGINAL —— 行为与升级前完全一致。
+     */
+    val maxEdge: ExportMaxEdge = ExportMaxEdge.ORIGINAL
 )
+
+/**
+ * 导出尺寸档位：长边像素上限。
+ *
+ * ## 为什么用枚举而不是裸 Int
+ *
+ * 档位是**产品决策**（提供哪几档），不是自由参数。裸 Int 会让 UI、
+ * 校验、文案三处各自维护一份「合法值」清单，迟早不一致；
+ * 枚举把它们收成一处，且序列化按常量名走，改名会立刻暴露。
+ *
+ * ## [edge] 的 0 表示「不限制」
+ *
+ * 0 而不是 Int.MAX_VALUE：0 可以直接作为「要不要降采样」的判据
+ * （`if (edge > 0)`），也不参与任何尺寸计算，避免溢出。
+ *
+ * @param labelRes 界面文案资源 ID（需跟随语言，理由同 [FontFamilyOption]）
+ * @param edge     长边上限（像素）；0 = 保持原图
+ */
+@Serializable
+enum class ExportMaxEdge(@param:StringRes val labelRes: Int, val edge: Int) {
+    /** 原图分辨率（不缩放）。 */
+    ORIGINAL(R.string.export_max_edge_original, 0),
+
+    /** 长边不超过 4096（约 1200 万像素，够 4K 屏与大幅打印）。 */
+    P4096(R.string.export_max_edge_4096, 4096),
+
+    /** 长边不超过 2048（约 300 万像素，手机相册/社交分享的常用档）。 */
+    P2048(R.string.export_max_edge_2048, 2048),
+
+    /** 长边不超过 1080（约 200 万像素，只为聊天工具/网页发送）。 */
+    P1080(R.string.export_max_edge_1080, 1080);
+
+    /** 是否需要对源图降采样。 */
+    val scalesDown: Boolean get() = edge > 0
+}
 
 /**
  * 导出图片格式。

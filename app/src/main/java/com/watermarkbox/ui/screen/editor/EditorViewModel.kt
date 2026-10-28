@@ -476,6 +476,12 @@ class EditorViewModel(application: Application) :
         viewModelScope.launch {
             var fullBitmap: Bitmap? = null
             var rendered: Bitmap? = null
+            // 本次导出用哪套参数：有覆盖用覆盖，否则用全局。
+            //
+            // ⚠️ 必须在**加载之前**就定下来：加载要按它的尺寸档位决定解码分辨率。
+            // 早期这行写在渲染之后，于是「临时选 2048 导出」仍然先按原图解码，
+            // 大图还是会在预检处被判「太大」。
+            val settings = settingsOverride ?: state.exportSettings
             try {
                 // 全分辨率加载：先过内存预检 —— 放不下就明确告知，
                 // 不去渲染阶段炸（那里没有任何兜底）
@@ -486,7 +492,8 @@ class EditorViewModel(application: Application) :
                 when (
                     val outcome = imageRepository.loadFullResolutionBitmap(
                         uri = uri,
-                        withDct = _uiState.value.invisibleConfig.dctEnabled
+                        withDct = _uiState.value.invisibleConfig.dctEnabled,
+                        maxEdge = settings.maxEdge.edge
                     )
                 ) {
                     is BitmapLoadOutcome.TooLarge -> {
@@ -542,8 +549,7 @@ class EditorViewModel(application: Application) :
                     }
                 }
 
-                // 本次导出用哪套参数：有覆盖用覆盖，否则用全局
-                val settings = settingsOverride ?: state.exportSettings
+                // 参数已在加载前取好（见上），这里直接用
                 val fileName = FileNameResolver.build(
                     template = settings.fileNameTemplate,
                     sourceName = state.sourceFileName,

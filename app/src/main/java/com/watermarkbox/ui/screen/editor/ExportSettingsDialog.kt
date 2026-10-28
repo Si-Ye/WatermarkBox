@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.ExportFormat
+import com.watermarkbox.data.model.ExportMaxEdge
 import com.watermarkbox.data.repository.ExportRepository
 import com.watermarkbox.ui.component.FileNameTemplateSection
 import com.watermarkbox.ui.component.LabeledSlider
@@ -188,6 +189,22 @@ fun ExportSettingsDialog(
                         valueText = "${draft.jpegQuality}"
                     )
                 }
+
+                Spacer(Modifier.height(Spacing.Item))
+                SectionLabel(stringResource(R.string.export_max_edge_title))
+                SegmentedControl(
+                    options = ExportMaxEdge.entries.map {
+                        it to stringResource(it.labelRes)
+                    },
+                    selected = draft.maxEdge,
+                    onSelect = { draft = draft.copy(maxEdge = it) }
+                )
+                Text(
+                    text = stringResource(R.string.export_max_edge_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
 
                 Spacer(Modifier.height(Spacing.Item))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))

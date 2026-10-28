@@ -3,6 +3,7 @@ package com.watermarkbox.ui.screen.settings
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -14,8 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.watermarkbox.R
 import com.watermarkbox.data.model.ExportFormat
+import com.watermarkbox.data.model.ExportMaxEdge
 import com.watermarkbox.data.model.ExportSettings
 import com.watermarkbox.data.repository.ExportRepository
 import com.watermarkbox.ui.component.FileNameTemplateSection
@@ -56,6 +59,22 @@ internal fun ExportCategory(
             valueText = "${settings.jpegQuality}"
         )
     }
+
+    Spacer(Modifier.height(Spacing.Item))
+    SectionLabel(stringResource(R.string.export_max_edge_title))
+    SegmentedControl(
+        options = ExportMaxEdge.entries.map {
+            it to stringResource(it.labelRes)
+        },
+        selected = settings.maxEdge,
+        onSelect = { viewModel.updateExportSettings(settings.copy(maxEdge = it)) }
+    )
+    Text(
+        text = stringResource(R.string.export_max_edge_hint),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp)
+    )
 
     Spacer(Modifier.height(Spacing.Item))
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))

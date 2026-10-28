@@ -254,4 +254,171 @@ class BitmapBudgetTest {
     fun `预览缓存容量的默认参数可直接调用`() {
         assertTrue(BitmapBudget.previewCacheCapacity(BitmapUtils.PREVIEW_MAX_EDGE) >= 1)
     }
+
+    // ------------------------------------------------------------------
+    // fitLongEdge：导出尺寸档位的尺寸换算
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `长边不超上限时保持原尺寸`() {
+        assertEquals(1000 to 800, BitmapBudget.fitLongEdge(1000, 800, 2048))
+        // 正好等于上限也不算「超」
+        assertEquals(2048 to 1536, BitmapBudget.fitLongEdge(2048, 1536, 2048))
+    }
+
+    /** `maxEdge <= 0` 是「原图」档的语义，必须原样返回。 */
+    @Test
+    fun `上限为零表示不缩放`() {
+        assertEquals(12000 to 9000, BitmapBudget.fitLongEdge(12000, 9000, 0))
+        assertEquals(12000 to 9000, BitmapBudget.fitLongEdge(12000, 9000, -1))
+    }
+
+    @Test
+    fun `横图按长边等比缩小`() {
+        // 4032×3024 → 2048×1536（4:3 保持）
+        assertEquals(2048 to 1536, BitmapBudget.fitLongEdge(4032, 3024, 2048))
+    }
+
+    /** 竖图必须缩**高**，而不是照搬横图的逻辑。 */
+    @Test
+    fun `竖图按高边等比缩小`() {
+        assertEquals(1536 to 2048, BitmapBudget.fitLongEdge(3024, 4032, 2048))
+    }
+
+    /**
+     * 极端长条图：短边会被缩到 1 像素级，但**绝不能出现 0**。
+     *
+     * 0 会让 `Bitmap.createScaledBitmap` 直接抛 IllegalArgumentException，
+     * 而那张图其实完全能导出（只是很窄）。
+     */
+    @Test
+    fun `极端长条图的短边至少为一`() {
+        val (w, h) = BitmapBudget.fitLongEdge(10000, 10, 2048)
+        assertEquals(2048, w)
+        assertTrue("短边不能缩成 0（会抛异常）", h >= 1)
+        assertEquals(2, h)
+
+        val (w2, h2) = BitmapBudget.fitLongEdge(10, 20000, 1080)
+        assertEquals(1080, h2)
+        assertTrue(w2 >= 1)
+    }
+
+    /** 尺寸非法（探测失败）时原样返回，不抛异常。 */
+    @Test
+    fun `非法尺寸不做换算`() {
+        assertEquals(0 to 100, BitmapBudget.fitLongEdge(0, 100, 2048))
+        assertEquals(100 to -1, BitmapBudget.fitLongEdge(100, -1, 2048))
+    }
+
+    // ------------------------------------------------------------------
+    // scaledExportPeakBytes：选档位后的峰值口径
+    // ------------------------------------------------------------------
+
+    /**
+     * 缩放**后**占优：解码图小、目标图也不大，但 copies 份目标图更多。
+     *
+     * 1500×1125 = 6.75 MB，目标 1080×810 = 3.5 MB，3 份 = 10.5 MB
+     * vs 缩放瞬间 6.75 + 3.5 = 10.25 MB → 取 10.5 MB。
+     */
+    @Test
+    fun `缩放后的份数可能占优`() {
+        val peak = BitmapBudget.scaledExportPeakBytes(1500, 1125, 1080, 810, copies = 3)
+        assertEquals(BitmapBudget.bytesOf(1080, 810, 3), peak)
+    }
+
+    /**
+     * 缩放**瞬间**占优：`inSampleSize` 只能取 2 的幂，
+     * 解码结果可能比目标大一倍 —— 那一刻两张位图同时存在。
+     *
+     * 4096×3072 = 50.3 MB + 目标 2048×1536 = 12.6 MB = 62.9 MB
+     * vs 2 份目标图 = 25.2 MB → 取 62.9 MB。
+     *
+     * 这条正是「只按 copies 算会漏掉缩放峰值」的防护。
+     */
+    @Test
+    fun `缩放瞬间的峰值可能占优`() {
+        val peak = BitmapBudget.scaledExportPeakBytes(4096, 3072, 2048, 1536, copies = 2)
+        val duringScale = BitmapBudget.bytesOf(4096, 3072, 1) +
+            BitmapBudget.bytesOf(2048, 1536, 1)
+        assertEquals(duringScale, peak)
+        assertTrue(
+            "必须大于只按 copies 份目标图算的结果",
+            peak > BitmapBudget.bytesOf(2048, 1536, 2)
+        )
+    }
+
+    @Test
+    fun `解码尺寸非法时峰值为零`() {
+        assertEquals(0L, BitmapBudget.scaledExportPeakBytes(0, 100, 100, 100, copies = 2))
+    }
+
+    // ------------------------------------------------------------------
+    // 回归：这就是「导出尺寸档位」要解决的核心场景
+    // ------------------------------------------------------------------
+
+    /**
+     * **同一张一亿像素的图**：原图档必然失败，2048 档必须成功。
+     *
+     * 这是整个功能的立身之本 —— 若这条测试挂了，说明「档位」白做：
+     * 用户选了小尺寸还是导不出来。
+     *
+     * 12000×9000，256MB 堆（预算 153.6 MB）：
+     * - 原图档：3 份 = 1.2 GB → 失败（现状，用户无路可走）
+     * - 2048 档：`inSampleSize` 取 4 → 解码 3000×2250（27 MB），
+     *   目标 2048×1536（12.6 MB），峰值 = 27 + 12.6 = 39.6 MB → 成功
+     */
+    @Test
+    fun `一亿像素图在原图档失败而2048档成功`() {
+        val rawW = 12000
+        val rawH = 9000
+        val heap = 256 * mb
+        val copies = BitmapBudget.exportCopies(withDct = true)
+
+        // 原图档：与升级前的口径完全一致
+        assertFalse(
+            "原图档本就放不下（这是现状，不是回归）",
+            BitmapBudget.fitsFullResolution(rawW, rawH, copies, heap)
+        )
+
+        // 2048 档：解码时就已经少解像素
+        val sample = BitmapUtils.calculateInSampleSize(rawW, rawH, 2048)
+        assertEquals("2 的幂且让长边落在 [2048, 4096)", 4, sample)
+        val decodeW = rawW / sample
+        val decodeH = rawH / sample
+        val (targetW, targetH) = BitmapBudget.fitLongEdge(decodeW, decodeH, 2048)
+
+        val peak = BitmapBudget.scaledExportPeakBytes(decodeW, decodeH, targetW, targetH, copies)
+        val budget = BitmapBudget.budgetBytes(heap)
+        assertTrue(
+            "2048 档必须放得下：峰值 ${BitmapBudget.megabytes(peak)}MB " +
+                "应 ≤ 预算 ${BitmapBudget.megabytes(budget)}MB",
+            peak <= budget
+        )
+    }
+
+    /**
+     * 档位越小、峰值越小（单调性）。
+     *
+     * 这条是「选小一档就能导出」这个承诺的数学前提：
+     * 若峰值不随档位下降，「换小尺寸」就救不了任何图。
+     */
+    @Test
+    fun `档位越小峰值越小`() {
+        val copies = BitmapBudget.exportCopies(withDct = true)
+        fun peakFor(maxEdge: Int): Long {
+            val sample = BitmapUtils.calculateInSampleSize(12000, 9000, maxEdge)
+            val dw = 12000 / sample
+            val dh = 9000 / sample
+            val (tw, th) = BitmapBudget.fitLongEdge(dw, dh, maxEdge)
+            return BitmapBudget.scaledExportPeakBytes(dw, dh, tw, th, copies)
+        }
+
+        val p4096 = peakFor(4096)
+        val p2048 = peakFor(2048)
+        val p1080 = peakFor(1080)
+
+        assertTrue("4096 档（${BitmapBudget.megabytes(p4096)}MB）应大于 2048 档", p4096 > p2048)
+        assertTrue("2048 档（${BitmapBudget.megabytes(p2048)}MB）应大于 1080 档", p2048 > p1080)
+        assertTrue("1080 档在小堆下也应可行", p1080 <= BitmapBudget.budgetBytes(64 * mb))
+    }
 }

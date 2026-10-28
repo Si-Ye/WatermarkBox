@@ -122,6 +122,14 @@
     <string name="settings_output_dir_default">默认：%1$s</string>
     <string name="settings_keep_exif">保留原图 EXIF 信息</string>
 
+    <!-- 导出尺寸（长边上限） -->
+    <string name="export_max_edge_title">导出尺寸</string>
+    <string name="export_max_edge_original">原图</string>
+    <string name="export_max_edge_4096">4096</string>
+    <string name="export_max_edge_2048">2048</string>
+    <string name="export_max_edge_1080">1080</string>
+    <string name="export_max_edge_hint">数字为长边像素上限；「原图」不缩放。大图存不下时选小一档即可正常导出。</string>
+
     <!-- 文件名序号 -->
     <string name="settings_index_toggle">文件名带序号</string>
     <string name="settings_index_toggle_hint">批量导出时在文件名里插入序号；单张导出会自动把这一段去掉，不留空括号或重复下划线。位数由占位符决定，序号超过位数时不截断。</string>

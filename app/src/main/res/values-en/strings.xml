@@ -117,6 +117,14 @@
     <string name="settings_output_dir_default">Default: %1$s</string>
     <string name="settings_keep_exif">Keep original EXIF data</string>
 
+    <!-- Export size (max long edge) -->
+    <string name="export_max_edge_title">Export size</string>
+    <string name="export_max_edge_original">Original</string>
+    <string name="export_max_edge_4096">4096</string>
+    <string name="export_max_edge_2048">2048</string>
+    <string name="export_max_edge_1080">1080</string>
+    <string name="export_max_edge_hint">The number is the maximum long edge in pixels; "Original" does not scale. Pick a smaller size if a large photo does not fit.</string>
+
     <!-- Filename index -->
     <string name="settings_index_toggle">Number the filenames</string>
     <string name="settings_index_toggle_hint">Inserts a sequence number while batch exporting; single exports drop this segment entirely instead of leaving empty brackets or doubled underscores. The digits come from the placeholder, and a number longer than the width is never truncated.</string>
