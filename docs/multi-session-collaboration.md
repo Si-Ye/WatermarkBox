@@ -414,14 +414,14 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 | 项 | 值 |
 |---|---|
 | **发版流程** | **`docs/RELEASE_PROCESS.md`（发版必须照它做）** |
-| 本地 HEAD | 见 `git log`（本轮：**2.3.1 开发完成、已推送** —— 导出长边档位 + 批量清单 CSV + 徽章配色 + 关于页制作人改名/头像 + 批量页「添加更多」修复；上一版 `2.3.0` 已发布）|
-| 远端 | `origin/main` 已与本地同步；本地 **ahead 0 / behind 0**（本轮 7 个提交已推送）|
+| 本地 HEAD | 见 `git log`（本轮：**2.3.1 已发布** —— 导出长边档位 + 批量清单 CSV + 徽章配色 + 关于页制作人改名/头像 + 批量页「添加更多」修复 + 新图标；上一版 `2.3.0`）|
+| 远端 | `origin/main` 已与本地同步；本地 **ahead 0 / behind 0**（本轮 8 个提交已推送，含发版提交）|
 | **ahead** | **0（已推送；下一次推送仍须人类明示）** |
 | 单测基线 | **545 个用例，全绿**（2.3.1 本轮 523 → 545：导出档位 + 清单 CSV）|
 | 仪器化 | **59 例，全绿**（MuMu 实例 0 · Android 15 · x86_64）|
 | lint | 0 错误（2 条警告，均为既有问题；1 条 baseline）|
 | debug 包名 | `com.watermarkbox.final` |
-| 版本 | **2.3.0（versionCode 15）已发布**；2.3.1 代码已齐但**未发版** —— 版本号 / changelog / tag 待人类授权后再动 |
+| 版本 | **2.3.1（versionCode 16）已发布** —— 2026-10-28 打 tag `v2.3.1`，release.yml 自动生成 Release 与两个 APK |
 
 > ⚠️ **`v2.1.1` 从未对外发布**（它的推送 / tag / Release 曾按人类要求全部回退）。
 > `docs/changelog.json` 里仍保留 2.1.1 条目 —— 其内容已并入 2.2.0，
@@ -456,7 +456,6 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 
 | 任务 | 负责 | 说明 |
 |---|---|---|
-| **2.3.1 发版** | 待人类授权 | 代码已齐并推送（7 个提交、545 单测 + 59 仪器化全绿）。版本号 `2.3.1` / `docs/changelog.json` 条目 / `docs/releases/v2.3.1.md` / `v2.3.1` tag **都还没动** —— 一旦授权就照 `docs/RELEASE_PROCESS.md` 走（打 tag 会触发 CI 发布，属对外动作）|
 | **导出内存预算修复的验证** | 等人类验证 | 见 §5.9，大图导出是否不再报「图片过大」|
 
 ### 📋 待办（需要人类拍板或处理）
@@ -466,12 +465,21 @@ ANDROID_SERIAL=<serial> sh gradlew :app:connectedDebugAndroidTest \
 | Baseline Profile | 收益评估偏小，优先级低 |
 | **推送本地提交** | 本轮已推送（2026-10-28，ahead 0）；**下一次仍须人类明示** |
 | **代码审查报告剩余项** | `docs/code-review-2026-10.md` 共 15 项，**已收口**：13 项已修（H1 / H2 / M1–M5 / L1 / L2 / L5 / L6 / L7 / L8），2 项复核后判定**不改**（L3 / L4，收益极小）。详见报告 §0 的「修订状态」表 |
-| **CI 发布结果确认** | `v2.2.0` 的 tag 已推 —— 需到 Actions / Releases 页面确认转绿、APK 附件在（人类或下个会话）|
+| **CI 发布结果确认** | `v2.3.1` 已确认：Release CI 绿、Release「水印盒 v2.3.1」已上线、两个 APK 附件在（2026-10-28）。更早的 `v2.2.0` 无需再查 |
 | **Windows 环境适配 + 第二轮审查待修项** | **已拍板：走「划界支持」**（2026-10-16，见 §2.7）。清单见 `docs/pending-fixes-2026-10.md`（环境 E1–E11 / 代码 C1–C11 / 文档 D1–D6）。**2026-10-16 已修 22 项**（E1–E11、C1、C2、C3、C5、C7、D1–D6，含 P0 的 E2 / E3 / E4 / C1），**剩 6 项**（C4、C6、C8–C11）—— 这 6 项是**老大明确决定不修**的（改载荷格式影响已发布图片、DI 重构回归面最大、378 行死代码是既定保留决策等，理由见清单 §0）。复验：全量构建 53/53 通过、**474 单测**（468 → 474）0 失败、lint 0 error |
 
 ### ✅ 近期完成（别惊讶于这些改动）
 > **其他会话注意**：下面这些是**已完成的正常改动**。
 > 如果你看到相关代码与你的印象不符，**大概率是这些**，不是 bug。
+- **（2.3.1 已发布 · 2026-10-28）发版三处同步 + tag 触发 CI** ——
+  `versionCode` 15 → **16**（偶数递增；**不能复用 15**，否则已装 2.3.0 的设备会拒绝覆盖安装）；
+  `docs/changelog.json` 首条新增 2.3.1（6 条变更，中英双语），**`updatedAt` 必须同时提到 2026-10-28**
+  —— 它要等于最新 `date`，2.3.0 发版时漏过一次，现在由 `tools/check_release_consistency.py` 兜底；
+  新建 `docs/releases/v2.3.1.md`（Release 正文直接取自它）。推 main 后打**注解 tag** `v2.3.1`，
+  推 tag 即触发 `release.yml`（约 6 分钟）→ Release 含 release/debug 两个 APK。
+  发行物已归档到本机 `构建产物/`（含 `SHA256SUMS-2.3.1.txt`）。
+  ⚠️ 校验线上更新说明时**别用 `raw.githubusercontent.com`**：本机直连返回空（被阻断），
+  会误判成"文件没推上去"。改用 GitHub API `contents/...?ref=main` + `Accept: application/vnd.github.raw`。
 - **（2.3.1）批量页「添加更多」页：余量实时 + 图标不再被压扁** ——
   ① 余量文案改为 `MAX_BATCH_SIZE - 已选`（删图后自己变回来），选满显示
   「已达 100 张上限」且卡片不可点（新字符串 `batch_add_more_full`，中英各一条）。
